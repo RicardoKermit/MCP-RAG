@@ -1,0 +1,20 @@
+uv add "mcp[cli]" langchain langchain-community langchain-ollama
+
+uv add chromadb
+
+pip install langchain langchain-google-genai langchain-community
+
+pip install langchain-google-genai
+
+uv pip install sentence-transformers
+
+
+"RAG": {
+      "command": "C:\\Users\\ricar\\.local\\bin\\uv.EXE",
+      "args": [
+        "--directory",
+        "C:\\Users\\ricar\\Desktop\\Rag_Testes\\rag",
+        "run","server.py"
+      ]
+    }
+    
