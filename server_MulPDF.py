@@ -374,6 +374,5 @@ def clear_rag() -> str:
         return f"Failed to clear the vectorstore: {e}"
 
 
-
 if __name__ == "__main__":
     mcp.run()
