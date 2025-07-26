@@ -44,3 +44,22 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+include = [
+    "*.py",
+    "pdfs/*",
+    "*.md",
+    "*.txt"
+]
+exclude = [
+    "db/*",
+    "db_pdf/*",
+    "db_pdf_multi/*",
+    "rag_files/*",
+    "rag_files_original/*",
+    "rag_files_refined/*",
+    "*.json",
+    "*.lock"
+]

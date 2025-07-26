@@ -274,6 +274,15 @@ PDFReadError: Unable to read PDF
 ```
 **Solução:** Verifique se o PDF não está corrompido e se tem permissões de leitura
 
+### Erro de Build Hatch
+```
+ValueError: Unable to determine which files to ship inside the wheel
+```
+**Solução:** O `pyproject.toml` já está configurado corretamente. Se ainda tiver problemas:
+1. Limpe o cache do uv: `uv cache clean`
+2. Reinstale as dependências: `uv sync --reinstall`
+3. Execute novamente: `uv run python MCP_Server.py`
+
 ## 🤝 Contribuição
 
 1. Fork o projeto
@@ -334,6 +343,10 @@ uv add nome-do-pacote
 
 # Adicionar dependência de desenvolvimento
 uv add --dev nome-do-pacote
+
+# Limpar cache e reinstalar (se houver problemas)
+uv cache clean
+uv sync --reinstall
 ```
 
 ---
