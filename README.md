@@ -89,7 +89,19 @@ rag/
 
 ## 🚀 Como Usar
 
-### 1. Servidor MCP Principal
+### Execução Completa (Recomendado)
+
+Para executar tanto o servidor como o cliente de uma vez:
+
+```bash
+uv run python MCP_Client.py MCP_Server.py
+```
+
+Este comando inicia automaticamente o servidor MCP e o cliente, permitindo-te fazer perguntas diretamente.
+
+### Execução Separada
+
+#### 1. Servidor MCP Principal
 
 O servidor principal oferece as seguintes ferramentas:
 
@@ -105,7 +117,7 @@ O servidor principal oferece as seguintes ferramentas:
 uv run python MCP_Server.py
 ```
 
-### 2. Cliente MCP
+#### 2. Cliente MCP
 
 **Executar o cliente:**
 ```bash
@@ -311,6 +323,9 @@ uv sync
 
 ### Comandos de Execução
 ```bash
+# Execução completa (Recomendado)
+uv run python MCP_Client.py MCP_Server.py
+
 # Servidor MCP principal
 uv run python MCP_Server.py
 
