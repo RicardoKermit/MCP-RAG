@@ -81,3 +81,5 @@ test_qdrant.py
 rag_comparison.py
 rag_test_results_20250719_013404.json
 rag_test_results_20250720_224841.json
+server.py
+mcpCli.md
