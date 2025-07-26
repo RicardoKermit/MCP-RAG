@@ -73,9 +73,39 @@ class MCPGeminiClient:
                 # Se vier vazio, tenta preencher com a pergunta original
                 if not tool_args.get("prompt"):
                     tool_args["prompt"] = query
-            print(f"[DEBUG] Chamando tool '{tool_name}' com argumentos: {tool_args}")
             result = await self.session.call_tool(tool_name, tool_args)
-            return result.content
+            
+            # Extrai apenas o texto da resposta
+            if hasattr(result.content, 'text'):
+                raw_response = result.content.text
+            else:
+                # Se for uma string, remove as informações técnicas
+                content_str = str(result.content)
+                if '[TextContent(type=\'text\', text=\'' in content_str:
+                    # Remove o início e fim das informações técnicas
+                    start = content_str.find('[TextContent(type=\'text\', text=\'') + len('[TextContent(type=\'text\', text=\'')
+                    end = content_str.find('\', annotations=None, meta=None)]')
+                    if end != -1:
+                        raw_response = content_str[start:end]
+                    else:
+                        raw_response = content_str
+                else:
+                    raw_response = content_str
+            
+            # Usa o Gemini para fazer um follow-up e apresentar a informação de forma melhor
+            follow_up_prompt = f"""
+Pergunta original: {query}
+
+Informação encontrada:
+{raw_response}
+
+Por favor, apresenta esta informação de forma clara, bem estruturada e fácil de ler. 
+Organiza a resposta de forma lógica, usa formatação adequada para listas e destaca pontos importantes.
+Responde de forma natural e direta, como se estivesses a explicar a alguém.
+"""
+            
+            follow_up_response = model.generate_content(follow_up_prompt)
+            return follow_up_response.text.strip()
         else:
             return text
 
@@ -87,7 +117,7 @@ class MCPGeminiClient:
                 break
             try:
                 resposta = await self.process_query(query)
-                print("\nResposta:", resposta)
+                print("\n" + resposta)
             except Exception as e:
                 print("Erro:", e)
 
