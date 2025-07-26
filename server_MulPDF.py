@@ -1,10 +1,18 @@
 from mcp.server.fastmcp import FastMCP
 from langchain.chains import RetrievalQA
 from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.vectorstores import Chroma
+from langchain.text_splitter import RecursiveCharacterTextSplitter, CharacterTextSplitter
+try:
+    from langchain_chroma import Chroma
+    from langchain_huggingface import HuggingFaceEmbeddings
+    print("A usar langchain-chroma e langchain-huggingface (novos pacotes)")
+except ImportError:
+    from langchain_community.vectorstores import Chroma
+    from langchain_community.embeddings import SentenceTransformerEmbeddings as HuggingFaceEmbeddings
+    print("A usar langchain_community (pacotes antigos)")
+
 from langchain_google_genai import GoogleGenerativeAI
-from langchain_community.embeddings import SentenceTransformerEmbeddings
+from langchain.prompts import PromptTemplate
 import os
 from dotenv import load_dotenv
 from pathlib import Path
@@ -12,7 +20,6 @@ import requests
 import httpx
 import shutil
 import gc
-
 
 # Configuração do Moodle (edite conforme necessário)
 MOODLE_URL = "http://localhost/webservice/rest/server.php"
@@ -29,10 +36,10 @@ PDF_FOLDER = "pdfs"
 DB_FOLDER = "rag_files"
 
 # Create MCP server
-mcp = FastMCP(name="RAG_pdf_Mul")
+mcp = FastMCP(name="RAG_pdf_Mul_Improved")
 
 # Embeddings
-embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 # Load or create vectorstore
 if os.path.exists(DB_FOLDER) and len(os.listdir(DB_FOLDER)) > 0:
@@ -41,31 +48,50 @@ if os.path.exists(DB_FOLDER) and len(os.listdir(DB_FOLDER)) > 0:
 else:
     print("Creating vectorstore from PDFs...")
     all_texts = []
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=200)
     for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
         print(f"Loading {pdf_file.name}")
         loader = PyPDFLoader(str(pdf_file))
         data = loader.load()
-        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         texts = text_splitter.split_documents(data)
         all_texts.extend(texts)
 
     docsearch = Chroma.from_documents(all_texts, embeddings, persist_directory=DB_FOLDER)
-    docsearch.persist()
     print("Vectorstore created and saved.")
 
 # Create retriever
-retriever = docsearch.as_retriever()
+retriever = docsearch.as_retriever(search_kwargs={"k": 5})
 
 # Gemini model
-model = GoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.7)
+model = GoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.4)
+
+# Prompt template forcing Portuguese
+custom_prompt = PromptTemplate(
+    input_variables=["context", "question"],
+    template=(
+        "Responde sempre em português. Se não souber a resposta, diz claramente. "
+        "Contexto: {context}\n\nPergunta: {question}\nResposta:"
+    ),
+)
 
 # RetrievalQA
-qa = RetrievalQA.from_chain_type(llm=model, chain_type="stuff", retriever=retriever)
+qa = RetrievalQA.from_chain_type(
+    llm=model,
+    chain_type="stuff",
+    retriever=retriever,
+    chain_type_kwargs={"prompt": custom_prompt}
+)
 
 @mcp.tool()
 def retrieve(prompt: str) -> str:
     """Retrieve information using RAG"""
-    return qa.run(prompt)
+    try:
+        result = qa.invoke({"query": prompt})
+        return result.get("result", "Não foi possível obter uma resposta.")
+    except Exception as e:
+        return f"Erro ao processar a pergunta: {e}"
+
+
 
 
 @mcp.tool()

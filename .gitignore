@@ -1,10 +1,73 @@
-# Python-generated files
+# Python
 __pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
 
-# Virtual environments
-.venv
+# Notebooks
+.ipynb_checkpoints/
+
+# Environments
+.env
+.venv/
+venv/
+ENV/
+env/
+*.env
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+logs/
+*.out
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Cache
+.cache/
+*.cache
+*.bak
+
+# Model & data files
+*.ckpt
+*.pt
+*.pth
+*.h5
+*.tflite
+*.onnx
+*.pb
+*.npz
+*.npy
+*.tar.gz
+
+# LangChain/Chroma/VectorDB files
+db.sqlite3
+chroma/
+persist/
+index/
+*.db
+
+# Dependency lock files (optional, if generated automatically)
+poetry.lock
+Pipfile.lock
+
+# VSCode launch configs (optional)
+.vscode/launch.json
+
+# Project-specific folders and files to ignore
+db/
+db_pdf/
+db_pdf_multi/
+pdfs_test/
+dummy.txt
+monopoly.pdf
+serverMulPDF.py
+server_pdf.py

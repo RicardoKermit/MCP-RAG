@@ -18,3 +18,5 @@ uv pip install sentence-transformers
       ]
     }
     
+uv pip install langchain-qdrant 
+uv pip install langchain-huggingface

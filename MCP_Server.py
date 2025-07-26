@@ -1,0 +1,213 @@
+from mcp.server.fastmcp import FastMCP
+from langchain.chains import RetrievalQA
+from langchain_community.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter, CharacterTextSplitter
+from langchain_google_genai import GoogleGenerativeAI
+from langchain.prompts import PromptTemplate
+from langchain_qdrant import Qdrant
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams
+from langchain_huggingface import HuggingFaceEmbeddings
+
+import os
+from dotenv import load_dotenv
+from pathlib import Path
+import requests
+import httpx
+import shutil
+import gc
+
+# Configuração do Moodle
+MOODLE_URL = "http://localhost/webservice/rest/server.php"
+MOODLE_TOKEN = "c27f3ee4c459f64400855077479f2d61"
+
+# Load .env
+load_dotenv()
+
+# Qdrant Cloud config
+QDRANT_URL = "https://a18e901c-4f4d-4623-92ee-d3cb71a280be.eu-west-2-0.aws.cloud.qdrant.io"
+QDRANT_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.ij8DaMdIz0fXm3iAQMhC8O627UJsR3eozhWq79mwwpM"
+QDRANT_COLLECTION_NAME = "MCP_RAG"
+
+# Gemini API
+os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
+
+# Pastas
+PDF_FOLDER = "pdfs"
+
+# MCP
+mcp = FastMCP(name="RAG_pdf_Mul_RemoteQdrant")
+
+# Embeddings
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+# Cliente Qdrant
+client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+if QDRANT_COLLECTION_NAME not in [c.name for c in client.get_collections().collections]:
+    client.recreate_collection(
+        collection_name=QDRANT_COLLECTION_NAME,
+        vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+    )
+
+# Vectorstore
+all_texts = []
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=200)
+for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
+    loader = PyPDFLoader(str(pdf_file))
+    data = loader.load()
+    texts = text_splitter.split_documents(data)
+    all_texts.extend(texts)
+
+docsearch = Qdrant(
+    client=client,
+    collection_name=QDRANT_COLLECTION_NAME,
+    embeddings=embeddings
+)
+
+if all_texts:
+    docsearch.add_documents(all_texts)
+
+retriever = docsearch.as_retriever(search_kwargs={"k": 5})
+model = GoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.4)
+
+custom_prompt = PromptTemplate(
+    input_variables=["context", "question"],
+    template=(
+        "Responde sempre em português. Se não souber a resposta, diz claramente. "
+        "Contexto: {context}\n\nPergunta: {question}\nResposta:"
+    ),
+)
+
+qa = RetrievalQA.from_chain_type(
+    llm=model,
+    chain_type="stuff",
+    retriever=retriever,
+    chain_type_kwargs={"prompt": custom_prompt}
+)
+
+@mcp.tool()
+def retrieve(prompt: str) -> str:
+    try:
+        result = qa.invoke({"query": prompt})
+        return result.get("result", "Não foi possível obter uma resposta.")
+    except Exception as e:
+        return f"Erro ao processar a pergunta: {e}"
+
+@mcp.tool()
+def add_new_pdfs() -> str:
+    existing_ids = set([d.metadata.get("source") for d in docsearch.similarity_search("", k=1000)])
+    new_files_added = False
+    for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
+        file_path = str(pdf_file.resolve())
+        if file_path not in existing_ids:
+            loader = PyPDFLoader(file_path)
+            data = loader.load()
+            text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+            texts = text_splitter.split_documents(data)
+            docsearch.add_documents(texts)
+            new_files_added = True
+    return "PDFs adicionados." if new_files_added else "Nenhum PDF novo para adicionar."
+
+@mcp.tool()
+def download_and_add_pdf(file_url: str) -> str:
+    try:
+        url_path = file_url.lower().split("?")[0]
+        if not url_path.endswith(".pdf"):
+            return "URL não é PDF."
+        response = requests.get(file_url)
+        if response.status_code != 200:
+            return f"Erro HTTP {response.status_code}"
+        filename = url_path.split("/")[-1]
+        pdf_path = Path(PDF_FOLDER) / filename
+        with open(pdf_path, "wb") as f:
+            f.write(response.content)
+        loader = PyPDFLoader(str(pdf_path))
+        data = loader.load()
+        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+        texts = text_splitter.split_documents(data)
+        docsearch.add_documents(texts)
+        return f"'{filename}' adicionado com sucesso."
+    except Exception as e:
+        return f"Erro: {e}"
+
+@mcp.tool()
+def get_courses_by_field(field: str, value: str) -> dict:
+    params = {
+        "wstoken": MOODLE_TOKEN,
+        "wsfunction": "core_course_get_courses_by_field",
+        "moodlewsrestformat": "json",
+        "field": field,
+        "value": value
+    }
+    try:
+        response = httpx.post(MOODLE_URL, data=params, timeout=30)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+@mcp.tool()
+def download_pdfs_from_course(course_fullname: str) -> dict:
+    downloaded, skipped, failed = [], [], []
+    courses_resp = get_courses_by_field(field="", value="")
+    if "error" in courses_resp:
+        return {"error": f"Erro: {courses_resp['error']}"}
+    courses = courses_resp.get("courses", [])
+    course = next((c for c in courses if c.get("fullname") == course_fullname), None)
+    if not course:
+        return {"error": f"Curso '{course_fullname}' não encontrado."}
+    courseid = course["id"]
+    params = {
+        "wstoken": MOODLE_TOKEN,
+        "wsfunction": "core_course_get_contents",
+        "moodlewsrestformat": "json",
+        "courseid": courseid
+    }
+    try:
+        response = httpx.get(MOODLE_URL, params=params, timeout=30)
+        response.raise_for_status()
+        contents = response.json()
+    except Exception as e:
+        return {"error": f"Erro ao obter conteúdo: {str(e)}"}
+
+    for section in contents:
+        for module in section.get("modules", []):
+            if module.get("modname") == "resource":
+                for item in module.get("contents", []):
+                    if item.get("type") == "file" and item.get("filename", "").lower().endswith(".pdf"):
+                        file_name = item["filename"]
+                        file_path = Path(PDF_FOLDER) / file_name
+                        if file_path.exists():
+                            skipped.append(file_name)
+                            continue
+                        file_url = item["fileurl"]
+                        sep = "&" if "?" in file_url else "?"
+                        download_url = f"{file_url}{sep}token={MOODLE_TOKEN}"
+                        try:
+                            file_resp = httpx.get(download_url, timeout=60)
+                            file_resp.raise_for_status()
+                            with open(file_path, "wb") as f:
+                                f.write(file_resp.content)
+                            downloaded.append(file_name)
+                        except Exception as e:
+                            failed.append({"filename": file_name, "error": str(e)})
+
+    rag_result = add_new_pdfs()
+    return {
+        "course": course_fullname,
+        "pdfs_downloaded": downloaded,
+        "pdfs_skipped": skipped,
+        "pdfs_failed": failed,
+        "rag_result": rag_result
+    }
+
+@mcp.tool()
+def clear_rag() -> str:
+    try:
+        client.delete_collection(collection_name=QDRANT_COLLECTION_NAME)
+        return "Vectorstore (Qdrant) limpo."
+    except Exception as e:
+        return f"Erro ao apagar vectorstore: {e}"
+
+if __name__ == "__main__":
+    mcp.run()
