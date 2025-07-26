@@ -71,3 +71,13 @@ dummy.txt
 monopoly.pdf
 server_MulPDF.py
 server_pdf.py
+rag_files/
+rag_files_original/
+rag_files_refined/
+commands.txt
+arq.md
+main.py
+test_qdrant.py
+rag_comparison.py
+rag_test_results_20250719_013404.json
+rag_test_results_20250720_224841.json

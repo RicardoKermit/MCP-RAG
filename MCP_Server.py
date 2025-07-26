@@ -16,21 +16,16 @@ import requests
 import httpx
 import shutil
 import gc
-
-# Configuração do Moodle
-MOODLE_URL = "http://localhost/webservice/rest/server.php"
-MOODLE_TOKEN = "c27f3ee4c459f64400855077479f2d61"
-
 # Load .env
 load_dotenv()
 
-# Qdrant Cloud config
-QDRANT_URL = "https://a18e901c-4f4d-4623-92ee-d3cb71a280be.eu-west-2-0.aws.cloud.qdrant.io"
-QDRANT_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.ij8DaMdIz0fXm3iAQMhC8O627UJsR3eozhWq79mwwpM"
-QDRANT_COLLECTION_NAME = "MCP_RAG"
 
-# Gemini API
-os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
+QDRANT_COLLECTION_NAME=os.getenv("QDRANT_COLLECTION_NAME")
+QDRANT_API_KEY=os.getenv("QDRANT_API_KEY")
+QDRANT_URL=os.getenv("QDRANT_HOST")
+
+MOODLE_URL=os.getenv("MOODLE_URL")
+MOODLE_TOKEN=os.getenv("MOODLE_TOKEN")
 
 # Pastas
 PDF_FOLDER = "pdfs"
