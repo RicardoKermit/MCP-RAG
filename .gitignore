@@ -69,5 +69,5 @@ db_pdf_multi/
 pdfs_test/
 dummy.txt
 monopoly.pdf
-serverMulPDF.py
+server_MulPDF.py
 server_pdf.py
