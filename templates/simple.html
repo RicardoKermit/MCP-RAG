@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Client - Interface Web</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <button class="dark-mode-toggle" onclick="toggleDarkMode()" id="darkModeToggle" title="Alternar modo escuro">
+                🌙
+            </button>
+            <h1>🤖 MCP Client</h1>
+            <div class="status">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span id="statusText">Desconectado</span>
+            </div>
+        </div>
+
+        <div class="connection-form">
+            <div class="form-group">
+                <input type="text" id="serverPath" placeholder="Caminho para o servidor MCP (ex: MCP_Server.py)" value="MCP_Server.py">
+                <button class="btn btn-primary" onclick="connectToServer()" id="connectButton">Conectar</button>
+            </div>
+            <div id="connectionStatus"></div>
+        </div>
+
+        <div class="tools-info" id="toolsInfo" style="display: none;">
+            <strong>🔧 Ferramentas disponíveis:</strong> <span id="toolsList"></span>
+        </div>
+
+        <div class="chat-container">
+            <div class="chat-messages" id="chatMessages">
+                <div class="message assistant">
+                    <div class="message-avatar">AI</div>
+                    <div class="message-content">
+                        Olá! Sou o seu assistente MCP. Conecte-se ao servidor para começar a fazer perguntas.
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input">
+                <div class="input-group">
+                    <textarea id="messageInput" placeholder="Digite a sua pergunta..." onkeypress="handleKeyPress(event)" rows="3" style="resize: vertical; min-height: 50px; max-height: 150px;"></textarea>
+                    <button onclick="sendMessage()" id="sendButton" disabled>
+                        <span id="sendButtonText">Enviar</span>
+                        <span id="sendButtonLoading" class="loading" style="display: none;"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html> 
