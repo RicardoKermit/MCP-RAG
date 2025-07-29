@@ -19,6 +19,54 @@ import gc
 # Load .env
 load_dotenv()
 
+# Modelos Gemini disponíveis
+GEMINI_MODELS = {
+    "gemini-1.5-flash": {
+        "name": "Gemini 1.5 Flash",
+        "description": "Modelo rápido e eficiente para tarefas gerais",
+        "max_tokens": 8192
+    },
+    "gemini-1.5-pro": {
+        "name": "Gemini 1.5 Pro", 
+        "description": "Modelo avançado para tarefas complexas",
+        "max_tokens": 32768
+    },
+    "gemini-1.0-pro": {
+        "name": "Gemini 1.0 Pro",
+        "description": "Modelo estável e confiável",
+        "max_tokens": 32768
+    },
+    "gemini-pro": {
+        "name": "Gemini Pro",
+        "description": "Modelo versátil para diversas aplicações",
+        "max_tokens": 32768
+    },
+    "gemini-2.0-flash-lite": {
+        "name": "Gemini 2.0 Flash Lite",
+        "description": "Modelo ultra-rápido e leve para tarefas simples",
+        "max_tokens": 4096
+    },
+    "gemini-2.0-flash": {
+        "name": "Gemini 2.0 Flash",
+        "description": "Modelo rápido da nova geração para tarefas gerais",
+        "max_tokens": 8192
+    },
+    "gemini-2.5-flash-lite": {
+        "name": "Gemini 2.5 Flash Lite",
+        "description": "Versão lite do modelo mais recente, otimizada para velocidade",
+        "max_tokens": 4096
+    },
+    "gemini-2.5-flash": {
+        "name": "Gemini 2.5 Flash",
+        "description": "Modelo mais recente e rápido para tarefas avançadas",
+        "max_tokens": 8192
+    },
+    "gemini-2.5-pro": {
+        "name": "Gemini 2.5 Pro",
+        "description": "Modelo mais avançado da nova geração para tarefas complexas",
+        "max_tokens": 32768
+    }
+}
 
 QDRANT_COLLECTION_NAME=os.getenv("QDRANT_COLLECTION_NAME")
 QDRANT_API_KEY=os.getenv("QDRANT_API_KEY")
@@ -63,7 +111,10 @@ if all_texts:
     docsearch.add_documents(all_texts)
 
 retriever = docsearch.as_retriever(search_kwargs={"k": 5})
-model = GoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.4)
+
+# Modelo padrão
+current_model_name = "gemini-1.5-flash"
+model = GoogleGenerativeAI(model=current_model_name, temperature=0.4)
 
 custom_prompt = PromptTemplate(
     input_variables=["context", "question"],
@@ -79,6 +130,44 @@ qa = RetrievalQA.from_chain_type(
     retriever=retriever,
     chain_type_kwargs={"prompt": custom_prompt}
 )
+
+def update_model(new_model_name: str) -> bool:
+    """Atualiza o modelo Gemini usado pelo servidor"""
+    global model, qa, current_model_name
+    
+    if new_model_name not in GEMINI_MODELS:
+        return False
+    
+    try:
+        current_model_name = new_model_name
+        model = GoogleGenerativeAI(model=current_model_name, temperature=0.4)
+        qa = RetrievalQA.from_chain_type(
+            llm=model,
+            chain_type="stuff",
+            retriever=retriever,
+            chain_type_kwargs={"prompt": custom_prompt}
+        )
+        return True
+    except Exception as e:
+        print(f"Erro ao atualizar modelo: {e}")
+        return False
+
+@mcp.tool()
+def set_model(model_name: str) -> str:
+    """Define o modelo Gemini a ser usado pelo servidor"""
+    if update_model(model_name):
+        return f"Modelo alterado para {GEMINI_MODELS[model_name]['name']}"
+    else:
+        return f"Erro: Modelo '{model_name}' não é válido"
+
+@mcp.tool()
+def get_current_model() -> dict:
+    """Retorna o modelo atual e lista de modelos disponíveis"""
+    return {
+        "current_model": current_model_name,
+        "current_model_info": GEMINI_MODELS[current_model_name],
+        "available_models": GEMINI_MODELS
+    }
 
 @mcp.tool()
 def retrieve(prompt: str) -> str:

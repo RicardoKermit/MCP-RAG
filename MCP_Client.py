@@ -16,6 +16,55 @@ if not GEMINI_API_KEY:
 
 genai.configure(api_key=GEMINI_API_KEY)
 
+# Modelos Gemini disponíveis
+GEMINI_MODELS = {
+    "gemini-1.5-flash": {
+        "name": "Gemini 1.5 Flash",
+        "description": "Modelo rápido e eficiente para tarefas gerais",
+        "max_tokens": 8192
+    },
+    "gemini-1.5-pro": {
+        "name": "Gemini 1.5 Pro", 
+        "description": "Modelo avançado para tarefas complexas",
+        "max_tokens": 32768
+    },
+    "gemini-1.0-pro": {
+        "name": "Gemini 1.0 Pro",
+        "description": "Modelo estável e confiável",
+        "max_tokens": 32768
+    },
+    "gemini-pro": {
+        "name": "Gemini Pro",
+        "description": "Modelo versátil para diversas aplicações",
+        "max_tokens": 32768
+    },
+    "gemini-2.0-flash-lite": {
+        "name": "Gemini 2.0 Flash Lite",
+        "description": "Modelo ultra-rápido e leve para tarefas simples",
+        "max_tokens": 4096
+    },
+    "gemini-2.0-flash": {
+        "name": "Gemini 2.0 Flash",
+        "description": "Modelo rápido da nova geração para tarefas gerais",
+        "max_tokens": 8192
+    },
+    "gemini-2.5-flash-lite": {
+        "name": "Gemini 2.5 Flash Lite",
+        "description": "Versão lite do modelo mais recente, otimizada para velocidade",
+        "max_tokens": 4096
+    },
+    "gemini-2.5-flash": {
+        "name": "Gemini 2.5 Flash",
+        "description": "Modelo mais recente e rápido para tarefas avançadas",
+        "max_tokens": 8192
+    },
+    "gemini-2.5-pro": {
+        "name": "Gemini 2.5 Pro",
+        "description": "Modelo mais avançado da nova geração para tarefas complexas",
+        "max_tokens": 32768
+    }
+}
+
 app = Flask(__name__, static_folder='templates/static')
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
@@ -45,6 +94,26 @@ class MCPGeminiClient:
         self.stdio_cm = None
         self.session_cm = None
         self.is_connected = False
+        self.current_model = "gemini-1.5-flash"  # Modelo padrão
+
+    def set_model(self, model_name):
+        """Define o modelo Gemini a ser usado"""
+        if model_name in GEMINI_MODELS:
+            self.current_model = model_name
+            # Sincronizar com o servidor se estiver conectado
+            if self.is_connected:
+                try:
+                    # Chamar a ferramenta set_model do servidor
+                    result = run_async(self.session.call_tool("set_model", {"model_name": model_name}))
+                    print(f"🔄 Modelo sincronizado com servidor: {model_name}")
+                except Exception as e:
+                    print(f"⚠️ Erro ao sincronizar modelo com servidor: {e}")
+            return True
+        return False
+
+    def get_available_models(self):
+        """Retorna a lista de modelos disponíveis"""
+        return GEMINI_MODELS
 
     async def connect_to_server(self, server_script_path):
         try:
@@ -82,6 +151,21 @@ class MCPGeminiClient:
             self.tools = response.tools
             self.is_connected = True
             
+            # Verificar modelo atual do servidor
+            try:
+                model_info = await self.session.call_tool("get_current_model", {})
+                if hasattr(model_info.content, 'text'):
+                    import json
+                    server_model_data = json.loads(model_info.content.text)
+                    server_model = server_model_data.get("current_model", "gemini-1.5-flash")
+                    if server_model != self.current_model:
+                        print(f"🔄 Sincronizando modelo do servidor: {server_model}")
+                        self.current_model = server_model
+                else:
+                    print("⚠️ Não foi possível obter modelo do servidor")
+            except Exception as e:
+                print(f"⚠️ Erro ao verificar modelo do servidor: {e}")
+            
             print(f"✅ Conectado com sucesso! Ferramentas: {[tool.name for tool in self.tools]}")
             return True, [tool.name for tool in self.tools]
         except Exception as e:
@@ -95,6 +179,8 @@ class MCPGeminiClient:
         
         try:
             print(f"🤔 Processando pergunta: {query}")
+            print(f"🤖 Usando modelo: {self.current_model}")
+            
             tool_descriptions = "\n".join(
                 f"- {tool.name}: {tool.description}" for tool in self.tools
             )
@@ -109,7 +195,7 @@ class MCPGeminiClient:
             )
             
             print("🤖 Gerando resposta com Gemini...")
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel(self.current_model)
             response = model.generate_content(prompt)
             text = response.text.strip()
             
@@ -199,7 +285,9 @@ def run_async(coro):
     """Executa uma corotina no event loop global"""
     global loop
     if loop is None:
-        raise RuntimeError("Event loop não está inicializado")
+        start_event_loop()
+        import time
+        time.sleep(0.1)  # Pequena pausa para garantir que o loop iniciou
     
     future = asyncio.run_coroutine_threadsafe(coro, loop)
     return future.result()
@@ -210,72 +298,86 @@ def index():
 
 @app.route('/connect', methods=['POST'])
 def connect():
-    print("🔗 Endpoint /connect chamado")
-    data = request.get_json()
-    server_path = data.get('server_path', 'MCP_Server.py')
-    print(f"📁 Caminho do servidor: {server_path}")
-    
     try:
+        data = request.get_json()
+        server_path = data.get('server_path', 'MCP_Server.py')
+        
         success, result = run_async(mcp_client.connect_to_server(server_path))
-        print(f"📊 Resultado da conexão: success={success}, result={result}")
-        return jsonify({
-            'success': success,
-            'tools': result if success else [],
-            'error': result if not success else None
-        })
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'tools': result
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result
+            })
     except Exception as e:
-        print(f"❌ Erro no endpoint /connect: {str(e)}")
         return jsonify({
             'success': False,
-            'tools': [],
             'error': str(e)
         })
 
 @app.route('/query', methods=['POST'])
 def query():
-    print("❓ Endpoint /query chamado")
-    data = request.get_json()
-    user_query = data.get('query', '')
-    print(f"💬 Pergunta: {user_query}")
-    
     try:
-        response = run_async(mcp_client.process_query(user_query))
-        print(f"📝 Resposta: {response[:100]}...")
+        data = request.get_json()
+        query_text = data.get('query', '')
+        
+        if not query_text:
+            return jsonify({'response': 'Por favor, forneça uma pergunta.'})
+        
+        response = run_async(mcp_client.process_query(query_text))
         return jsonify({'response': response})
     except Exception as e:
-        error_msg = f"Erro ao processar pergunta: {str(e)}"
-        print(f"❌ {error_msg}")
-        return jsonify({'response': error_msg})
+        return jsonify({'response': f'Erro ao processar a pergunta: {str(e)}'})
 
 @app.route('/status')
 def status():
-    print("📊 Endpoint /status chamado")
-    status_data = {
+    return jsonify({
         'connected': mcp_client.is_connected,
-        'tools': [tool.name for tool in mcp_client.tools] if mcp_client.is_connected else []
-    }
-    print(f"📊 Status: {status_data}")
-    return jsonify(status_data)
+        'tools': [tool.name for tool in mcp_client.tools] if mcp_client.is_connected else [],
+        'current_model': mcp_client.current_model,
+        'available_models': mcp_client.get_available_models()
+    })
+
+@app.route('/models', methods=['GET'])
+def get_models():
+    """Retorna a lista de modelos disponíveis"""
+    return jsonify({
+        'models': mcp_client.get_available_models(),
+        'current_model': mcp_client.current_model
+    })
+
+@app.route('/set-model', methods=['POST'])
+def set_model():
+    """Define o modelo Gemini a ser usado"""
+    try:
+        data = request.get_json()
+        model_name = data.get('model')
+        
+        if mcp_client.set_model(model_name):
+            return jsonify({
+                'success': True,
+                'message': f'Modelo alterado para {GEMINI_MODELS[model_name]["name"]}',
+                'current_model': model_name
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Modelo inválido'
+            })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
 @app.route('/test')
 def test():
-    return jsonify({
-        'message': 'Aplicação funcionando!',
-        'connected': mcp_client.is_connected,
-        'tools_count': len(mcp_client.tools)
-    })
+    return jsonify({'message': 'API funcionando!'})
 
 if __name__ == '__main__':
-    print("🚀 Iniciando MCP Client Web Interface (Fixed Event Loop)")
-    print("📱 A interface estará disponível em: http://localhost:5000")
-    print("🔄 Pressione Ctrl+C para parar o servidor")
-    print("=" * 50)
-    
-    # Inicia o event loop em uma thread separada
-    start_event_loop()
-    
-    # Aguarda um pouco para o event loop inicializar
-    import time
-    time.sleep(1)
-    
     app.run(debug=True, host='0.0.0.0', port=5000) 

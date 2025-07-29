@@ -6,49 +6,112 @@
     <title>MCP Client - Interface Web</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <button class="dark-mode-toggle" onclick="toggleDarkMode()" id="darkModeToggle" title="Alternar modo escuro">
-                🌙
-            </button>
-            <h1>🤖 MCP Client</h1>
-            <div class="status">
-                <div class="status-indicator" id="statusIndicator"></div>
-                <span id="statusText">Desconectado</span>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <button class="new-chat-btn" onclick="newChat()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 4.5v15m7.5-7.5h-15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Nova conversa
+                </button>
             </div>
-        </div>
-
-        <div class="connection-form">
-            <div class="form-group">
-                <input type="text" id="serverPath" placeholder="Caminho para o servidor MCP (ex: MCP_Server.py)" value="MCP_Server.py">
-                <button class="btn btn-primary" onclick="connectToServer()" id="connectButton">Conectar</button>
-            </div>
-            <div id="connectionStatus"></div>
-        </div>
-
-        <div class="tools-info" id="toolsInfo" style="display: none;">
-            <strong>🔧 Ferramentas disponíveis:</strong> <span id="toolsList"></span>
-        </div>
-
-        <div class="chat-container">
-            <div class="chat-messages" id="chatMessages">
-                <div class="message assistant">
-                    <div class="message-avatar">AI</div>
-                    <div class="message-content">
-                        Olá! Sou o seu assistente MCP. Conecte-se ao servidor para começar a fazer perguntas.
+            
+            <div class="sidebar-content">
+                <div class="connection-section">
+                    <h3>🔗 Conexão</h3>
+                    <div class="connection-form">
+                        <input type="text" id="serverPath" placeholder="Caminho do servidor MCP" value="MCP_Server.py">
+                        <button class="connect-btn" onclick="connectToServer()" id="connectButton">
+                            <span class="btn-text">Conectar</span>
+                            <span class="btn-loading" style="display: none;"></span>
+                        </button>
+                    </div>
+                    <div id="connectionStatus"></div>
+                    
+                    <div class="status-display">
+                        <div class="status-indicator" id="statusIndicator"></div>
+                        <span id="statusText">Desconectado</span>
                     </div>
                 </div>
+                
+                <div class="model-section">
+                    <h3>🤖 Modelo Gemini</h3>
+                    <div class="model-selector">
+                        <select id="modelSelect" onchange="changeModel()">
+                            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                            <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
+                            <option value="gemini-pro">Gemini Pro</option>
+                            <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
+                            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                            <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+                            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                        </select>
+                        <div class="model-info" id="modelInfo">
+                            <small>Modelo rápido e eficiente para tarefas gerais</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tools-section" id="toolsInfo" style="display: none;">
+                    <h3>🔧 Ferramentas</h3>
+                    <div class="tools-list" id="toolsList"></div>
+                </div>
             </div>
+            
+            <div class="sidebar-footer">
+                <button class="dark-mode-toggle" onclick="toggleDarkMode()" id="darkModeToggle" title="Alternar modo escuro">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
 
-            <div class="chat-input">
-                <div class="input-group">
-                    <textarea id="messageInput" placeholder="Digite a sua pergunta..." onkeypress="handleKeyPress(event)" rows="3" style="resize: vertical; min-height: 50px; max-height: 150px;"></textarea>
-                    <button onclick="sendMessage()" id="sendButton" disabled>
-                        <span id="sendButtonText">Enviar</span>
-                        <span id="sendButtonLoading" class="loading" style="display: none;"></span>
-                    </button>
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message assistant">
+                        <div class="message-avatar">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/>
+                            </svg>
+                        </div>
+                        <div class="message-content">
+                            <div class="message-text">
+                                Olá! Sou o seu assistente MCP. Conecte-se ao servidor para começar a fazer perguntas.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-input-container">
+                    <div class="chat-input-wrapper">
+                        <div class="input-group">
+                            <textarea 
+                                id="messageInput" 
+                                placeholder="Digite a sua pergunta..." 
+                                onkeypress="handleKeyPress(event)" 
+                                rows="1"
+                                style="resize: none; overflow-y: hidden;"
+                            ></textarea>
+                            <button onclick="sendMessage()" id="sendButton" disabled class="send-btn">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="input-footer">
+                            <small>MCP Client - Interface Web</small>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
