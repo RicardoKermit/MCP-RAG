@@ -12,23 +12,36 @@
     <div class="app-container">
         <!-- Sidebar -->
         <div class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <button class="new-chat-btn" onclick="newChat()">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 4.5v15m7.5-7.5h-15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    Nova conversa
-                </button>
-            </div>
+                             <div class="sidebar-header">
+                     <button class="new-chat-btn" onclick="newChat()">
+                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                             <path d="M12 4.5v15m7.5-7.5h-15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                         </svg>
+                         <span id="newChatText">Nova conversa</span>
+                     </button>
+                     <button class="clear-history-btn" onclick="clearHistory()" title="Limpar histórico">
+                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                             <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                         </svg>
+                     </button>
+                 </div>
             
             <div class="sidebar-content">
                 <div class="connection-section">
-                    <h3>🔗 Conexão</h3>
+                    <h3 id="connectionSectionTitle">🔗 Conexão</h3>
                     <div class="connection-form">
                         <input type="text" id="serverPath" placeholder="Caminho do servidor MCP" value="MCP_Server.py">
                         <button class="connect-btn" onclick="connectToServer()" id="connectButton">
-                            <span class="btn-text">Conectar</span>
-                            <span class="btn-loading" style="display: none;"></span>
+                            <svg class="connect-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <svg class="connecting-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: none;">
+                                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <svg class="connected-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: none;">
+                                <path d="M9 12l2 2 4-4M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <span class="btn-text" id="connectBtnText">Conectar</span>
                         </button>
                     </div>
                     <div id="connectionStatus"></div>
@@ -40,7 +53,7 @@
                 </div>
                 
                 <div class="model-section">
-                    <h3>🤖 Modelo Gemini</h3>
+                    <h3 id="modelSectionTitle">🤖 Modelo Gemini</h3>
                     <div class="model-selector">
                         <select id="modelSelect" onchange="changeModel()">
                             <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
@@ -59,8 +72,18 @@
                     </div>
                 </div>
                 
+                <div class="language-section">
+                    <h3 id="languageSectionTitle">🌐 Idioma</h3>
+                    <div class="language-selector">
+                        <select id="languageSelect" onchange="changeLanguage()">
+                            <option value="pt">Português</option>
+                            <option value="en">English</option>
+                        </select>
+                    </div>
+                </div>
+                
                 <div class="tools-section" id="toolsInfo" style="display: none;">
-                    <h3>🔧 Ferramentas</h3>
+                    <h3 id="toolsSectionTitle">🔧 Ferramentas</h3>
                     <div class="tools-list" id="toolsList"></div>
                 </div>
             </div>
@@ -85,7 +108,7 @@
                             </svg>
                         </div>
                         <div class="message-content">
-                            <div class="message-text">
+                            <div class="message-text" id="welcomeMessage">
                                 Olá! Sou o seu assistente MCP. Conecte-se ao servidor para começar a fazer perguntas.
                             </div>
                         </div>

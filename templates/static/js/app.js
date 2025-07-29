@@ -1,10 +1,14 @@
 let isConnected = false;
+let currentLanguage = 'pt';
 
 // Configurar marked para formatação
 marked.setOptions({
     breaks: true,
     gfm: true
 });
+
+// Traduções
+let translations = {};
 
 // Auto-resize textarea
 function autoResizeTextarea(textarea) {
@@ -22,6 +26,16 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Initial resize
         autoResizeTextarea(textarea);
+    }
+    
+    // Load initial language
+    loadLanguage();
+    
+    // Set initial language selector
+    const savedLanguage = localStorage.getItem('language') || 'pt';
+    const languageSelect = document.getElementById('languageSelect');
+    if (languageSelect) {
+        languageSelect.value = savedLanguage;
     }
 });
 
@@ -67,7 +81,7 @@ function formatMessage(content) {
     }
 }
 
-function addMessage(content, isUser = false) {
+function addMessage(content, isUser = false, typewriter = false) {
     const messagesContainer = document.getElementById('chatMessages');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
@@ -91,24 +105,40 @@ function addMessage(content, isUser = false) {
     const messageText = document.createElement('div');
     messageText.className = 'message-text';
     
-    // Formatar o conteúdo se for do assistente
-    if (isUser) {
-        messageText.textContent = content;
-    } else {
-        messageText.innerHTML = formatMessage(content);
-    }
-    
     messageContent.appendChild(messageText);
     messageDiv.appendChild(avatar);
     messageDiv.appendChild(messageContent);
-    
     messagesContainer.appendChild(messageDiv);
     
-    // Smooth scroll to bottom
-    messagesContainer.scrollTo({
-        top: messagesContainer.scrollHeight,
-        behavior: 'smooth'
-    });
+    // Scroll to bottom
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    if (typewriter && !isUser) {
+        // Efeito de digitação para respostas do assistente
+        typewriterEffect(messageText, content);
+    } else {
+        // Formatar o conteúdo se for do assistente
+        if (isUser) {
+            messageText.textContent = content;
+        } else {
+            messageText.innerHTML = formatMessage(content);
+        }
+    }
+}
+
+function typewriterEffect(element, text, speed = 30) {
+    let i = 0;
+    const originalText = text;
+    
+    function typeChar() {
+        if (i < originalText.length) {
+            element.innerHTML = formatMessage(originalText.substring(0, i + 1));
+            i++;
+            setTimeout(typeChar, speed);
+        }
+    }
+    
+        typeChar();
 }
 
 async function connectToServer() {
@@ -120,12 +150,12 @@ async function connectToServer() {
 
     const connectButton = document.getElementById('connectButton');
     const btnText = connectButton.querySelector('.btn-text');
-    const btnLoading = connectButton.querySelector('.btn-loading');
     
+    // Show connecting state
+    connectButton.classList.add('connecting');
     connectButton.disabled = true;
-    btnText.style.display = 'none';
-    btnLoading.style.display = 'inline-block';
-
+    btnText.textContent = translations.connecting || 'Conectando...';
+    
     try {
         const response = await fetch('/connect', {
             method: 'POST',
@@ -138,20 +168,28 @@ async function connectToServer() {
         const data = await response.json();
         
         if (data.success) {
-            updateStatus(true, 'Conectado');
-            showConnectionStatus('Conectado com sucesso ao servidor MCP!');
+            // Show connected state
+            connectButton.classList.remove('connecting');
+            connectButton.classList.add('connected');
+            btnText.textContent = translations.connected || 'Conectado';
+            updateStatus(true, translations.connected || 'Conectado');
+            showConnectionStatus(translations.connection_success || 'Conectado com sucesso ao servidor MCP!');
             showToolsInfo(data.tools);
         } else {
-            updateStatus(false, 'Erro de conexão');
-            showConnectionStatus(`Erro ao conectar: ${data.error}`, true);
+            // Reset to disconnected state
+            connectButton.classList.remove('connecting', 'connected');
+            btnText.textContent = translations.connect || 'Conectar';
+            updateStatus(false, translations.connection_error || 'Erro de conexão');
+            showConnectionStatus(`${translations.connection_error || 'Erro ao conectar'}: ${data.error}`, true);
         }
     } catch (error) {
-        updateStatus(false, 'Erro de conexão');
-        showConnectionStatus(`Erro de rede: ${error.message}`, true);
+        // Reset to disconnected state
+        connectButton.classList.remove('connecting', 'connected');
+        btnText.textContent = translations.connect || 'Conectar';
+        updateStatus(false, translations.connection_error || 'Erro de conexão');
+        showConnectionStatus(`${translations.connection_error || 'Erro de rede'}: ${error.message}`, true);
     } finally {
         connectButton.disabled = false;
-        btnText.style.display = 'inline';
-        btnLoading.style.display = 'none';
     }
 }
 
@@ -183,13 +221,17 @@ async function sendMessage() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ query: message })
+            body: JSON.stringify({ 
+                query: message,
+                language: currentLanguage || 'pt'  // Send current language
+            })
         });
 
         const data = await response.json();
-        addMessage(data.response);
+        addMessage(data.response, false, true); // true para ativar efeito de digitação
     } catch (error) {
-        addMessage(`Erro ao processar a pergunta: ${error.message}`);
+        const errorMsg = translations.error_processing || 'Erro ao processar a pergunta:';
+        addMessage(`${errorMsg} ${error.message}`);
     } finally {
         sendButton.disabled = false;
         sendButton.innerHTML = originalContent;
@@ -206,6 +248,7 @@ function handleKeyPress(event) {
 // Nova conversa
 function newChat() {
     const messagesContainer = document.getElementById('chatMessages');
+    const welcomeMessage = translations.new_chat_welcome || 'Nova conversa iniciada. Como posso ajudá-lo hoje?';
     messagesContainer.innerHTML = `
         <div class="message assistant">
             <div class="message-avatar">
@@ -215,11 +258,35 @@ function newChat() {
             </div>
             <div class="message-content">
                 <div class="message-text">
-                    Nova conversa iniciada. Como posso ajudá-lo hoje?
+                    ${welcomeMessage}
                 </div>
             </div>
         </div>
     `;
+}
+
+// Limpar histórico
+async function clearHistory() {
+    try {
+        const response = await fetch('/clear-history', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            const successMsg = translations.history_cleared || 'Histórico limpo com sucesso';
+            showConnectionStatus(successMsg);
+        } else {
+            const errorMsg = translations.error_clearing_history || 'Erro ao limpar histórico:';
+            showConnectionStatus(`${errorMsg} ${data.error}`, true);
+        }
+    } catch (error) {
+        const errorMsg = translations.error_clearing_history || 'Erro ao limpar histórico:';
+        showConnectionStatus(`${errorMsg} ${error.message}`, true);
+    }
 }
 
 // Verificar status inicial
@@ -228,7 +295,7 @@ async function checkStatus() {
         const response = await fetch('/status');
         const data = await response.json();
         if (data.connected) {
-            updateStatus(true, 'Conectado');
+            updateStatus(true, translations.connected || 'Conectado');
             showToolsInfo(data.tools);
         }
         
@@ -276,6 +343,68 @@ function toggleDarkMode() {
             </svg>
         `;
         localStorage.setItem('theme', 'light');
+    }
+}
+
+async function loadLanguage() {
+    const savedLanguage = localStorage.getItem('language') || 'pt';
+    currentLanguage = savedLanguage;
+    
+    try {
+        const response = await fetch(`/translations/${currentLanguage}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            translations = data.translations;
+            updateInterfaceLanguage();
+        }
+    } catch (error) {
+        console.error('Erro ao carregar traduções:', error);
+    }
+}
+
+function updateInterfaceLanguage() {
+    // Atualizar textos da interface
+    if (translations.new_chat) {
+        document.getElementById('newChatText').textContent = translations.new_chat;
+    }
+    if (translations.connection) {
+        document.getElementById('connectionSectionTitle').textContent = translations.connection;
+    }
+    if (translations.gemini_model) {
+        document.getElementById('modelSectionTitle').textContent = translations.gemini_model;
+    }
+    if (translations.language) {
+        document.getElementById('languageSectionTitle').textContent = translations.language;
+    }
+    if (translations.tools) {
+        document.getElementById('toolsSectionTitle').textContent = translations.tools;
+    }
+    if (translations.welcome_message) {
+        document.getElementById('welcomeMessage').textContent = translations.welcome_message;
+    }
+    if (translations.input_placeholder) {
+        const textarea = document.getElementById('messageInput');
+        textarea.placeholder = translations.input_placeholder;
+        textarea.setAttribute('data-placeholder', translations.input_placeholder);
+    }
+    if (translations.connect) {
+        document.getElementById('connectBtnText').textContent = translations.connect;
+    }
+    if (translations.disconnected) {
+        document.getElementById('statusText').textContent = translations.disconnected;
+    }
+}
+
+async function changeLanguage() {
+    const languageSelect = document.getElementById('languageSelect');
+    const selectedLanguage = languageSelect.value;
+    
+    if (selectedLanguage !== currentLanguage) {
+        currentLanguage = selectedLanguage;
+        localStorage.setItem('language', currentLanguage);
+        
+        await loadLanguage();
     }
 }
 

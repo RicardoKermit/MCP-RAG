@@ -79,6 +79,30 @@ body {
 .sidebar-header {
     padding: var(--spacing-lg);
     border-bottom: 1px solid var(--border-color);
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.new-chat-btn {
+    flex: 1;
+}
+
+.clear-history-btn {
+    padding: var(--spacing-md);
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.clear-history-btn:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
 }
 
 .new-chat-btn {
@@ -165,6 +189,7 @@ body {
     align-items: center;
     justify-content: center;
     gap: var(--spacing-sm);
+    position: relative;
 }
 
 .connect-btn:hover:not(:disabled) {
@@ -174,6 +199,35 @@ body {
 .connect-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+.connect-btn svg {
+    width: 20px;
+    height: 20px;
+    transition: all 0.2s ease;
+}
+
+.connect-btn.connecting .connect-icon,
+.connect-btn.connected .connect-icon {
+    display: none;
+}
+
+.connect-btn.connecting .connecting-icon {
+    display: block;
+    animation: spin 1s linear infinite;
+}
+
+.connect-btn.connected .connected-icon {
+    display: block;
+    color: #10b981;
+}
+
+.connect-btn.connected {
+    background-color: #10b981;
+}
+
+.connect-btn.connected:hover {
+    background-color: #059669;
 }
 
 .btn-loading {
@@ -262,6 +316,37 @@ body {
     font-size: 12px;
     color: var(--text-muted);
     line-height: 1.4;
+}
+
+/* Language section */
+.language-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.language-section h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.language-selector select {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.language-selector select:focus {
+    outline: none;
+    border-color: var(--accent-color);
 }
 
 .sidebar-footer {

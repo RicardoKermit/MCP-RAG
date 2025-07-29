@@ -16,6 +16,70 @@ if not GEMINI_API_KEY:
 
 genai.configure(api_key=GEMINI_API_KEY)
 
+# Dicionário de traduções
+TRANSLATIONS = {
+    'pt': {
+        'new_chat': 'Nova conversa',
+        'clear_history': 'Limpar histórico',
+        'connection': '🔗 Conexão',
+        'server_path_placeholder': 'Caminho do servidor MCP',
+        'connect': 'Conectar',
+        'connected': 'Conectado',
+        'connecting': 'Conectando...',
+        'disconnected': 'Desconectado',
+        'gemini_model': '🤖 Modelo Gemini',
+        'tools': '🔧 Ferramentas',
+        'language': '🌐 Idioma',
+        'portuguese': 'Português',
+        'english': 'English',
+        'welcome_message': 'Olá! Sou o seu assistente MCP. Conecte-se ao servidor para começar a fazer perguntas.',
+        'input_placeholder': 'Digite a sua mensagem...',
+        'send': 'Enviar',
+        'clear_history_success': 'Histórico limpo com sucesso',
+        'model_changed': 'Modelo alterado para',
+        'invalid_model': 'Modelo inválido',
+        'connection_success': 'Conectado com sucesso',
+        'connection_error': 'Erro de conexão',
+        'sync_with_server': 'sincronizado com servidor',
+        'dark_mode': 'Alternar modo escuro',
+        'new_chat_welcome': 'Nova conversa iniciada. Como posso ajudá-lo hoje?',
+        'error_processing': 'Erro ao processar a pergunta:',
+        'history_cleared': 'Histórico limpo com sucesso',
+        'error_clearing_history': 'Erro ao limpar histórico:',
+        'please_provide_question': 'Por favor, forneça uma pergunta.'
+    },
+    'en': {
+        'new_chat': 'New chat',
+        'clear_history': 'Clear history',
+        'connection': '🔗 Connection',
+        'server_path_placeholder': 'MCP server path',
+        'connect': 'Connect',
+        'connected': 'Connected',
+        'connecting': 'Connecting...',
+        'disconnected': 'Disconnected',
+        'gemini_model': '🤖 Gemini Model',
+        'tools': '🔧 Tools',
+        'language': '🌐 Language',
+        'portuguese': 'Português',
+        'english': 'English',
+        'welcome_message': 'Hello! I\'m your MCP assistant. Connect to the server to start asking questions.',
+        'input_placeholder': 'Type your message...',
+        'send': 'Send',
+        'clear_history_success': 'History cleared successfully',
+        'model_changed': 'Model changed to',
+        'invalid_model': 'Invalid model',
+        'connection_success': 'Connected successfully',
+        'connection_error': 'Connection error',
+        'sync_with_server': 'synchronized with server',
+        'dark_mode': 'Toggle dark mode',
+        'new_chat_welcome': 'New chat started. How can I help you today?',
+        'error_processing': 'Error processing question:',
+        'history_cleared': 'History cleared successfully',
+        'error_clearing_history': 'Error clearing history:',
+        'please_provide_question': 'Please provide a question.'
+    }
+}
+
 # Modelos Gemini disponíveis
 GEMINI_MODELS = {
     "gemini-1.5-flash": {
@@ -95,6 +159,8 @@ class MCPGeminiClient:
         self.session_cm = None
         self.is_connected = False
         self.current_model = "gemini-1.5-flash"  # Modelo padrão
+        self.current_language = "pt"  # Idioma padrão (Português)
+        self.conversation_history = []  # Histórico da conversa
 
     def set_model(self, model_name):
         """Define o modelo Gemini a ser usado"""
@@ -114,6 +180,19 @@ class MCPGeminiClient:
     def get_available_models(self):
         """Retorna a lista de modelos disponíveis"""
         return GEMINI_MODELS
+    
+    def set_language(self, language):
+        """Define o idioma atual para as respostas"""
+        if language in TRANSLATIONS:
+            self.current_language = language
+            print(f"🌐 Idioma alterado para: {language}")
+            return True
+        return False
+    
+    def clear_conversation_history(self):
+        """Limpa o histórico da conversa"""
+        self.conversation_history = []
+        print("🗑️ Histórico da conversa limpo")
 
     async def connect_to_server(self, server_script_path):
         try:
@@ -154,6 +233,7 @@ class MCPGeminiClient:
             # Verificar modelo atual do servidor
             try:
                 model_info = await self.session.call_tool("get_current_model", {})
+                # Processar resposta do servidor
                 if hasattr(model_info.content, 'text'):
                     import json
                     server_model_data = json.loads(model_info.content.text)
@@ -161,10 +241,23 @@ class MCPGeminiClient:
                     if server_model != self.current_model:
                         print(f"🔄 Sincronizando modelo do servidor: {server_model}")
                         self.current_model = server_model
+                elif hasattr(model_info.content, '__iter__'):
+                    # Tentar processar como lista de conteúdos
+                    for content in model_info.content:
+                        if hasattr(content, 'text'):
+                            import json
+                            server_model_data = json.loads(content.text)
+                            server_model = server_model_data.get("current_model", "gemini-1.5-flash")
+                            if server_model != self.current_model:
+                                print(f"🔄 Sincronizando modelo do servidor: {server_model}")
+                                self.current_model = server_model
+                            break
                 else:
-                    print("⚠️ Não foi possível obter modelo do servidor")
+                    print("⚠️ Formato de resposta inesperado do servidor")
             except Exception as e:
                 print(f"⚠️ Erro ao verificar modelo do servidor: {e}")
+                print(f"⚠️ Tipo de resposta: {type(model_info.content)}")
+                print(f"⚠️ Conteúdo: {model_info.content}")
             
             print(f"✅ Conectado com sucesso! Ferramentas: {[tool.name for tool in self.tools]}")
             return True, [tool.name for tool in self.tools]
@@ -181,12 +274,34 @@ class MCPGeminiClient:
             print(f"🤔 Processando pergunta: {query}")
             print(f"🤖 Usando modelo: {self.current_model}")
             
+            # Adicionar pergunta ao histórico
+            self.conversation_history.append({"role": "user", "content": query})
+            
+            # Construir contexto da conversa
+            conversation_context = ""
+            if len(self.conversation_history) > 1:
+                # Incluir as últimas 3 trocas de mensagens para contexto
+                recent_history = self.conversation_history[-6:]  # 3 pares de user/assistant
+                conversation_context = "\n\nContexto da conversa anterior:\n"
+                for msg in recent_history:
+                    role = "Utilizador" if msg["role"] == "user" else "Assistente"
+                    conversation_context += f"{role}: {msg['content']}\n"
+            
             tool_descriptions = "\n".join(
                 f"- {tool.name}: {tool.description}" for tool in self.tools
             )
+            
+            # Instruções de idioma baseadas no idioma atual
+            language_instructions = {
+                "pt": "IMPORTANTE: Responde SEMPRE em português de Portugal. Usa termos e expressões apropriados para português europeu.",
+                "en": "IMPORTANTE: Always respond in British English. Use appropriate British English terms and expressions."
+            }
+            
             prompt = (
-                f"Pergunta do utilizador: {query}\n"
+                f"{conversation_context}\n"
+                f"Pergunta atual do utilizador: {query}\n"
                 f"Ferramentas disponíveis:\n{tool_descriptions}\n"
+                f"{language_instructions.get(self.current_language, language_instructions['pt'])}\n"
                 "IMPORTANTE: Tens SEMPRE de usar uma ferramenta. NUNCA respondas diretamente.\n"
                 "Para qualquer pergunta sobre conteúdo dos PDFs, usa a ferramenta 'retrieve'.\n"
                 "Para a ferramenta 'retrieve', usa sempre 'prompt' como chave do argumento.\n"
@@ -233,11 +348,19 @@ class MCPGeminiClient:
                 
                 print(f"📄 Resposta bruta: {raw_response[:100]}...")
                 
+                # Instruções de idioma para a resposta final
+                final_language_instructions = {
+                    "pt": "IMPORTANTE: Responde SEMPRE em português de Portugal. Usa termos e expressões apropriados para português europeu.",
+                    "en": "IMPORTANTE: Always respond in British English. Use appropriate British English terms and expressions."
+                }
+                
                 follow_up_prompt = f"""
 Pergunta original: {query}
 
 Informação encontrada:
 {raw_response}
+
+{final_language_instructions.get(self.current_language, final_language_instructions['pt'])}
 
 Por favor, apresenta esta informação de forma clara, bem estruturada e fácil de ler. 
 Usa formatação markdown para organizar a resposta:
@@ -263,6 +386,10 @@ Certifica-te de que a resposta está bem formatada e fácil de ler.
                 follow_up_response = model.generate_content(follow_up_prompt)
                 final_response = follow_up_response.text.strip()
                 print(f"✅ Resposta final: {final_response[:100]}...")
+                
+                # Adicionar resposta ao histórico
+                self.conversation_history.append({"role": "assistant", "content": final_response})
+                
                 return final_response
             else:
                 print(f"⚠️ Resposta não contém TOOL: {text}")
@@ -325,14 +452,28 @@ def query():
     try:
         data = request.get_json()
         query_text = data.get('query', '')
+        current_language = data.get('language', 'pt')  # Default to Portuguese
         
         if not query_text:
-            return jsonify({'response': 'Por favor, forneça uma pergunta.'})
+            error_msg = TRANSLATIONS.get(current_language, TRANSLATIONS['pt'])['please_provide_question']
+            return jsonify({'response': error_msg})
+        
+        # Set the current language for this query
+        mcp_client.set_language(current_language)
         
         response = run_async(mcp_client.process_query(query_text))
         return jsonify({'response': response})
     except Exception as e:
         return jsonify({'response': f'Erro ao processar a pergunta: {str(e)}'})
+
+@app.route('/clear-history', methods=['POST'])
+def clear_history():
+    """Limpa o histórico da conversa"""
+    try:
+        mcp_client.clear_conversation_history()
+        return jsonify({'success': True, 'message': 'Histórico limpo com sucesso'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/status')
 def status():
@@ -374,6 +515,30 @@ def set_model():
             'success': False,
             'error': str(e)
         })
+
+@app.route('/translations/<language>', methods=['GET'])
+def get_translations(language):
+    """Retorna as traduções para o idioma especificado"""
+    if language in TRANSLATIONS:
+        return jsonify({
+            'success': True,
+            'translations': TRANSLATIONS[language]
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': 'Idioma não suportado'
+        })
+
+@app.route('/languages', methods=['GET'])
+def get_languages():
+    """Retorna a lista de idiomas disponíveis"""
+    return jsonify({
+        'languages': {
+            'pt': 'Português',
+            'en': 'English'
+        }
+    })
 
 @app.route('/test')
 def test():
