@@ -1,19 +1,32 @@
-# RAG System with MCP, Qdrant and Gemini
+# 🤖 RAG System with MCP, Qdrant and Gemini - Interface Web
 
 Um sistema de **Retrieval-Augmented Generation (RAG)** avançado que combina:
 - **MCP (Model Context Protocol)** para comunicação cliente-servidor
 - **Qdrant Cloud** como vectorstore remoto
 - **Google Gemini** como modelo de linguagem
 - **Integração com Moodle** para download automático de PDFs
+- **Interface Web Moderna** com Flask e SocketIO
 
 ## 🚀 Características
 
+### Sistema RAG
 - **Busca semântica** em documentos PDF
 - **Integração com Moodle** para download automático de materiais
 - **Vectorstore remoto** com Qdrant Cloud
 - **Interface MCP** para fácil integração
 - **Suporte a múltiplos formatos** de documentos
 - **Processamento assíncrono** de documentos
+
+### Interface Web
+- **Interface Moderno**: Design responsivo e elegante com gradientes e animações
+- **Chat em Tempo Real**: Comunicação em tempo real com WebSocket
+- **Conexão Dinâmica**: Conecte-se a diferentes servidores MCP
+- **Indicador de Status**: Visualização clara do estado da conexão
+- **Lista de Ferramentas**: Mostra as ferramentas disponíveis no servidor
+- **Responsivo**: Funciona perfeitamente em desktop e mobile
+- **Gestão de Conversas**: Sistema de conversas múltiplas
+- **Seleção de Modelos**: Suporte a múltiplos modelos Gemini
+- **Internacionalização**: Suporte a português e inglês
 
 ## 📋 Pré-requisitos
 
@@ -54,21 +67,100 @@ Um sistema de **Retrieval-Augmented Generation (RAG)** avançado que combina:
    uv add "requests>=2.31.0"
    uv add "python-dotenv>=1.0.0"
    uv add "pathlib2>=2.3.7"
+   uv add "flask>=3.0.0"
+   uv add "flask-socketio>=5.3.0"
    
    # Para dependências de desenvolvimento (opcional):
    uv add --dev "pytest>=7.4.0"
    uv add --dev "pytest-asyncio>=0.21.0"
    ```
 
-3. **Configure as variáveis de ambiente:**
-   Crie um arquivo `.env` na raiz do projeto:
+## 🔑 Configuração das APIs
+
+### 1. Google Gemini API
+
+1. **Aceda ao Google AI Studio:**
+   - Vá para [https://aistudio.google.com/](https://aistudio.google.com/)
+   - Faça login com a sua conta Google
+
+2. **Obtenha a API Key:**
+   - Clique em "Get API key" no canto superior direito
+   - Selecione "Create API key"
+   - Copie a chave gerada
+
+3. **Configure no projeto:**
    ```env
    GOOGLE_API_KEY=sua_chave_api_gemini_aqui
+   ```
+
+### 2. Qdrant Cloud
+
+1. **Crie uma conta no Qdrant Cloud:**
+   - Vá para [https://cloud.qdrant.io/](https://cloud.qdrant.io/)
+   - Registe-se com email ou GitHub
+
+2. **Crie um cluster:**
+   - Clique em "Create cluster"
+   - Escolha um nome para o cluster
+   - Selecione a região mais próxima
+   - Escolha o plano (Free tier disponível)
+
+3. **Obtenha as credenciais:**
+   - No dashboard do cluster, vá para "API Keys"
+   - Clique em "Create API key"
+   - Copie a API key
+   - Anote a URL do cluster (ex: `https://seu-cluster.qdrant.io`)
+
+4. **Configure no projeto:**
+   ```env
    QDRANT_HOST=https://seu-cluster.qdrant.io
    QDRANT_API_KEY=sua_chave_api_qdrant_aqui
-   MOODLE_URL=http://localhost/webservice/rest/server.php
+   QDRANT_COLLECTION_NAME=rag_documents
+   ```
+
+### 3. Moodle (Opcional)
+
+1. **Instale o Moodle:**
+   - Baixe o Moodle de [https://download.moodle.org/](https://download.moodle.org/)
+   - Instale num servidor web (Apache/Nginx + MySQL/PostgreSQL)
+   - Configure o site durante a instalação
+
+2. **Ative os Web Services:**
+   - Faça login como administrador
+   - Vá para **Site administration** > **Plugins** > **Web services** > **Overview**
+   - Clique em "Enable web services"
+   - Vá para **External services** e clique em "Add"
+   - Configure o serviço com as funções necessárias
+
+3. **Crie um Token:**
+   - Vá para **Site administration** > **Plugins** > **Web services** > **Manage tokens**
+   - Clique em "Add"
+   - Selecione o utilizador e serviço
+   - Copie o token gerado
+
+4. **Configure no projeto:**
+   ```env
+   MOODLE_URL=http://seu-moodle/webservice/rest/server.php
    MOODLE_TOKEN=seu_token_moodle_aqui
    ```
+
+### 4. Arquivo .env Completo
+
+Crie um arquivo `.env` na raiz do projeto com todas as configurações:
+
+```env
+# Google Gemini API
+GOOGLE_API_KEY=sua_chave_api_gemini_aqui
+
+# Qdrant Cloud
+QDRANT_HOST=https://seu-cluster.qdrant.io
+QDRANT_API_KEY=sua_chave_api_qdrant_aqui
+QDRANT_COLLECTION_NAME=rag_documents
+
+# Moodle (Opcional)
+MOODLE_URL=http://seu-moodle/webservice/rest/server.php
+MOODLE_TOKEN=seu_token_moodle_aqui
+```
 
 ## 🏗️ Estrutura do Projeto
 
@@ -81,6 +173,13 @@ rag/
 ├── server_MulPDF.py       # Servidor RAG multi-PDF
 ├── main.py                # Servidor RAG com Ollama
 ├── pyproject.toml         # Configuração de dependências
+├── templates/             # Templates da interface web
+│   ├── simple.html        # Interface principal
+│   └── static/            # Ficheiros estáticos
+│       ├── css/
+│       │   └── style.css  # Estilos da interface
+│       └── js/
+│           └── app.js     # JavaScript da interface
 ├── pdfs/                  # Pasta com documentos PDF
 ├── db/                    # Vectorstore local (Chroma)
 ├── db_pdf/                # Vectorstore para PDFs
@@ -89,7 +188,21 @@ rag/
 
 ## 🚀 Como Usar
 
-### Execução Completa (Recomendado)
+### Interface Web (Recomendado)
+
+Para usar a interface web moderna:
+
+```bash
+# Iniciar o servidor MCP
+uv run python MCP_Server.py
+
+# Em outro terminal, iniciar a interface web
+uv run python MCP_Client.py
+```
+
+Depois aceda a `http://localhost:5000` no seu navegador.
+
+### Execução Completa (CLI)
 
 Para executar tanto o servidor como o cliente de uma vez:
 
@@ -140,6 +253,26 @@ Pergunta: Baixa os PDFs do curso "Introdução à IA"
 ```
 Pergunta: Adiciona o PDF do URL https://exemplo.com/documento.pdf
 ```
+
+## 🎨 Interface Web
+
+### Características da Interface
+
+- **Design Moderno**: Interface inspirada no ChatGPT com tema escuro
+- **Responsivo**: Funciona perfeitamente em desktop e mobile
+- **Gestão de Conversas**: Sistema de conversas múltiplas com histórico
+- **Seleção de Modelos**: Suporte a múltiplos modelos Gemini
+- **Internacionalização**: Suporte a português e inglês
+- **Modo Escuro/Claro**: Toggle entre temas
+- **Menu Mobile**: Menu hambúrguer para dispositivos móveis
+
+### Estados Visuais
+
+- **Desconectado**: Botão azul "Conectar ao servidor"
+- **Conectando**: Botão laranja com animação de loading
+- **Conectado**: Botão verde "Conectado"
+- **Input Desabilitado**: Campo de texto bloqueado quando desconectado
+- **Geração de Resposta**: Botão de stop durante geração
 
 ## 🔧 Configuração Avançada
 
@@ -234,6 +367,33 @@ Para integrar com um servidor Moodle:
    MOODLE_TOKEN=seu_token
    ```
 
+## 📊 Modelos Gemini
+
+O sistema suporta múltiplos modelos Gemini, ordenados por custo (do mais económico ao mais caro):
+
+### 🟢 Económicos (Baixo Custo)
+- **Gemini 1.5 Flash 8B** (Padrão) - Modelo mais barato, ideal para uso prolongado
+- **Gemini 2.0 Flash Lite** - Leve e rápido para tarefas simples
+- **Gemini 2.5 Flash Lite** - Versão otimizada e recente do Flash Lite
+- **Gemini 1.5 Flash** - Eficiente para tarefas gerais com bom custo/benefício
+- **Gemini 2.0 Flash** - Geração seguinte do Flash com suporte multimodal
+- **Gemini 2.5 Flash** - Mais rápido e versátil para aplicações em tempo real
+
+### 🔴 Avançados (Alto Custo)
+- **Gemini 2.0 Pro** - Modelo Pro com bom desempenho mas preço elevado
+- **Gemini 1.5 Pro** - Popular para tarefas complexas com contexto grande
+- **Gemini 1.0 Pro** - Primeiro Pro lançado, ainda competente
+- **Gemini Pro** - Modelo base Pro com desempenho genérico
+- **Gemini 2.5 Pro** - Topo de gama da Google, multimodal e muito caro
+
+**Nota:** O sistema inicia por padrão com o **Gemini 1.5 Flash 8B** (modelo mais económico) para minimizar custos.
+
+Para alterar o modelo padrão:
+```python
+# Em MCP_Client.py e MCP_Server.py
+current_model = "gemini-2.0-flash-lite"  # Modelo mais económico
+```
+
 ### Modelos de Embeddings
 
 O sistema usa por padrão `sentence-transformers/all-MiniLM-L6-v2`. Para alterar:
@@ -243,13 +403,72 @@ O sistema usa por padrão `sentence-transformers/all-MiniLM-L6-v2`. Para alterar
 embeddings = HuggingFaceEmbeddings(model_name="outro-modelo")
 ```
 
-## 🧪 Testes
+### Configuração da Interface Web
+
+#### Alterar Porta
+Edite o arquivo `MCP_Client.py` na linha final:
+```python
+app.run(debug=True, host='0.0.0.0', port=5000)
+```
+
+#### Personalizar Design
+Edite o CSS no arquivo `templates/static/css/style.css` para personalizar cores, fontes e layout.
+
+## 🧪 Testes e Verificação
+
+### Testes Automatizados
 
 Para executar os testes:
 
 ```bash
 uv sync --extra dev
 uv run pytest
+```
+
+### Verificação Manual da Configuração
+
+1. **Teste da API Gemini:**
+   ```bash
+   # Execute o cliente para testar a conexão
+   uv run python MCP_Client.py
+   ```
+   Se não houver erros, a API Gemini está configurada corretamente.
+
+2. **Teste do Qdrant:**
+   ```bash
+   # Execute o servidor para testar a conexão Qdrant
+   uv run python MCP_Server.py
+   ```
+   Se não houver erros de conexão, o Qdrant está configurado corretamente.
+
+3. **Teste da Interface Web:**
+   ```bash
+   # Inicie o servidor e cliente
+   uv run python MCP_Server.py
+   # Em outro terminal:
+   uv run python MCP_Client.py
+   ```
+   Aceda a `http://localhost:5000` e teste a conexão.
+
+### Verificação das Variáveis de Ambiente
+
+Para verificar se todas as variáveis estão configuradas:
+
+```bash
+# No Python
+python -c "
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+required_vars = ['GOOGLE_API_KEY', 'QDRANT_HOST', 'QDRANT_API_KEY']
+missing_vars = [var for var in required_vars if not os.getenv(var)]
+
+if missing_vars:
+    print(f'Variáveis em falta: {missing_vars}')
+else:
+    print('Todas as variáveis estão configuradas!')
+"
 ```
 
 ## 📦 Dependências
@@ -261,6 +480,8 @@ uv run pytest
 - `langchain-google-genai` - Integração Gemini
 - `sentence-transformers` - Embeddings
 - `qdrant-client` - Cliente Qdrant
+- `flask` - Framework web
+- `flask-socketio` - WebSocket para comunicação em tempo real
 
 ### Desenvolvimento:
 - `pytest` - Framework de testes
@@ -295,6 +516,21 @@ ValueError: Unable to determine which files to ship inside the wheel
 2. Reinstale as dependências: `uv sync --reinstall`
 3. Execute novamente: `uv run python MCP_Server.py`
 
+### Problemas da Interface Web
+
+#### Erro de Conexão
+- Verifique se o servidor MCP está acessível
+- Confirme que o caminho do servidor está correto
+- Verifique se todas as dependências estão instaladas
+
+#### Erro de WebSocket
+- Verifique se a porta 5000 está livre
+- Confirme que o firewall não está bloqueando a conexão
+
+#### Problemas de Responsividade
+- Verifique se está a usar um navegador moderno
+- Teste em diferentes tamanhos de ecrã
+
 ## 🤝 Contribuição
 
 1. Fork o projeto
@@ -323,7 +559,11 @@ uv sync
 
 ### Comandos de Execução
 ```bash
-# Execução completa (Recomendado)
+# Interface Web (Recomendado)
+uv run python MCP_Server.py
+uv run python MCP_Client.py
+
+# Execução completa (CLI)
 uv run python MCP_Client.py MCP_Server.py
 
 # Servidor MCP principal
@@ -366,4 +606,4 @@ uv sync --reinstall
 
 ---
 
-**Desenvolvido com ❤️ usando MCP, LangChain e Gemini**
+**Desenvolvido com ❤️ usando MCP, LangChain, Gemini, Flask e SocketIO**

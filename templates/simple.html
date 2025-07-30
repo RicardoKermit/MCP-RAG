@@ -41,29 +41,26 @@
                             <svg class="connected-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: none;">
                                 <path d="M9 12l2 2 4-4M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
-                            <span class="btn-text" id="connectBtnText">Conectar</span>
+                            <span class="btn-text" id="connectBtnText">Conectar ao servidor</span>
                         </button>
                     </div>
                     <div id="connectionStatus"></div>
-                    
-                    <div class="status-display">
-                        <div class="status-indicator" id="statusIndicator"></div>
-                        <span id="statusText">Desconectado</span>
-                    </div>
                 </div>
                 
                 <div class="model-section">
                     <h3 id="modelSectionTitle">🤖 Modelo Gemini</h3>
                     <div class="model-selector">
                         <select id="modelSelect" onchange="changeModel()">
+                            <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash 8B</option>
+                            <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
+                            <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
                             <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                            <option value="gemini-2.0-pro">Gemini 2.0 Pro</option>
                             <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
                             <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
                             <option value="gemini-pro">Gemini Pro</option>
-                            <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
-                            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                            <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
-                            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                             <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
                         </select>
                         <div class="model-info" id="modelInfo">
@@ -82,23 +79,35 @@
                     </div>
                 </div>
                 
+                <div class="conversations-section">
+                    <h3 id="conversationsSectionTitle">💬 Conversas</h3>
+                    <div class="conversations-list" id="conversationsList">
+                        <!-- Conversations will be dynamically added here -->
+                    </div>
+                </div>
+                
                 <div class="tools-section" id="toolsInfo" style="display: none;">
                     <h3 id="toolsSectionTitle">🔧 Ferramentas</h3>
                     <div class="tools-list" id="toolsList"></div>
                 </div>
             </div>
             
-            <div class="sidebar-footer">
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="main-header">
+                <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" id="mobileMenuToggle" title="Menu">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
                 <button class="dark-mode-toggle" onclick="toggleDarkMode()" id="darkModeToggle" title="Alternar modo escuro">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </button>
             </div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="main-content">
             <div class="chat-container">
                 <div class="chat-messages" id="chatMessages">
                     <div class="message assistant">
@@ -120,10 +129,11 @@
                         <div class="input-group">
                             <textarea 
                                 id="messageInput" 
-                                placeholder="Digite a sua pergunta..." 
+                                placeholder="Conecte-se primeiro ao servidor..." 
                                 onkeypress="handleKeyPress(event)" 
                                 rows="1"
                                 style="resize: none; overflow-y: hidden;"
+                                disabled
                             ></textarea>
                             <button onclick="sendMessage()" id="sendButton" disabled class="send-btn">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

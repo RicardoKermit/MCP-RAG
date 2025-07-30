@@ -23,7 +23,7 @@ TRANSLATIONS = {
         'clear_history': 'Limpar histórico',
         'connection': '🔗 Conexão',
         'server_path_placeholder': 'Caminho do servidor MCP',
-        'connect': 'Conectar',
+        'connect': 'Conectar ao servidor',
         'connected': 'Conectado',
         'connecting': 'Conectando...',
         'disconnected': 'Desconectado',
@@ -46,14 +46,17 @@ TRANSLATIONS = {
         'error_processing': 'Erro ao processar a pergunta:',
         'history_cleared': 'Histórico limpo com sucesso',
         'error_clearing_history': 'Erro ao limpar histórico:',
-        'please_provide_question': 'Por favor, forneça uma pergunta.'
+        'please_provide_question': 'Por favor, forneça uma pergunta.',
+        'input_placeholder': 'Digite a sua pergunta...',
+        'connect_first': 'Conecte-se primeiro ao servidor...',
+        'generation_cancelled': 'Geração cancelada pelo utilizador.'
     },
     'en': {
         'new_chat': 'New chat',
         'clear_history': 'Clear history',
         'connection': '🔗 Connection',
         'server_path_placeholder': 'MCP server path',
-        'connect': 'Connect',
+        'connect': 'Connect to server',
         'connected': 'Connected',
         'connecting': 'Connecting...',
         'disconnected': 'Disconnected',
@@ -76,56 +79,80 @@ TRANSLATIONS = {
         'error_processing': 'Error processing question:',
         'history_cleared': 'History cleared successfully',
         'error_clearing_history': 'Error clearing history:',
-        'please_provide_question': 'Please provide a question.'
+        'please_provide_question': 'Please provide a question.',
+        'input_placeholder': 'Type your question...',
+        'connect_first': 'Connect to server first...',
+        'generation_cancelled': 'Generation cancelled by user.'
     }
 }
 
-# Modelos Gemini disponíveis
+# Modelos Gemini disponíveis (ordenados por custo - menor para maior)
 GEMINI_MODELS = {
-    "gemini-1.5-flash": {
-        "name": "Gemini 1.5 Flash",
-        "description": "Modelo rápido e eficiente para tarefas gerais",
-        "max_tokens": 8192
-    },
-    "gemini-1.5-pro": {
-        "name": "Gemini 1.5 Pro", 
-        "description": "Modelo avançado para tarefas complexas",
-        "max_tokens": 32768
-    },
-    "gemini-1.0-pro": {
-        "name": "Gemini 1.0 Pro",
-        "description": "Modelo estável e confiável",
-        "max_tokens": 32768
-    },
-    "gemini-pro": {
-        "name": "Gemini Pro",
-        "description": "Modelo versátil para diversas aplicações",
-        "max_tokens": 32768
+    "gemini-1.5-flash-8b": {
+        "name": "Gemini 1.5 Flash 8B",
+        "description": "Modelo mais barato da família Gemini, ideal para uso prolongado com baixo custo. Desempenho básico.",
+        "max_tokens": 4096,
+        "cost_rank": 1
     },
     "gemini-2.0-flash-lite": {
         "name": "Gemini 2.0 Flash Lite",
-        "description": "Modelo ultra-rápido e leve para tarefas simples",
-        "max_tokens": 4096
-    },
-    "gemini-2.0-flash": {
-        "name": "Gemini 2.0 Flash",
-        "description": "Modelo rápido da nova geração para tarefas gerais",
-        "max_tokens": 8192
+        "description": "Modelo leve e rápido, bom para tarefas simples com excelente relação custo/eficiência.",
+        "max_tokens": 4096,
+        "cost_rank": 2
     },
     "gemini-2.5-flash-lite": {
         "name": "Gemini 2.5 Flash Lite",
-        "description": "Versão lite do modelo mais recente, otimizada para velocidade",
-        "max_tokens": 4096
+        "description": "Versão optimizada e recente do Flash Lite. Mais rápida e estável, mantendo baixo custo.",
+        "max_tokens": 4096,
+        "cost_rank": 3
+    },
+    "gemini-1.5-flash": {
+        "name": "Gemini 1.5 Flash",
+        "description": "Modelo eficiente para tarefas gerais com bom custo/benefício e suporte a contexto maior.",
+        "max_tokens": 8192,
+        "cost_rank": 4
+    },
+    "gemini-2.0-flash": {
+        "name": "Gemini 2.0 Flash",
+        "description": "Geração seguinte do Flash com melhor suporte multimodal. Um pouco mais caro.",
+        "max_tokens": 8192,
+        "cost_rank": 5
     },
     "gemini-2.5-flash": {
         "name": "Gemini 2.5 Flash",
-        "description": "Modelo mais recente e rápido para tarefas avançadas",
-        "max_tokens": 8192
+        "description": "Mais rápido e versátil que os anteriores. Ideal para aplicações em tempo real com contexto médio.",
+        "max_tokens": 8192,
+        "cost_rank": 6
+    },
+    "gemini-2.0-pro": {
+        "name": "Gemini 2.0 Pro",
+        "description": "Modelo menos usado da linha Pro, com bom desempenho mas preço já mais elevado.",
+        "max_tokens": 32768,
+        "cost_rank": 7
+    },
+    "gemini-1.5-pro": {
+        "name": "Gemini 1.5 Pro",
+        "description": "Modelo Pro popular para tarefas complexas com contexto grande. Mais caro que os Flash.",
+        "max_tokens": 32768,
+        "cost_rank": 8
+    },
+    "gemini-1.0-pro": {
+        "name": "Gemini 1.0 Pro",
+        "description": "Primeiro Pro lançado. Já ultrapassado, mas ainda competente para aplicações estáveis.",
+        "max_tokens": 32768,
+        "cost_rank": 9
+    },
+    "gemini-pro": {
+        "name": "Gemini Pro",
+        "description": "Modelo base Pro, com desempenho genérico e preço elevado face aos mais recentes.",
+        "max_tokens": 32768,
+        "cost_rank": 10
     },
     "gemini-2.5-pro": {
         "name": "Gemini 2.5 Pro",
-        "description": "Modelo mais avançado da nova geração para tarefas complexas",
-        "max_tokens": 32768
+        "description": "Topo de gama da Google. Multimodal, com capacidades avançadas e contexto alargado. Muito caro.",
+        "max_tokens": 32768,
+        "cost_rank": 11
     }
 }
 
@@ -158,7 +185,7 @@ class MCPGeminiClient:
         self.stdio_cm = None
         self.session_cm = None
         self.is_connected = False
-        self.current_model = "gemini-1.5-flash"  # Modelo padrão
+        self.current_model = "gemini-1.5-flash-8b"  # Changed to the most economical model
         self.current_language = "pt"  # Idioma padrão (Português)
         self.conversation_history = []  # Histórico da conversa
 
