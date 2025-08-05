@@ -19,6 +19,43 @@ import gc
 import uuid
 import tempfile
 from typing import List
+import time
+from datetime import datetime
+import logging
+
+# Configuração de Logs
+def setup_logging():
+    """Configura o sistema de logs"""
+    # Criar diretório de logs
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+    
+    # Configurar formato
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    # Log para ficheiro
+    file_handler = logging.FileHandler(
+        f"logs/rag_server_{datetime.now().strftime('%Y%m%d')}.log"
+    )
+    file_handler.setFormatter(formatter)
+    
+    # Log para consola
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    
+    # Configurar logger principal
+    logger = logging.getLogger('RAG_Server')
+    logger.setLevel(logging.INFO)
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    
+    return logger
+
+# Inicializar logger
+logger = setup_logging()
+
 # Load .env
 load_dotenv()
 
@@ -289,11 +326,29 @@ def retrieve(prompt: str) -> str:
         - Responde sempre em português
         - Se não encontrar informação relevante, indica claramente
     """
+    start_time = time.time()
     try:
+        # Log da operação
+        logger.info(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Starting")
+        
         result = qa.invoke({"query": prompt})
-        return result.get("result", "Não foi possível obter uma resposta.")
+        response = result.get("result", "Não foi possível obter uma resposta.")
+        
+        # Calcular duração
+        duration = time.time() - start_time
+        
+        # Log de sucesso
+        logger.info(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Success | Duration: {duration:.2f}s")
+        
+        return response
     except Exception as e:
-        return f"Erro ao processar a pergunta: {e}"
+        duration = time.time() - start_time
+        error_msg = str(e)
+        
+        # Log de erro
+        logger.error(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Error: {error_msg} | Duration: {duration:.2f}s")
+        
+        return f"Erro ao processar a pergunta: {error_msg}"
 
 @mcp.tool()
 def add_new_pdfs() -> str:
@@ -610,30 +665,38 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         - Valida dificuldade baseada no conteúdo disponível
         - Formato compatível com Moodle e outras plataformas
     """
+    start_time = time.time()
     try:
+        # Log da operação
+        logger.info(f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Starting")
+        
         # 1. Buscar conteúdo sobre o tópico
         difficulty_prompt = f"""
         Gera {num_questions} perguntas sobre {topic} com dificuldade {difficulty}.
         
         IMPORTANTE:
         - Usa apenas informação dos PDFs disponíveis
-        - Mistura perguntas de escolha múltipla e verdadeiro/falso
-        - Cada pergunta deve ter 4 opções (a, b, c, d) para múltipla escolha
+        - Gera APENAS o tipo de pergunta solicitado (escolha múltipla OU verdadeiro/falso)
+        - Para escolha múltipla: cada pergunta deve ter 4 opções (a, b, c, d)
+        - Para verdadeiro/falso: cada pergunta deve ter 2 opções (a) Verdadeiro, b) Falso)
         - Indica sempre a resposta correta
         - Formato: Pergunta + opções + "Resposta: X"
         - Dificuldade {difficulty}: ajusta complexidade das perguntas
         
-        Exemplo de formato:
-        **{num_questions} Perguntas sobre {topic} (Nível {difficulty.title()})**
+        Exemplo de formato para escolha múltipla:
+        **{num_questions} Perguntas de Escolha Múltipla sobre {topic} (Nível {difficulty.title()})**
         
-        1. Pergunta de escolha múltipla?
+        1. Pergunta?
            a) Opção A
            b) Opção B  
            c) Opção C
            d) Opção D
            Resposta: c
         
-        2. Pergunta de verdadeiro/falso?
+        Exemplo de formato para verdadeiro/falso:
+        **{num_questions} Perguntas de Verdadeiro/Falso sobre {topic} (Nível {difficulty.title()})**
+        
+        1. Pergunta?
            a) Verdadeiro
            b) Falso
            Resposta: a
@@ -641,11 +704,18 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         
         quiz_content = retrieve(difficulty_prompt)
         
+        # Calcular duração
+        duration = time.time() - start_time
+        
         if not quiz_content or "não foi possível" in quiz_content.lower():
+            logger.warning(f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | No content found | Duration: {duration:.2f}s")
             return {
                 "success": False,
                 "message": f"Não foi possível encontrar conteúdo relevante sobre '{topic}'"
             }
+        
+        # Log de sucesso
+        logger.info(f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Success | Duration: {duration:.2f}s")
         
         return {
             "success": True,
@@ -656,9 +726,15 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         }
         
     except Exception as e:
+        duration = time.time() - start_time
+        error_msg = str(e)
+        
+        # Log de erro
+        logger.error(f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Error: {error_msg} | Duration: {duration:.2f}s")
+        
         return {
             "success": False,
-            "message": f"Erro ao gerar questionário: {str(e)}"
+            "message": f"Erro ao gerar questionário: {error_msg}"
         }
 
 

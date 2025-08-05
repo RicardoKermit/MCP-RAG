@@ -2,11 +2,91 @@ import asyncio
 import os
 import json
 import threading
+import time
+from datetime import datetime
+from pathlib import Path
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 import google.generativeai as genai
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+
+# Configuração de Logs
+import logging
+
+def setup_logging():
+    """Configura o sistema de logs"""
+    # Criar diretório de logs
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+    
+    # Configurar formato
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    # Log para ficheiro
+    file_handler = logging.FileHandler(
+        f"logs/rag_app_{datetime.now().strftime('%Y%m%d')}.log"
+    )
+    file_handler.setFormatter(formatter)
+    
+    # Log para consola
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    
+    # Configurar logger principal
+    logger = logging.getLogger('RAG_App')
+    logger.setLevel(logging.INFO)
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    
+    return logger
+
+# Inicializar logger
+logger = setup_logging()
+
+# Funções de Log Específicas
+def log_rag_operation(operation: str, topic: str, success: bool, duration: float = None, error: str = None):
+    """Log para operações RAG (retrieve, add_pdfs)"""
+    log_msg = f"RAG_OPERATION | {operation} | Topic: {topic} | Success: {success}"
+    if duration:
+        log_msg += f" | Duration: {duration:.2f}s"
+    if error:
+        log_msg += f" | Error: {error}"
+    logger.info(log_msg)
+
+def log_quiz_generation(topic: str, num_questions: int, difficulty: str, success: bool, duration: float = None, error: str = None):
+    """Log para geração de questionários"""
+    log_msg = f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Success: {success}"
+    if duration:
+        log_msg += f" | Duration: {duration:.2f}s"
+    if error:
+        log_msg += f" | Error: {error}"
+    logger.info(log_msg)
+
+def log_video_generation(prompt: str, duration: int, aspect_ratio: str, success: bool, generation_duration: float = None, error: str = None):
+    """Log para geração de vídeos"""
+    log_msg = f"VIDEO_GENERATION | Prompt: {prompt[:50]}... | Duration: {duration}s | Aspect: {aspect_ratio} | Success: {success}"
+    if generation_duration:
+        log_msg += f" | GenerationTime: {generation_duration:.2f}s"
+    if error:
+        log_msg += f" | Error: {error}"
+    logger.info(log_msg)
+
+def log_system_error(operation: str, error: str, context: dict = None):
+    """Log para erros do sistema"""
+    log_msg = f"SYSTEM_ERROR | Operation: {operation} | Error: {error}"
+    if context:
+        log_msg += f" | Context: {context}"
+    logger.error(log_msg)
+
+def log_user_interaction(action: str, details: dict = None):
+    """Log para interações do utilizador"""
+    log_msg = f"USER_INTERACTION | Action: {action}"
+    if details:
+        log_msg += f" | Details: {details}"
+    logger.info(log_msg)
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -483,14 +563,21 @@ def index():
 
 @app.route('/connect', methods=['POST'])
 def connect():
+    start_time = time.time()
     try:
         data = request.get_json()
         server_path = data.get('server_path', 'MCP_Server.py')
+        
+        # Log da tentativa de conexão
+        log_user_interaction("connect", {
+            "server_path": server_path
+        })
         
         print(f"🔄 Tentando conectar ao servidor: {server_path}")
         
         # Verificar se o arquivo existe
         if not os.path.exists(server_path):
+            log_system_error("connect", f"Arquivo não encontrado: {server_path}")
             return jsonify({
                 'success': False,
                 'error': f'Arquivo não encontrado: {server_path}'
@@ -498,33 +585,53 @@ def connect():
         
         success, result = run_async(mcp_client.connect_to_server(server_path))
         
+        # Calcular duração
+        duration = time.time() - start_time
+        
         if success:
             print(f"✅ Conectado com sucesso! Ferramentas: {result}")
+            log_rag_operation("connect", server_path, True, duration)
             return jsonify({
                 'success': True,
                 'tools': result
             })
         else:
             print(f"❌ Falha na conexão: {result}")
+            log_rag_operation("connect", server_path, False, duration, result)
             return jsonify({
                 'success': False,
                 'error': result
             })
     except Exception as e:
-        print(f"❌ Erro na rota de conexão: {str(e)}")
+        duration = time.time() - start_time
+        error_msg = str(e)
+        print(f"❌ Erro na rota de conexão: {error_msg}")
+        log_system_error("connect", error_msg, {
+            "server_path": server_path,
+            "duration": duration
+        })
         return jsonify({
             'success': False,
-            'error': f'Erro interno: {str(e)}'
+            'error': f'Erro interno: {error_msg}'
         })
 
 @app.route('/query', methods=['POST'])
 def query():
+    start_time = time.time()
     try:
         data = request.get_json()
         query_text = data.get('query', '')
         current_language = data.get('language', 'pt')  # Default to Portuguese
         
+        # Log da interação do utilizador
+        log_user_interaction("query", {
+            "query_length": len(query_text),
+            "language": current_language,
+            "query_preview": query_text[:100]
+        })
+        
         if not query_text:
+            log_system_error("query", "Query vazia")
             error_msg = TRANSLATIONS.get(current_language, TRANSLATIONS['pt'])['please_provide_question']
             return jsonify({'response': error_msg})
         
@@ -532,9 +639,22 @@ def query():
         mcp_client.set_language(current_language)
         
         response = run_async(mcp_client.process_query(query_text))
+        
+        # Calcular duração
+        duration = time.time() - start_time
+        
+        # Log de sucesso
+        log_rag_operation("query", query_text[:50], True, duration)
+        
         return jsonify({'response': response})
     except Exception as e:
-        return jsonify({'response': f'Erro ao processar a pergunta: {str(e)}'})
+        duration = time.time() - start_time
+        error_msg = str(e)
+        log_system_error("query", error_msg, {
+            "query": query_text,
+            "duration": duration
+        })
+        return jsonify({'response': f'Erro ao processar a pergunta: {error_msg}'})
 
 @app.route('/clear-history', methods=['POST'])
 def clear_history():
@@ -616,6 +736,7 @@ def test():
 
 @app.route('/generate-quiz', methods=['POST'])
 def generate_quiz():
+    start_time = time.time()
     try:
         data = request.get_json()
         topic = data.get('topic', '')
@@ -623,7 +744,16 @@ def generate_quiz():
         num_questions = data.get('numQuestions', 5)
         difficulty = data.get('difficulty', 'mixed')
         
+        # Log da tentativa de geração
+        log_user_interaction("generate_quiz", {
+            "topic": topic,
+            "question_type": question_type,
+            "num_questions": num_questions,
+            "difficulty": difficulty
+        })
+        
         if not topic:
+            log_system_error("generate_quiz", "Tópico vazio")
             return jsonify({'error': 'Tópico é obrigatório'})
         
         # Construir prompt para geração de questionário
@@ -632,10 +762,19 @@ def generate_quiz():
         # Executar no servidor MCP
         result = run_async(mcp_client.process_query(prompt))
         
+        # Calcular duração
+        duration = time.time() - start_time
+        
+        # Log de sucesso
+        log_quiz_generation(topic, num_questions, difficulty, True, duration)
+        
         return jsonify({'success': True, 'result': result})
         
     except Exception as e:
-        return jsonify({'error': f'Erro ao gerar questionário: {str(e)}'})
+        duration = time.time() - start_time
+        error_msg = str(e)
+        log_quiz_generation(topic, num_questions, difficulty, False, duration, error_msg)
+        return jsonify({'error': f'Erro ao gerar questionário: {error_msg}'})
 
 
 
