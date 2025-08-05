@@ -40,6 +40,16 @@ document.addEventListener('DOMContentLoaded', function() {
     if (languageSelect) {
         languageSelect.value = savedLanguage;
     }
+    
+    // Modal de ajuda - fechar ao clicar fora
+    const helpModal = document.getElementById('helpModal');
+    if (helpModal) {
+        helpModal.addEventListener('click', function(e) {
+            if (e.target === helpModal) {
+                toggleHelpModal();
+            }
+        });
+    }
 });
 
 // Função updateStatus removida - agora o estado é controlado diretamente pelo botão
@@ -53,18 +63,35 @@ function showConnectionStatus(message, isError = false) {
 }
 
 function showToolsInfo(tools) {
-    const toolsInfo = document.getElementById('toolsInfo');
     const toolsList = document.getElementById('toolsList');
     
     if (tools && tools.length > 0) {
         toolsList.innerHTML = tools.map(tool => `<div class="tool-item">${tool}</div>`).join('');
-        toolsInfo.style.display = 'block';
         
         // Mostrar seções de questionários e vídeos com IA
         showQuizSection();
         showVideoAISection();
+    }
+}
+
+function toggleHelpModal() {
+    const modal = document.getElementById('helpModal');
+    if (modal.classList.contains('show')) {
+        modal.classList.remove('show');
     } else {
-        toolsInfo.style.display = 'none';
+        modal.classList.add('show');
+    }
+}
+
+async function changeLanguage() {
+    const languageSelect = document.getElementById('languageSelect');
+    const selectedLanguage = languageSelect.value;
+    
+    if (selectedLanguage !== currentLanguage) {
+        currentLanguage = selectedLanguage;
+        localStorage.setItem('language', currentLanguage);
+        
+        await loadLanguage();
     }
 }
 
@@ -513,17 +540,7 @@ function updateInterfaceLanguage() {
     }
 }
 
-async function changeLanguage() {
-    const languageSelect = document.getElementById('languageSelect');
-    const selectedLanguage = languageSelect.value;
-    
-    if (selectedLanguage !== currentLanguage) {
-        currentLanguage = selectedLanguage;
-        localStorage.setItem('language', currentLanguage);
-        
-        await loadLanguage();
-    }
-}
+
 
 // Load theme preference
 function loadThemePreference() {
@@ -880,40 +897,9 @@ function generateVideoAI() {
     });
 }
 
-function quickVideoAI() {
-    const prompt = document.getElementById('videoAIPrompt').value.trim();
-    
-    if (!prompt) {
-        alert('Por favor, insira uma descrição do vídeo.');
-        return;
-    }
-    
-    // Usar configurações padrão para vídeo IA rápido
-    document.getElementById('videoAIDuration').value = '8';
-    document.getElementById('videoAIAspectRatio').value = '16:9';
-    
-    generateVideoAI();
-}
 
-function useVideoAITemplate(prompt, duration, aspectRatio) {
-    // Preencher formulário com template
-    document.getElementById('videoAIPrompt').value = prompt;
-    document.getElementById('videoAIDuration').value = duration;
-    document.getElementById('videoAIAspectRatio').value = aspectRatio;
-    
-    // Feedback visual
-    const btn = event.target;
-    const originalText = btn.textContent;
-    btn.textContent = '✓ Aplicado';
-    btn.style.background = 'var(--success-color)';
-    btn.style.color = 'white';
-    
-    setTimeout(() => {
-        btn.textContent = originalText;
-        btn.style.background = '';
-        btn.style.color = '';
-    }, 2000);
-}
+
+
 
 // Funções para Questionários
 function showQuizSection() {
@@ -970,42 +956,9 @@ function generateQuiz() {
     });
 }
 
-function quickQuiz() {
-    const topic = document.getElementById('quizTopic').value.trim();
-    
-    if (!topic) {
-        alert('Por favor, insira um tópico para o questionário.');
-        return;
-    }
-    
-    // Usar configurações padrão para questionário rápido
-    document.getElementById('quizType').value = 'multiple_choice';
-    document.getElementById('quizNumQuestions').value = '5';
-    document.getElementById('quizDifficulty').value = 'mixed';
-    
-    generateQuiz();
-}
 
-function useTemplate(topic, questionType, numQuestions, difficulty) {
-    // Preencher formulário com template
-    document.getElementById('quizTopic').value = topic;
-    document.getElementById('quizType').value = questionType;
-    document.getElementById('quizNumQuestions').value = numQuestions;
-    document.getElementById('quizDifficulty').value = difficulty;
-    
-    // Feedback visual
-    const btn = event.target;
-    const originalText = btn.textContent;
-    btn.textContent = '✓ Aplicado';
-    btn.style.background = 'var(--success-color)';
-    btn.style.color = 'white';
-    
-    setTimeout(() => {
-        btn.textContent = originalText;
-        btn.style.background = '';
-        btn.style.color = '';
-    }, 2000);
-}
+
+
 
 function updateQuizStatus(status, type = 'ready') {
     const statusText = document.querySelector('#quizSection .status-text');

@@ -79,6 +79,8 @@
                     </div>
                 </div>
                 
+
+                
                 <div class="conversations-section">
                     <h3 id="conversationsSectionTitle">💬 Conversas</h3>
                     <div class="conversations-list" id="conversationsList">
@@ -86,16 +88,13 @@
                     </div>
                 </div>
                 
-                <div class="tools-section" id="toolsInfo" style="display: none;">
-                    <h3 id="toolsSectionTitle">🔧 Ferramentas</h3>
-                    <div class="tools-list" id="toolsList"></div>
-                </div>
+
 
                 <!-- Seção de Questionários -->
                 <div class="quiz-section" id="quizSection" style="display: none;">
                     <h3>📝 Questionários</h3>
                     <div class="quiz-form">
-                        <input type="text" id="quizTopic" placeholder="Tópico (ex: Scala, Monopoly)" class="quiz-input">
+                        <input type="text" id="quizTopic" placeholder="Tópico..." class="quiz-input">
                         <div class="quiz-options">
                             <select id="quizType" class="quiz-select">
                                 <option value="multiple_choice">Escolha Múltipla</option>
@@ -114,17 +113,14 @@
                             </select>
                         </div>
                         <div class="quiz-actions">
-                            <button id="generateQuizBtn" class="generate-quiz-btn" onclick="generateQuiz()">Gerar Questionário</button>
-                            <button id="quickQuizBtn" class="quick-quiz-btn" onclick="quickQuiz()">Questionário Rápido</button>
+                            <button id="generateQuizBtn" class="generate-quiz-btn" onclick="generateQuiz()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                Gerar Questionário
+                            </button>
                         </div>
-                        <div class="quiz-templates">
-                            <div class="quiz-templates-header">Templates Rápidos:</div>
-                            <div class="quiz-templates-grid">
-                                <button class="template-btn" onclick="useTemplate('Scala', 'multiple_choice', 5, 'mixed')">Scala Básico</button>
-                                <button class="template-btn" onclick="useTemplate('Monopoly', 'multiple_choice', 3, 'easy')">Monopoly Fácil</button>
-                                <button class="template-btn" onclick="useTemplate('certificados', 'true_false', 4, 'medium')">Certificados</button>
-                            </div>
-                        </div>
+
                     </div>
                 </div>
 
@@ -148,17 +144,15 @@
                             </select>
                         </div>
                         <div class="video-ai-actions">
-                            <button id="generateVideoAIBtn" class="generate-video-ai-btn" onclick="generateVideoAI()">Gerar Vídeo com IA</button>
-                            <button id="quickVideoAIBtn" class="quick-video-ai-btn" onclick="quickVideoAI()">Vídeo IA Rápido</button>
+                            <button id="generateVideoAIBtn" class="generate-video-ai-btn" onclick="generateVideoAI()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M23 7l-7 4 7 4V7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M14 5H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                Gerar Vídeo com IA
+                            </button>
                         </div>
-                        <div class="video-ai-templates">
-                            <div class="video-templates-header">Templates IA:</div>
-                            <div class="video-templates-grid">
-                                <button class="template-btn" onclick="useVideoAITemplate('Tutorial sobre Scala com código na tela', 8, '16:9')">Scala Tutorial</button>
-                                <button class="template-btn" onclick="useVideoAITemplate('Explicação das regras do Monopoly com tabuleiro', 8, '16:9')">Monopoly Regras</button>
-                                <button class="template-btn" onclick="useVideoAITemplate('Guia sobre certificados digitais', 6, '16:9')">Certificados</button>
-                            </div>
-                        </div>
+
                     </div>
                 </div>
             </div>
@@ -171,6 +165,13 @@
                 <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" id="mobileMenuToggle" title="Menu">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+
+                <button class="help-toggle" onclick="toggleHelpModal()" id="helpToggle" title="Ajuda">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
                     </svg>
                 </button>
                 <button class="dark-mode-toggle" onclick="toggleDarkMode()" id="darkModeToggle" title="Alternar modo escuro">
@@ -216,6 +217,27 @@
                             <small>MCP Client - Interface Web</small>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    </div>
+
+    <!-- Modal de Ajuda -->
+    <div id="helpModal" class="help-modal">
+        <div class="help-modal-content">
+            <div class="help-modal-header">
+                <h3>🔧 Ferramentas Disponíveis</h3>
+                <button class="help-modal-close" onclick="toggleHelpModal()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="help-modal-body">
+                <div class="tools-list" id="toolsList">
+                    <!-- Ferramentas serão carregadas dinamicamente aqui -->
                 </div>
             </div>
         </div>
