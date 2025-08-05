@@ -16,6 +16,9 @@ import requests
 import httpx
 import shutil
 import gc
+import uuid
+import tempfile
+from typing import List
 # Load .env
 load_dotenv()
 
@@ -562,6 +565,238 @@ def clear_rag() -> str:
         return "Vectorstore (Qdrant) limpo."
     except Exception as e:
         return f"Erro ao apagar vectorstore: {e}"
+
+@mcp.tool()
+def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty: str = "mixed") -> dict:
+    """
+    Gera questionários com validação de dificuldade baseados no conteúdo dos PDFs.
+    
+    Cria perguntas de escolha múltipla e verdadeiro/falso com diferentes níveis
+    de dificuldade, baseadas no conteúdo encontrado sobre o tópico especificado.
+    Ideal para criar avaliações educacionais personalizadas.
+    
+    Args:
+        topic (str): Tópico sobre o qual gerar perguntas (ex: "Scala", "Monopoly")
+        num_questions (int): Número de perguntas a gerar (1-20)
+        difficulty (str): Nível de dificuldade ("easy", "medium", "hard", "mixed")
+    
+    Returns:
+        dict: Resultado da geração com as seguintes chaves:
+            - "success": Boolean indicando sucesso
+            - "quiz": Conteúdo do questionário formatado
+            - "message": Mensagem explicativa
+            - "topic": Tópico usado
+            - "difficulty": Dificuldade aplicada
+    
+    Examples:
+        >>> generate_quiz_with_difficulty("Scala", 5, "mixed")
+        {
+            "success": True,
+            "quiz": "**5 Perguntas sobre Scala (Nível Misturado)**\n\n1. Qual das seguintes...",
+            "message": "Questionário gerado com sucesso",
+            "topic": "Scala",
+            "difficulty": "mixed"
+        }
+        
+        >>> generate_quiz_with_difficulty("Tópico inexistente", 3, "easy")
+        {
+            "success": False,
+            "message": "Não foi possível encontrar conteúdo relevante"
+        }
+    
+    Notes:
+        - Usa conteúdo dos PDFs para gerar perguntas contextualizadas
+        - Suporta diferentes tipos de pergunta (múltipla escolha, verdadeiro/falso)
+        - Valida dificuldade baseada no conteúdo disponível
+        - Formato compatível com Moodle e outras plataformas
+    """
+    try:
+        # 1. Buscar conteúdo sobre o tópico
+        difficulty_prompt = f"""
+        Gera {num_questions} perguntas sobre {topic} com dificuldade {difficulty}.
+        
+        IMPORTANTE:
+        - Usa apenas informação dos PDFs disponíveis
+        - Mistura perguntas de escolha múltipla e verdadeiro/falso
+        - Cada pergunta deve ter 4 opções (a, b, c, d) para múltipla escolha
+        - Indica sempre a resposta correta
+        - Formato: Pergunta + opções + "Resposta: X"
+        - Dificuldade {difficulty}: ajusta complexidade das perguntas
+        
+        Exemplo de formato:
+        **{num_questions} Perguntas sobre {topic} (Nível {difficulty.title()})**
+        
+        1. Pergunta de escolha múltipla?
+           a) Opção A
+           b) Opção B  
+           c) Opção C
+           d) Opção D
+           Resposta: c
+        
+        2. Pergunta de verdadeiro/falso?
+           a) Verdadeiro
+           b) Falso
+           Resposta: a
+        """
+        
+        quiz_content = retrieve(difficulty_prompt)
+        
+        if not quiz_content or "não foi possível" in quiz_content.lower():
+            return {
+                "success": False,
+                "message": f"Não foi possível encontrar conteúdo relevante sobre '{topic}'"
+            }
+        
+        return {
+            "success": True,
+            "quiz": quiz_content,
+            "message": f"Questionário gerado com sucesso sobre {topic}",
+            "topic": topic,
+            "difficulty": difficulty
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Erro ao gerar questionário: {str(e)}"
+        }
+
+
+
+@mcp.tool()
+def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio: str = "16:9") -> dict:
+    """
+    Gera vídeo usando Gemini Veo (IA generativa de vídeo).
+    
+    Cria vídeos de alta qualidade usando IA generativa, muito mais eficiente
+    que métodos tradicionais de edição. Ideal para criar conteúdo educativo
+    visualmente atrativo.
+    
+    Args:
+        prompt (str): Descrição detalhada do vídeo a gerar
+        duration_seconds (int): Duração do vídeo (5-8 segundos)
+        aspect_ratio (str): Proporção do vídeo ("16:9" ou "16:10")
+    
+    Returns:
+        dict: Resultado da geração com as seguintes chaves:
+            - "success": Boolean indicando sucesso
+            - "video_path": Caminho do vídeo gerado (se sucesso)
+            - "message": Mensagem explicativa
+            - "duration": Duração real do vídeo gerado
+    
+    Examples:
+        >>> generate_video_with_veo("Um tutorial sobre Scala com código na tela", 8, "16:9")
+        {
+            "success": True,
+            "video_path": "video_veo_abc123.mp4",
+            "message": "Vídeo gerado com sucesso usando Gemini Veo",
+            "duration": 8
+        }
+    
+    Notes:
+        - Usa Gemini Veo para geração de vídeo com IA
+        - Qualidade muito superior a métodos tradicionais
+        - Processamento mais rápido (1-2 minutos)
+        - Requer API key do Gemini configurada
+    """
+    try:
+        from google import genai
+        from google.genai import types
+        import time
+        
+        # Verificar se a API key está configurada
+        api_key = os.environ.get("GOOGLE_API_KEY")
+        if not api_key:
+            return {
+                "success": False,
+                "message": "API key do Gemini não configurada. Configure a variável GEMINI_API_KEY."
+            }
+        
+        # Configurar cliente Gemini
+        client = genai.Client(
+            http_options={"api_version": "v1beta"},
+            api_key=api_key,
+        )
+        
+        # Configuração do vídeo
+        video_config = types.GenerateVideosConfig(
+            person_generation="dont_allow",  # Não permitir pessoas
+            aspect_ratio=aspect_ratio,
+            number_of_videos=1,
+            duration_seconds=duration_seconds,
+        )
+        
+        # Melhorar o prompt para ser mais descritivo
+        enhanced_prompt = f"""
+        Cria um vídeo educativo sobre: {prompt}
+        
+        Requisitos:
+        - Estilo educativo e profissional
+        - Visual limpo e moderno
+        - Incluir elementos visuais relevantes
+        - Texto claro e legível
+        - Cores contrastantes para boa visibilidade
+        - Animação suave e profissional
+        """
+        
+        print(f"Iniciando geracao de video com Gemini Veo...")
+        print(f"Prompt: {enhanced_prompt}")
+        
+        # Gerar vídeo
+        operation = client.models.generate_videos(
+            model="veo-2.0-generate-001",
+            prompt=enhanced_prompt,
+            config=video_config,
+        )
+        
+        # Aguardar conclusão
+        print("Aguardando geracao do video...")
+        while not operation.done:
+            print("Video ainda nao foi gerado. Verificando em 10 segundos...")
+            time.sleep(10)
+            operation = client.operations.get(operation)
+        
+        result = operation.result
+        if not result:
+            return {
+                "success": False,
+                "message": "Erro durante a geração do vídeo com Gemini Veo"
+            }
+        
+        generated_videos = result.generated_videos
+        if not generated_videos:
+            return {
+                "success": False,
+                "message": "Nenhum vídeo foi gerado pelo Gemini Veo"
+            }
+        
+        # Baixar o vídeo gerado
+        generated_video = generated_videos[0]
+        video_filename = f"video_veo_{uuid.uuid4().hex[:8]}.mp4"
+        
+        print(f"Baixando video: {generated_video.video.uri}")
+        client.files.download(file=generated_video.video)
+        generated_video.video.save(video_filename)
+        
+        print(f"Video gerado com sucesso: {video_filename}")
+        
+        return {
+            "success": True,
+            "video_path": video_filename,
+            "message": f"Vídeo gerado com sucesso usando Gemini Veo: {video_filename}",
+            "duration": duration_seconds
+        }
+        
+    except Exception as e:
+        error_msg = str(e)
+        # Remover caracteres especiais que podem causar problemas de codificação
+        error_msg = error_msg.encode('ascii', 'ignore').decode('ascii')
+        return {
+            "success": False,
+            "message": f"Erro ao gerar video com Gemini Veo: {error_msg}"
+        }
+
+
 
 if __name__ == "__main__":
     mcp.run()

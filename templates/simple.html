@@ -90,6 +90,77 @@
                     <h3 id="toolsSectionTitle">🔧 Ferramentas</h3>
                     <div class="tools-list" id="toolsList"></div>
                 </div>
+
+                <!-- Seção de Questionários -->
+                <div class="quiz-section" id="quizSection" style="display: none;">
+                    <h3>📝 Questionários</h3>
+                    <div class="quiz-form">
+                        <input type="text" id="quizTopic" placeholder="Tópico (ex: Scala, Monopoly)" class="quiz-input">
+                        <div class="quiz-options">
+                            <select id="quizType" class="quiz-select">
+                                <option value="multiple_choice">Escolha Múltipla</option>
+                                <option value="true_false">Verdadeiro/Falso</option>
+                            </select>
+                            <select id="quizFormat" class="quiz-select">
+                                <option value="markdown">Markdown</option>
+                                <option value="text">Texto Simples</option>
+                            </select>
+                            <input type="number" id="quizNumQuestions" placeholder="Nº Perguntas" min="1" max="20" value="5" class="quiz-number-input">
+                            <select id="quizDifficulty" class="quiz-select">
+                                <option value="mixed">Misturado</option>
+                                <option value="easy">Fácil</option>
+                                <option value="medium">Médio</option>
+                                <option value="hard">Difícil</option>
+                            </select>
+                        </div>
+                        <div class="quiz-actions">
+                            <button id="generateQuizBtn" class="generate-quiz-btn" onclick="generateQuiz()">Gerar Questionário</button>
+                            <button id="quickQuizBtn" class="quick-quiz-btn" onclick="quickQuiz()">Questionário Rápido</button>
+                        </div>
+                        <div class="quiz-templates">
+                            <div class="quiz-templates-header">Templates Rápidos:</div>
+                            <div class="quiz-templates-grid">
+                                <button class="template-btn" onclick="useTemplate('Scala', 'multiple_choice', 5, 'mixed')">Scala Básico</button>
+                                <button class="template-btn" onclick="useTemplate('Monopoly', 'multiple_choice', 3, 'easy')">Monopoly Fácil</button>
+                                <button class="template-btn" onclick="useTemplate('certificados', 'true_false', 4, 'medium')">Certificados</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+                <!-- Seção de Vídeos com IA -->
+                <div class="video-ai-section" id="videoAISection" style="display: none;">
+                    <h3>🤖 Vídeos com IA (Gemini Veo)</h3>
+                    <div class="video-ai-form">
+                        <input type="text" id="videoAIPrompt" placeholder="Descrição detalhada do vídeo (ex: Tutorial sobre Scala com código na tela)" class="video-input">
+                        <div class="video-ai-options">
+                            <select id="videoAIDuration" class="video-select">
+                                <option value="5">5 segundos</option>
+                                <option value="6">6 segundos</option>
+                                <option value="7">7 segundos</option>
+                                <option value="8" selected>8 segundos</option>
+                            </select>
+                            <select id="videoAIAspectRatio" class="video-select">
+                                <option value="16:9" selected>16:9 (Widescreen)</option>
+                                <option value="16:10">16:10 (Desktop)</option>
+                            </select>
+                        </div>
+                        <div class="video-ai-actions">
+                            <button id="generateVideoAIBtn" class="generate-video-ai-btn" onclick="generateVideoAI()">Gerar Vídeo com IA</button>
+                            <button id="quickVideoAIBtn" class="quick-video-ai-btn" onclick="quickVideoAI()">Vídeo IA Rápido</button>
+                        </div>
+                        <div class="video-ai-templates">
+                            <div class="video-templates-header">Templates IA:</div>
+                            <div class="video-templates-grid">
+                                <button class="template-btn" onclick="useVideoAITemplate('Tutorial sobre Scala com código na tela', 8, '16:9')">Scala Tutorial</button>
+                                <button class="template-btn" onclick="useVideoAITemplate('Explicação das regras do Monopoly com tabuleiro', 8, '16:9')">Monopoly Regras</button>
+                                <button class="template-btn" onclick="useVideoAITemplate('Guia sobre certificados digitais', 6, '16:9')">Certificados</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             
         </div>

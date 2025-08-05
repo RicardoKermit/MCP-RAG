@@ -59,6 +59,10 @@ function showToolsInfo(tools) {
     if (tools && tools.length > 0) {
         toolsList.innerHTML = tools.map(tool => `<div class="tool-item">${tool}</div>`).join('');
         toolsInfo.style.display = 'block';
+        
+        // Mostrar seções de questionários e vídeos com IA
+        showQuizSection();
+        showVideoAISection();
     } else {
         toolsInfo.style.display = 'none';
     }
@@ -805,4 +809,258 @@ function saveCurrentConversation() {
 function toggleMobileMenu() {
     const sidebar = document.getElementById('sidebar');
     sidebar.classList.toggle('open');
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Funções para Vídeos com IA
+function showVideoAISection() {
+    const videoAISection = document.getElementById('videoAISection');
+    if (videoAISection) {
+        videoAISection.style.display = 'block';
+        videoAISection.style.animation = 'slideIn 0.3s ease-out';
+    }
+}
+
+function generateVideoAI() {
+    const prompt = document.getElementById('videoAIPrompt').value.trim();
+    const duration = parseInt(document.getElementById('videoAIDuration').value);
+    const aspectRatio = document.getElementById('videoAIAspectRatio').value;
+    
+    if (!prompt) {
+        alert('Por favor, insira uma descrição detalhada do vídeo.');
+        return;
+    }
+    
+    // Mostrar loading
+    setVideoButtonLoading('generateVideoAIBtn', true);
+    
+    // Construir prompt para geração de vídeo com IA
+    const aiPrompt = `Gera vídeo com IA sobre: ${prompt}. Usa a ferramenta generate_video_with_veo com duração ${duration} segundos e proporção ${aspectRatio}.`;
+    
+    fetch('/query', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            query: aiPrompt,
+            language: 'pt'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        setVideoButtonLoading('generateVideoAIBtn', false);
+        
+        if (data.response) {
+            addMessage(`🤖 **Vídeo com IA gerado!**\n\n**Descrição:** ${prompt}\n**Duração:** ${duration} segundos\n**Proporção:** ${aspectRatio}\n\n${data.response}`, false, true);
+        } else {
+            addMessage(`❌ **Erro ao gerar vídeo com IA:** ${data.error || 'Erro desconhecido'}`, false, false);
+        }
+    })
+    .catch(error => {
+        setVideoButtonLoading('generateVideoAIBtn', false);
+        console.error('Erro na requisição:', error);
+        addMessage(`❌ **Erro de conexão:** ${error.message}`, false, false);
+    })
+    .catch(error => {
+        setVideoButtonLoading('generateVideoAIBtn', false);
+        addMessage(`❌ **Erro de conexão:** ${error.message}`, false, false);
+    });
+}
+
+function quickVideoAI() {
+    const prompt = document.getElementById('videoAIPrompt').value.trim();
+    
+    if (!prompt) {
+        alert('Por favor, insira uma descrição do vídeo.');
+        return;
+    }
+    
+    // Usar configurações padrão para vídeo IA rápido
+    document.getElementById('videoAIDuration').value = '8';
+    document.getElementById('videoAIAspectRatio').value = '16:9';
+    
+    generateVideoAI();
+}
+
+function useVideoAITemplate(prompt, duration, aspectRatio) {
+    // Preencher formulário com template
+    document.getElementById('videoAIPrompt').value = prompt;
+    document.getElementById('videoAIDuration').value = duration;
+    document.getElementById('videoAIAspectRatio').value = aspectRatio;
+    
+    // Feedback visual
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.textContent = '✓ Aplicado';
+    btn.style.background = 'var(--success-color)';
+    btn.style.color = 'white';
+    
+    setTimeout(() => {
+        btn.textContent = originalText;
+        btn.style.background = '';
+        btn.style.color = '';
+    }, 2000);
+}
+
+// Funções para Questionários
+function showQuizSection() {
+    const quizSection = document.getElementById('quizSection');
+    if (quizSection) {
+        quizSection.style.display = 'block';
+        quizSection.style.animation = 'slideIn 0.3s ease-out';
+    }
+}
+
+function generateQuiz() {
+    const topic = document.getElementById('quizTopic').value.trim();
+    const questionType = document.getElementById('quizType').value;
+    const numQuestions = parseInt(document.getElementById('quizNumQuestions').value);
+    const difficulty = document.getElementById('quizDifficulty').value;
+    
+    if (!topic) {
+        alert('Por favor, insira um tópico para o questionário.');
+        return;
+    }
+    
+    // Mostrar loading
+    setQuizButtonLoading('generateQuizBtn', true);
+    updateQuizStatus('Gerando questionário...', 'generating');
+    
+    fetch('/generate-quiz', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            topic: topic,
+            questionType: questionType,
+            numQuestions: numQuestions,
+            difficulty: difficulty
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        setQuizButtonLoading('generateQuizBtn', false);
+        
+        if (data.success) {
+            updateQuizStatus('Questionário gerado!', 'success');
+            addMessage(`📝 **Questionário gerado com sucesso!**\n\n**Tópico:** ${topic}\n**Tipo:** ${questionType}\n**Número de perguntas:** ${numQuestions}\n**Dificuldade:** ${difficulty}\n\n${data.result}`, false, true);
+        } else {
+            updateQuizStatus('Erro ao gerar questionário', 'error');
+            addMessage(`❌ **Erro ao gerar questionário:** ${data.error}`, false, false);
+        }
+    })
+    .catch(error => {
+        setQuizButtonLoading('generateQuizBtn', false);
+        updateQuizStatus('Erro de conexão', 'error');
+        addMessage(`❌ **Erro de conexão:** ${error.message}`, false, false);
+    });
+}
+
+function quickQuiz() {
+    const topic = document.getElementById('quizTopic').value.trim();
+    
+    if (!topic) {
+        alert('Por favor, insira um tópico para o questionário.');
+        return;
+    }
+    
+    // Usar configurações padrão para questionário rápido
+    document.getElementById('quizType').value = 'multiple_choice';
+    document.getElementById('quizNumQuestions').value = '5';
+    document.getElementById('quizDifficulty').value = 'mixed';
+    
+    generateQuiz();
+}
+
+function useTemplate(topic, questionType, numQuestions, difficulty) {
+    // Preencher formulário com template
+    document.getElementById('quizTopic').value = topic;
+    document.getElementById('quizType').value = questionType;
+    document.getElementById('quizNumQuestions').value = numQuestions;
+    document.getElementById('quizDifficulty').value = difficulty;
+    
+    // Feedback visual
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.textContent = '✓ Aplicado';
+    btn.style.background = 'var(--success-color)';
+    btn.style.color = 'white';
+    
+    setTimeout(() => {
+        btn.textContent = originalText;
+        btn.style.background = '';
+        btn.style.color = '';
+    }, 2000);
+}
+
+function updateQuizStatus(status, type = 'ready') {
+    const statusText = document.querySelector('#quizSection .status-text');
+    const statusDot = document.querySelector('#quizSection .status-dot');
+    
+    if (statusText && statusDot) {
+        statusText.textContent = status;
+        
+        // Remover classes anteriores
+        statusDot.className = 'status-dot';
+        
+        // Adicionar classe baseada no tipo
+        switch (type) {
+            case 'ready':
+                statusDot.classList.add('ready');
+                break;
+            case 'generating':
+                statusDot.classList.add('generating');
+                break;
+            case 'success':
+                statusDot.classList.add('success');
+                break;
+            case 'error':
+                statusDot.classList.add('error');
+                break;
+        }
+    }
+}
+
+function setQuizButtonLoading(buttonId, loading = true) {
+    const button = document.getElementById(buttonId);
+    if (button) {
+        if (loading) {
+            button.disabled = true;
+            button.classList.add('loading');
+            
+            // Adicionar animação de loading
+            const originalText = button.textContent;
+            button.innerHTML = `
+                <svg class="btn-icon loading-spin" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                Gerando...
+            `;
+            
+            // Guardar texto original para restaurar depois
+            button.dataset.originalText = originalText;
+        } else {
+            button.disabled = false;
+            button.classList.remove('loading');
+            
+            // Restaurar texto original
+            if (button.dataset.originalText) {
+                button.textContent = button.dataset.originalText;
+            }
+        }
+    }
 } 

@@ -162,6 +162,7 @@ app.config['SECRET_KEY'] = 'your-secret-key-here'
 # Event loop global
 loop = None
 loop_thread = None
+event_loop = None
 
 def create_event_loop():
     """Cria e mantém um event loop em uma thread separada"""
@@ -173,8 +174,14 @@ def create_event_loop():
 def start_event_loop():
     """Inicia o event loop em uma thread separada"""
     global loop_thread
-    loop_thread = threading.Thread(target=create_event_loop, daemon=True)
-    loop_thread.start()
+    try:
+        loop_thread = threading.Thread(target=create_event_loop, daemon=True)
+        loop_thread.start()
+        # Aguardar um pouco para garantir que o loop iniciou
+        import time
+        time.sleep(0.2)
+    except Exception as e:
+        print(f"❌ Erro ao iniciar event loop: {e}")
 
 class MCPGeminiClient:
     def __init__(self):
@@ -291,6 +298,14 @@ class MCPGeminiClient:
         except Exception as e:
             print(f"❌ Erro ao conectar: {str(e)}")
             self.is_connected = False
+            # Limpar recursos em caso de erro
+            try:
+                if hasattr(self, 'session_cm') and self.session_cm:
+                    await self.session_cm.__aexit__(None, None, None)
+                if hasattr(self, 'stdio_cm') and self.stdio_cm:
+                    await self.stdio_cm.__aexit__(None, None, None)
+            except:
+                pass
             return False, str(e)
 
     async def process_query(self, query):
@@ -332,6 +347,9 @@ class MCPGeminiClient:
                 "IMPORTANTE: Tens SEMPRE de usar uma ferramenta. NUNCA respondas diretamente.\n"
                 "Para qualquer pergunta sobre conteúdo dos PDFs, usa a ferramenta 'retrieve'.\n"
                 "Para a ferramenta 'retrieve', usa sempre 'prompt' como chave do argumento.\n"
+                "Para gerar questionários com validação de dificuldade, usa 'generate_quiz_with_difficulty'.\n"
+    
+                "Para gerar vídeos com IA (Gemini Veo), usa 'generate_video_with_veo'.\n"
                 "Responde SEMPRE no formato:\n"
                 "TOOL: <nome_da_ferramenta>\nARGS: <json_com_argumentos>\n"
             )
@@ -361,6 +379,13 @@ class MCPGeminiClient:
                 
                 if hasattr(result.content, 'text'):
                     raw_response = result.content.text
+                elif hasattr(result.content, '__iter__'):
+                    # Tentar processar como lista de conteúdos
+                    content_list = list(result.content)
+                    if content_list:
+                        raw_response = content_list[0].text if hasattr(content_list[0], 'text') else str(content_list[0])
+                    else:
+                        raw_response = str(result.content)
                 else:
                     content_str = str(result.content)
                     if '[TextContent(type=\'text\', text=\'' in content_str:
@@ -437,14 +462,20 @@ mcp_client = MCPGeminiClient()
 
 def run_async(coro):
     """Executa uma corotina no event loop global"""
-    global loop
-    if loop is None:
-        start_event_loop()
-        import time
-        time.sleep(0.1)  # Pequena pausa para garantir que o loop iniciou
-    
-    future = asyncio.run_coroutine_threadsafe(coro, loop)
-    return future.result()
+    try:
+        global loop, event_loop
+        if loop is None:
+            start_event_loop()
+            import time
+            time.sleep(0.1)  # Pequena pausa para garantir que o loop iniciou
+        
+        # Usar loop como event_loop
+        event_loop = loop
+        future = asyncio.run_coroutine_threadsafe(coro, loop)
+        return future.result()
+    except Exception as e:
+        print(f"❌ Erro ao executar corotina: {e}")
+        return f"Erro: {str(e)}"
 
 @app.route('/')
 def index():
@@ -456,22 +487,34 @@ def connect():
         data = request.get_json()
         server_path = data.get('server_path', 'MCP_Server.py')
         
+        print(f"🔄 Tentando conectar ao servidor: {server_path}")
+        
+        # Verificar se o arquivo existe
+        if not os.path.exists(server_path):
+            return jsonify({
+                'success': False,
+                'error': f'Arquivo não encontrado: {server_path}'
+            })
+        
         success, result = run_async(mcp_client.connect_to_server(server_path))
         
         if success:
+            print(f"✅ Conectado com sucesso! Ferramentas: {result}")
             return jsonify({
                 'success': True,
                 'tools': result
             })
         else:
+            print(f"❌ Falha na conexão: {result}")
             return jsonify({
                 'success': False,
                 'error': result
             })
     except Exception as e:
+        print(f"❌ Erro na rota de conexão: {str(e)}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': f'Erro interno: {str(e)}'
         })
 
 @app.route('/query', methods=['POST'])
@@ -570,6 +613,31 @@ def get_languages():
 @app.route('/test')
 def test():
     return jsonify({'message': 'API funcionando!'})
+
+@app.route('/generate-quiz', methods=['POST'])
+def generate_quiz():
+    try:
+        data = request.get_json()
+        topic = data.get('topic', '')
+        question_type = data.get('questionType', 'multiple_choice')
+        num_questions = data.get('numQuestions', 5)
+        difficulty = data.get('difficulty', 'mixed')
+        
+        if not topic:
+            return jsonify({'error': 'Tópico é obrigatório'})
+        
+        # Construir prompt para geração de questionário
+        prompt = f"Gera {num_questions} perguntas de {question_type} sobre {topic} com nível de dificuldade {difficulty}"
+        
+        # Executar no servidor MCP
+        result = run_async(mcp_client.process_query(prompt))
+        
+        return jsonify({'success': True, 'result': result})
+        
+    except Exception as e:
+        return jsonify({'error': f'Erro ao gerar questionário: {str(e)}'})
+
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000) 
