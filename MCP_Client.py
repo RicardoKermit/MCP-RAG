@@ -6,7 +6,7 @@ import time
 import httpx
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response
 from dotenv import load_dotenv
 import google.generativeai as genai
 from mcp import ClientSession, StdioServerParameters
@@ -563,7 +563,13 @@ def index():
     # Check if user is authenticated
     if not session.get('authenticated'):
         return redirect(url_for('login'))
-    return render_template('simple.html')
+    
+    # Add headers to prevent caching
+    response = make_response(render_template('simple.html'))
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -571,7 +577,13 @@ def login():
         # If already authenticated, redirect to main page
         if session.get('authenticated'):
             return redirect(url_for('index'))
-        return render_template('login.html')
+        
+        # Add headers to prevent caching
+        response = make_response(render_template('login.html'))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
     elif request.method == 'POST':
         try:
@@ -621,6 +633,10 @@ def logout():
 
 @app.route('/connect', methods=['POST'])
 def connect():
+    # Check if user is authenticated
+    if not session.get('authenticated'):
+        return jsonify({'error': 'Not authenticated'}), 401
+    
     start_time = time.time()
     try:
         data = request.get_json()
@@ -675,6 +691,10 @@ def connect():
 
 @app.route('/query', methods=['POST'])
 def query():
+    # Check if user is authenticated
+    if not session.get('authenticated'):
+        return jsonify({'error': 'Not authenticated'}), 401
+    
     start_time = time.time()
     try:
         data = request.get_json()
@@ -717,6 +737,10 @@ def query():
 @app.route('/clear-history', methods=['POST'])
 def clear_history():
     """Limpa o histórico da conversa"""
+    # Check if user is authenticated
+    if not session.get('authenticated'):
+        return jsonify({'error': 'Not authenticated'}), 401
+    
     try:
         mcp_client.clear_conversation_history()
         return jsonify({'success': True, 'message': 'Histórico limpo com sucesso'})
@@ -725,6 +749,10 @@ def clear_history():
 
 @app.route('/status')
 def status():
+    # Check if user is authenticated
+    if not session.get('authenticated'):
+        return jsonify({'error': 'Not authenticated'}), 401
+    
     return jsonify({
         'connected': mcp_client.is_connected,
         'tools': [tool.name for tool in mcp_client.tools] if mcp_client.is_connected else [],
@@ -735,6 +763,10 @@ def status():
 @app.route('/models', methods=['GET'])
 def get_models():
     """Retorna a lista de modelos disponíveis"""
+    # Check if user is authenticated
+    if not session.get('authenticated'):
+        return jsonify({'error': 'Not authenticated'}), 401
+    
     return jsonify({
         'models': mcp_client.get_available_models(),
         'current_model': mcp_client.current_model
@@ -743,6 +775,10 @@ def get_models():
 @app.route('/set-model', methods=['POST'])
 def set_model():
     """Define o modelo Gemini a ser usado"""
+    # Check if user is authenticated
+    if not session.get('authenticated'):
+        return jsonify({'error': 'Not authenticated'}), 401
+    
     try:
         data = request.get_json()
         model_name = data.get('model')
@@ -794,6 +830,10 @@ def test():
 
 @app.route('/generate-quiz', methods=['POST'])
 def generate_quiz():
+    # Check if user is authenticated
+    if not session.get('authenticated'):
+        return jsonify({'error': 'Not authenticated'}), 401
+    
     start_time = time.time()
     try:
         data = request.get_json()

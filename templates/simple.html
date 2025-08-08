@@ -248,6 +248,33 @@
         </div>
     </div>
 
+    <!-- Modal de Logout -->
+    <div id="logoutModal" class="logout-modal">
+        <div class="logout-modal-content">
+            <div class="logout-modal-header">
+                <h3>🚪 Terminar Sessão</h3>
+                <button class="logout-modal-close" onclick="closeLogoutModal()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="logout-modal-body">
+                <div class="logout-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <p class="logout-message">Tem a certeza que pretende terminar a sessão?</p>
+                <p class="logout-subtitle">Será redirecionado para a página de login.</p>
+            </div>
+            <div class="logout-modal-footer">
+                <button class="logout-cancel-btn" onclick="closeLogoutModal()">Cancelar</button>
+                <button class="logout-confirm-btn" onclick="confirmLogout()">Terminar Sessão</button>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html> 

@@ -21,9 +21,24 @@ function autoResizeTextarea(textarea) {
 
 // Logout function
 function logout() {
-    if (confirm('Tem a certeza que pretende terminar a sessão?')) {
-        window.location.href = '/logout';
-    }
+    showLogoutModal();
+}
+
+// Show logout modal
+function showLogoutModal() {
+    const modal = document.getElementById('logoutModal');
+    modal.classList.add('show');
+}
+
+// Close logout modal
+function closeLogoutModal() {
+    const modal = document.getElementById('logoutModal');
+    modal.classList.remove('show');
+}
+
+// Confirm logout
+function confirmLogout() {
+    window.location.href = '/logout';
 }
 
 // Initialize textarea auto-resize
@@ -54,6 +69,16 @@ document.addEventListener('DOMContentLoaded', function() {
         helpModal.addEventListener('click', function(e) {
             if (e.target === helpModal) {
                 toggleHelpModal();
+            }
+        });
+    }
+    
+    // Modal de logout - fechar ao clicar fora
+    const logoutModal = document.getElementById('logoutModal');
+    if (logoutModal) {
+        logoutModal.addEventListener('click', function(e) {
+            if (e.target === logoutModal) {
+                closeLogoutModal();
             }
         });
     }
@@ -665,25 +690,59 @@ async function loadCurrentModel() {
     }
 }
 
+// Function to check if user is authenticated
+async function checkAuthentication() {
+    try {
+        const response = await fetch('/status');
+        
+        // If we get a 401 or 403, redirect to login
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = '/login';
+            return false;
+        }
+        
+        // If we can't access the status endpoint, redirect to login
+        if (!response.ok) {
+            window.location.href = '/login';
+            return false;
+        }
+        
+        // If we get here, user is authenticated
+        console.log('✅ Utilizador autenticado');
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Erro ao verificar autenticação:', error);
+        // If there's any error, redirect to login for safety
+        window.location.href = '/login';
+        return false;
+    }
+}
+
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
-    // Verificar status quando a página carrega
-    checkStatus();
-    
-    // Load theme preference
-    loadThemePreference();
-    
-    // Load current model
-    loadCurrentModel();
-    
-    // Load conversations
-    loadConversations();
-    
-    // Focus on input when page loads
-    const messageInput = document.getElementById('messageInput');
-    if (messageInput) {
-        messageInput.focus();
-    }
+    // Check authentication first
+    checkAuthentication().then(isAuthenticated => {
+        if (isAuthenticated) {
+            // Verificar status quando a página carrega
+            checkStatus();
+            
+            // Load theme preference
+            loadThemePreference();
+            
+            // Load current model
+            loadCurrentModel();
+            
+            // Load conversations
+            loadConversations();
+            
+            // Focus on input when page loads
+            const messageInput = document.getElementById('messageInput');
+            if (messageInput) {
+                messageInput.focus();
+            }
+        }
+    });
 });
 
 // Conversation management
