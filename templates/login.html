@@ -3,15 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - RAG Application</title>
+    <title>Login - RAG System</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/icon.png') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        /* Login page specific styles */
         body {
             font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -131,10 +128,13 @@
 </head>
 <body>
     <div class="login-container">
-        <div class="login-header">
-            <h1>Bem-vindo</h1>
-            <p>Faça login com as suas credenciais do Moodle</p>
-        </div>
+                        <div class="login-header">
+                    <div class="login-logo">
+                        <img src="{{ url_for('static', filename='images/icon.png') }}" alt="RAG System" class="login-app-logo">
+                    </div>
+                    <h1>Bem-vindo</h1>
+                    <p>Faça login com as suas credenciais do Moodle</p>
+                </div>
 
         <div class="error-message" id="errorMessage"></div>
 

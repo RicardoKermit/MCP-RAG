@@ -82,6 +82,34 @@ body {
     padding: var(--spacing-lg);
     border-bottom: 1px solid var(--border-color);
     display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+/* App Brand/Logo */
+.app-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.app-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    object-fit: cover;
+}
+
+.app-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.sidebar-header-buttons {
+    display: flex;
     gap: var(--spacing-sm);
 }
 
@@ -100,11 +128,19 @@ body {
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
+    min-width: 40px;
+    min-height: 40px;
 }
 
 .clear-history-btn:hover {
     background-color: var(--bg-tertiary);
     color: var(--text-primary);
+}
+
+.clear-history-btn svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
 }
 
 .logout-btn {
@@ -118,12 +154,20 @@ body {
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
+    min-width: 40px;
+    min-height: 40px;
 }
 
 .logout-btn:hover {
     background-color: var(--error-color);
     color: white;
     border-color: var(--error-color);
+}
+
+.logout-btn svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
 }
 
 .new-chat-btn {
@@ -145,6 +189,12 @@ body {
 .new-chat-btn:hover {
     background-color: var(--accent-hover);
     transform: translateY(-1px);
+}
+
+.new-chat-btn svg {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
 }
 
 .sidebar-content {
@@ -453,34 +503,7 @@ body {
     color: rgba(255, 255, 255, 0.8);
 }
 
-.conversation-delete {
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 2px;
-    border-radius: var(--radius-sm);
-}
-
-.conversation-item:hover .conversation-delete {
-    opacity: 1;
-}
-
-.conversation-delete:hover {
-    color: var(--error-color);
-    background-color: rgba(239, 68, 68, 0.1);
-}
-
-.conversation-item.active .conversation-delete {
-    color: rgba(255, 255, 255, 0.8);
-}
-
-.conversation-item.active .conversation-delete:hover {
-    color: white;
-    background-color: rgba(255, 255, 255, 0.2);
-}
+/* Conversation delete button styles moved to the comprehensive section below */
 
 .sidebar-footer {
     padding: var(--spacing-lg);
@@ -543,6 +566,14 @@ body {
 .mobile-menu-toggle:hover {
     background-color: var(--bg-tertiary);
     color: var(--text-primary);
+}
+
+.mobile-menu-toggle svg,
+.help-toggle svg,
+.dark-mode-toggle svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
 }
 
 .chat-container {
@@ -611,6 +642,12 @@ body {
 
 .message.user .message-avatar {
     background-color: var(--text-secondary);
+}
+
+.message-avatar svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
 }
 
 .message-content {
@@ -793,6 +830,12 @@ body {
 
 .send-btn.stop-generating:hover {
     background-color: #dc2626;
+}
+
+.send-btn svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
 }
 
 .input-footer {
@@ -978,6 +1021,12 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.conversation-delete svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
 }
 
 .conversation-item:hover .conversation-delete,
@@ -1199,6 +1248,27 @@ body {
     .quiz-actions,
     .video-ai-actions {
         /* Botão único agora ocupa toda a largura */
+    }
+    
+    /* Mobile logo adjustments */
+    .app-brand {
+        flex-direction: column;
+        text-align: center;
+        gap: var(--spacing-sm);
+    }
+    
+    .app-logo {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .app-title {
+        font-size: 1rem;
+    }
+    
+    .login-app-logo {
+        width: 60px;
+        height: 60px;
     }
 }
 
@@ -1433,6 +1503,12 @@ body {
     color: var(--warning-color);
 }
 
+.logout-icon svg {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+}
+
 .logout-message {
     font-size: 1.1em;
     font-weight: 500;
@@ -1511,4 +1587,30 @@ body {
 [data-theme="light"] .logout-cancel-btn:hover {
     background-color: var(--bg-secondary);
     color: var(--text-primary);
+}
+
+/* ===== LOGIN PAGE LOGO STYLES ===== */
+
+.login-logo {
+    display: flex;
+    justify-content: center;
+    margin-bottom: var(--spacing-lg);
+}
+
+.login-app-logo {
+    width: 80px;
+    height: 80px;
+    border-radius: var(--radius-lg);
+    object-fit: cover;
+    box-shadow: 0 4px 6px -1px var(--shadow-medium);
+    transition: transform 0.2s ease;
+}
+
+.login-app-logo:hover {
+    transform: scale(1.05);
+}
+
+/* Light mode adjustments for login logo */
+[data-theme="light"] .login-app-logo {
+    box-shadow: 0 4px 6px -1px var(--shadow-light);
 }
