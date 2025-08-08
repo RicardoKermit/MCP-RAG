@@ -107,6 +107,25 @@ body {
     color: var(--text-primary);
 }
 
+.logout-btn {
+    padding: var(--spacing-md);
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.logout-btn:hover {
+    background-color: var(--error-color);
+    color: white;
+    border-color: var(--error-color);
+}
+
 .new-chat-btn {
     width: 100%;
     display: flex;

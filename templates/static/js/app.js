@@ -19,6 +19,13 @@ function autoResizeTextarea(textarea) {
     textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
 }
 
+// Logout function
+function logout() {
+    if (confirm('Tem a certeza que pretende terminar a sessão?')) {
+        window.location.href = '/logout';
+    }
+}
+
 // Initialize textarea auto-resize
 document.addEventListener('DOMContentLoaded', function() {
     const textarea = document.getElementById('messageInput');

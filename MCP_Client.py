@@ -3,9 +3,10 @@ import os
 import json
 import threading
 import time
+import httpx
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from dotenv import load_dotenv
 import google.generativeai as genai
 from mcp import ClientSession, StdioServerParameters
@@ -559,7 +560,64 @@ def run_async(coro):
 
 @app.route('/')
 def index():
+    # Check if user is authenticated
+    if not session.get('authenticated'):
+        return redirect(url_for('login'))
     return render_template('simple.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        # If already authenticated, redirect to main page
+        if session.get('authenticated'):
+            return redirect(url_for('index'))
+        return render_template('login.html')
+    
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            username = data.get('username')
+            password = data.get('password')
+            
+            if not username or not password:
+                return jsonify({'success': False, 'error': 'Nome de utilizador e palavra-passe são obrigatórios'})
+            
+            # Call Moodle authentication endpoint
+            auth_url = "http://localhost/login/token.php"
+            params = {
+                'username': username,
+                'password': password,
+                'service': 'moodle_mobile_app'
+            }
+            
+            # Make the request to Moodle
+            with httpx.Client() as client:
+                response = client.get(auth_url, params=params)
+                
+                if response.status_code == 200:
+                    try:
+                        auth_data = response.json()
+                        if 'token' in auth_data and auth_data['token']:
+                            # Authentication successful
+                            session['authenticated'] = True
+                            session['username'] = username
+                            session['moodle_token'] = auth_data['token']
+                            return jsonify({'success': True})
+                        else:
+                            return jsonify({'success': False, 'error': 'Credenciais inválidas'})
+                    except json.JSONDecodeError:
+                        return jsonify({'success': False, 'error': 'Resposta inválida do servidor'})
+                else:
+                    return jsonify({'success': False, 'error': 'Erro na autenticação'})
+                    
+        except Exception as e:
+            return jsonify({'success': False, 'error': f'Erro interno: {str(e)}'})
+
+@app.route('/logout')
+def logout():
+    # Clear session
+    session.clear()
+    return redirect(url_for('login'))
 
 @app.route('/connect', methods=['POST'])
 def connect():
