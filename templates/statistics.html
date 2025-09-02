@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estatísticas do Sistema RAG</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --light-bg: #f8f9fa;
+            --dark-bg: #343a40;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+        }
+
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .stats-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: none;
+        }
+
+        .stats-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+
+        .metric-value { font-size: 2.5rem; font-weight: bold; color: var(--primary-color); }
+        .metric-label { color: #6c757d; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
+        .metric-change { font-size: 0.8rem; padding: 4px 8px; border-radius: 20px; font-weight: bold; }
+        .metric-change.positive { background: rgba(39, 174, 96, 0.1); color: var(--success-color); }
+        .metric-change.negative { background: rgba(231, 76, 60, 0.1); color: var(--danger-color); }
+
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            /* 👇 controla altura e impede crescimento infinito */
+            height: 340px;
+        }
+        @media (min-width: 1200px) {
+            .chart-container { height: 380px; }
+        }
+        /* garante que o canvas respeita a altura do contentor */
+        .chart-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+            max-height: 100% !important;
+            display: block; /* remove pequenos “saltos” */
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .table { margin-bottom: 0; }
+        .table th {
+            border-top: none;
+            font-weight: 600;
+            color: var(--primary-color);
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+        }
+
+        .badge-success { background: var(--success-color); }
+        .badge-warning { background: var(--warning-color); }
+        .badge-danger  { background: var(--danger-color); }
+
+        .filters-section,
+        .export-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .btn-custom {
+            border-radius: 25px;
+            padding: 10px 25px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+        .btn-custom:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+
+        .loading { display: none; text-align: center; padding: 40px; }
+        .spinner-border { width: 3rem; height: 3rem; }
+
+        .real-time-indicator {
+            position: fixed; top: 20px; right: 20px;
+            background: var(--success-color); color: white;
+            padding: 10px 15px; border-radius: 25px;
+            font-size: 0.8rem; font-weight: bold; z-index: 1000;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%{opacity:1} 50%{opacity:.7} 100%{opacity:1} }
+
+        .system-metrics {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px; margin-bottom: 20px;
+        }
+        .system-metric {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 15px; border-radius: 10px; text-align: center;
+        }
+        .system-metric-value { font-size: 1.5rem; font-weight: bold; }
+        .system-metric-label { font-size: 0.8rem; opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="fas fa-chart-line me-2"></i>
+                Sistema RAG - Estatísticas
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/">
+                    <i class="fas fa-home me-1"></i>
+                    Voltar ao Chat
+                </a>
+                <a class="nav-link" href="/logout">
+                    <i class="fas fa-sign-out-alt me-1"></i>
+                    Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Real-time indicator -->
+    <div class="real-time-indicator" id="realTimeIndicator">
+        <i class="fas fa-circle me-1"></i>
+        Atualização automática: 5 min
+    </div>
+
+    <div class="container-fluid">
+        <div class="main-container">
+            <!-- Header -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h1 class="display-6 fw-bold text-center mb-3">
+                        <i class="fas fa-chart-bar me-3"></i>
+                        Dashboard de Estatísticas
+                    </h1>
+                    <p class="text-center text-muted">
+                        Métricas em tempo real do sistema RAG para análise de performance e utilização
+                    </p>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters-section">
+                <div class="row align-items-center">
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Período de Análise:</label>
+                        <select class="form-select" id="periodSelect">
+                            <option value="1">Últimas 24 horas</option>
+                            <option value="7">Últimos 7 dias</option>
+                            <option value="30" selected>Últimos 30 dias</option>
+                            <option value="90">Últimos 90 dias</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Tipo de Operação:</label>
+                        <select class="form-select" id="operationSelect">
+                            <option value="">Todos os tipos</option>
+                            <option value="query">Consultas RAG</option>
+                            <option value="quiz_generation">Geração de Questionários</option>
+                            <option value="video_generation">Geração de Vídeos</option>
+                            <option value="pdf_upload">Upload de PDFs</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Data Início:</label>
+                        <input type="date" class="form-control" id="startDate">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Data Fim:</label>
+                        <input type="date" class="form-control" id="endDate">
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-12 text-center">
+                        <button class="btn btn-primary btn-custom me-2" onclick="applyFilters()">
+                            <i class="fas fa-filter me-1"></i>
+                            Aplicar Filtros
+                        </button>
+                        <button class="btn btn-success btn-custom me-2" onclick="exportData()">
+                            <i class="fas fa-download me-1"></i>
+                            Exportar Dados
+                        </button>
+                        <button class="btn btn-info btn-custom" onclick="refreshData()">
+                            <i class="fas fa-sync-alt me-1"></i>
+                            Atualizar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading -->
+            <div class="loading" id="loading">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3">A carregar estatísticas...</p>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="row" id="summaryCards">
+                <div class="col-lg-3 col-md-6">
+                    <div class="stats-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="metric-value" id="totalOperations">0</div>
+                                <div class="metric-label">Total de Operações</div>
+                            </div>
+                            <div class="text-primary">
+                                <i class="fas fa-chart-line fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="stats-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="metric-value" id="successRate">0%</div>
+                                <div class="metric-label">Taxa de Sucesso</div>
+                            </div>
+                            <div class="text-success">
+                                <i class="fas fa-check-circle fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="stats-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="metric-value" id="avgResponseTime">0ms</div>
+                                <div class="metric-label">Tempo Médio de Resposta</div>
+                            </div>
+                            <div class="text-warning">
+                                <i class="fas fa-clock fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="stats-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="metric-value" id="totalQueries">0</div>
+                                <div class="metric-label">Consultas RAG</div>
+                            </div>
+                            <div class="text-info">
+                                <i class="fas fa-search fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Metrics -->
+            <div class="system-metrics" id="systemMetrics">
+                <div class="system-metric">
+                    <div class="system-metric-value" id="cpuUsage">0%</div>
+                    <div class="system-metric-label">CPU</div>
+                </div>
+                <div class="system-metric">
+                    <div class="system-metric-value" id="memoryUsage">0%</div>
+                    <div class="system-metric-label">Memória</div>
+                </div>
+                <div class="system-metric">
+                    <div class="system-metric-value" id="diskUsage">0%</div>
+                    <div class="system-metric-label">Disco</div>
+                </div>
+                <div class="system-metric">
+                    <div class="system-metric-value" id="activeConnections">0</div>
+                    <div class="system-metric-label">Conexões Ativas</div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="chart-container">
+                        <h5 class="fw-bold mb-3">
+                            <i class="fas fa-pie-chart me-2"></i>
+                            Distribuição por Tipo de Operação
+                        </h5>
+                        <!-- removido height -->
+                        <canvas id="operationsChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="chart-container">
+                        <h5 class="fw-bold mb-3">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Performance ao Longo do Tempo
+                        </h5>
+                        <!-- removido height -->
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Chart -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="chart-container">
+                        <h5 class="fw-bold mb-3">
+                            <i class="fas fa-calendar-alt me-2"></i>
+                            Atividade por Hora (Últimas 24h)
+                        </h5>
+                        <!-- removido height -->
+                        <canvas id="activityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Statistics Table -->
+            <div class="table-container">
+                <h5 class="fw-bold mb-3">
+                    <i class="fas fa-table me-2"></i>
+                    Estatísticas Detalhadas
+                </h5>
+                <div class="table-responsive">
+                    <table class="table table-hover" id="statsTable">
+                        <thead>
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Tipo</th>
+                                <th>Utilizador</th>
+                                <th>Duração (ms)</th>
+                                <th>Status</th>
+                                <th>Detalhes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="statsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Error Analysis -->
+            <div class="table-container">
+                <h5 class="fw-bold mb-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Análise de Erros
+                </h5>
+                <div class="table-responsive">
+                    <table class="table table-hover" id="errorsTable">
+                        <thead>
+                            <tr>
+                                <th>Tipo de Operação</th>
+                                <th>Mensagem de Erro</th>
+                                <th>Ocorrências</th>
+                                <th>Última Ocorrência</th>
+                            </tr>
+                        </thead>
+                        <tbody id="errorsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- defaults globais do Chart.js -->
+    <script>
+        if (window.Chart && Chart.defaults) {
+            Chart.defaults.responsive = true;
+            Chart.defaults.maintainAspectRatio = false; // 👈 essencial para respeitar .chart-container
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global variables
+        let charts = {};
+        let currentData = {};
+        let refreshInterval;
+        let operationsChart = null;
+        let hourlyChart = null;
+        let performanceChart = null;
+        let languageChart = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStatistics();
+            startAutoRefresh();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            document.getElementById('periodSelect').addEventListener('change', loadStatistics);
+            document.getElementById('operationSelect').addEventListener('change', loadDetailedStats);
+        }
+
+        function showLoading() { document.getElementById('loading').style.display = 'block'; }
+        function hideLoading() { document.getElementById('loading').style.display = 'none'; }
+
+        async function loadStatistics() {
+            showLoading();
+            try {
+                const response = await fetch('/api/statistics/detailed');
+                const data = await response.json();
+                if (!data.success) { throw new Error(data.error || 'Erro ao carregar estatísticas'); }
+
+                currentData = data.detailed_statistics;
+                updateSummaryCards(currentData);
+                updateSystemMetrics(currentData.performance.system_metrics);
+                updateCharts(currentData);
+                loadDetailedStats();
+
+            } catch (error) {
+                console.error('Erro ao carregar estatísticas:', error);
+                showError('Erro ao carregar estatísticas: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function updateSummaryCards(data) {
+            document.getElementById('totalOperations').textContent = data.summary.total_operations || 0;
+            document.getElementById('successRate').textContent = (data.summary.success_rate || 0).toFixed(1) + '%';
+            document.getElementById('avgResponseTime').textContent = Math.round((data.performance.avg_query_duration || 0) * 1000) + 'ms';
+            document.getElementById('totalQueries').textContent = data.summary.total_operations || 0;
+        }
+
+        function updateSystemMetrics(systemMetrics) {
+            if (!systemMetrics) return;
+            document.getElementById('cpuUsage').textContent    = (systemMetrics.cpu_percent || 0).toFixed(1) + '%';
+            document.getElementById('memoryUsage').textContent = (systemMetrics.memory_percent || 0).toFixed(1) + '%';
+            document.getElementById('diskUsage').textContent   = (systemMetrics.disk_usage_percent || 0).toFixed(1) + '%';
+            document.getElementById('activeConnections').textContent = systemMetrics.active_connections || 0;
+        }
+
+        // Atualizar gráficos
+        function updateCharts(stats) {
+            updateOperationsChart(stats.operations_breakdown);
+            updateHourlyChart(stats.usage_analysis.hourly_activity);
+            updatePerformanceChart(stats.performance);
+            updateLanguageChart(stats.usage_analysis.language_distribution);
+        }
+
+        // Gráfico de distribuição de operações
+        function updateOperationsChart(operations) {
+            const ctx = document.getElementById('operationsChart');
+            if (!ctx) return;
+            if (operationsChart) operationsChart.destroy();
+
+            if (!operations || Object.keys(operations).length === 0) {
+                ctx.style.display = 'none';
+                return;
+            }
+            ctx.style.display = 'block';
+
+            const labels = Object.keys(operations);
+            const data = labels.map(key => operations[key].count || 0);
+            const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
+
+            operationsChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, // 👈 respeita a .chart-container
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Gráfico de atividade por hora
+        function updateHourlyChart(hourlyData) {
+            const ctx = document.getElementById('activityChart');
+            if (!ctx) return;
+            if (hourlyChart) hourlyChart.destroy();
+
+            if (!hourlyData || Object.keys(hourlyData).length === 0) {
+                ctx.style.display = 'none';
+                return;
+            }
+            ctx.style.display = 'block';
+
+            const hours = Array.from({length: 24}, (_, i) => i);
+            const data = hours.map(hour => hourlyData[hour] || 0);
+
+            hourlyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: hours.map(h => `${h}:00`),
+                    datasets: [{
+                        label: 'Operações',
+                        data,
+                        borderColor: '#36A2EB',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, // 👈
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (c) => `Operações: ${c.parsed.y}` } }
+                    }
+                }
+            });
+        }
+
+        // Gráfico de performance
+        function updatePerformanceChart(performance) {
+            const ctx = document.getElementById('performanceChart');
+            if (!ctx) return;
+            if (performanceChart) performanceChart.destroy();
+
+            ctx.style.display = 'block';
+
+            const labels = ['Consultas', 'Questionários', 'Conexões'];
+            const data = [
+                performance.avg_query_duration || 0,
+                performance.avg_quiz_duration || 0,
+                performance.avg_connection_duration || 0
+            ];
+
+            performanceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Duração Média (segundos)',
+                        data,
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, // 👈
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: (v) => v.toFixed(2) + 's' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (c) => `Duração: ${c.parsed.y.toFixed(2)}s` } }
+                    }
+                }
+            });
+        }
+
+        // Gráfico de idiomas (se existir no DOM)
+        function updateLanguageChart(languageData) {
+            const ctx = document.getElementById('languageChart'); // pode não existir
+            if (!ctx) return;            // 👈 evita erros
+            if (languageChart) languageChart.destroy();
+
+            if (!languageData || Object.keys(languageData).length === 0) {
+                ctx.style.display = 'none';
+                return;
+            }
+            ctx.style.display = 'block';
+
+            const labels = Object.keys(languageData);
+            const data = Object.values(languageData);
+            const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'];
+
+            languageChart = new Chart(ctx, {
+                type: 'pie',
+                data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, // 👈
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function loadDetailedStats() {
+            const operationType = document.getElementById('operationSelect').value;
+            const tbody = document.getElementById('statsTableBody');
+            tbody.innerHTML = '';
+
+            if (!currentData.operations_breakdown) return;
+
+            const operations = currentData.operations_breakdown;
+            const operation = operations[operationType];
+
+            if (operation) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${new Date().toLocaleString()}</td>
+                    <td>${operationType}</td>
+                    <td>-</td>
+                    <td>${Math.round((operation.avg_duration || 0) * 1000)}ms</td>
+                    <td><span class="badge bg-success">${operation.successful}</span></td>
+                    <td>Total: ${operation.count}</td>
+                `;
+                tbody.appendChild(row);
+            }
+        }
+
+        function loadPerformanceTrends() { /* opcional */ }
+
+        function startAutoRefresh() {
+            if (refreshInterval) clearInterval(refreshInterval);
+            // 🔄 5 minutos (altera para 60000 se quiseres 60s)
+            refreshInterval = setInterval(loadStatistics, 5 * 60 * 1000);
+        }
+
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+        }
+
+        function exportData() {
+            try {
+                const dataStr = JSON.stringify(currentData, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `statistics_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+                link.click();
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Erro ao exportar dados:', error);
+                showError('Erro ao exportar dados');
+            }
+        }
+
+        function showError(message) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.container-fluid').insertBefore(alertDiv, document.querySelector('.container-fluid').firstChild);
+            setTimeout(() => { if (alertDiv.parentNode) alertDiv.remove(); }, 5000);
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            stopAutoRefresh();
+            if (operationsChart) operationsChart.destroy();
+            if (hourlyChart) hourlyChart.destroy();
+            if (performanceChart) performanceChart.destroy();
+            if (languageChart) languageChart.destroy();
+        });
+    </script>
+</body>
+</html>

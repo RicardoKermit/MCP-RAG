@@ -974,6 +974,25 @@ body {
     color: var(--text-primary);
 }
 
+.stats-toggle {
+    width: 40px;
+    height: 40px;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.stats-toggle:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
 /* Fix para conversas - remover scrollbars e corrigir bug do botão de apagar */
 .conversations-list {
     max-height: 200px;
@@ -1614,3 +1633,18 @@ body {
 [data-theme="light"] .login-app-logo {
     box-shadow: 0 4px 6px -1px var(--shadow-light);
 }
+
+.chart-container{
+    /* controla a altura do bloco do gráfico */
+    height: 320px;
+  }
+  @media (min-width: 1200px){
+    .chart-container{ height: 360px; }
+  }
+  /* garante que o canvas nunca “explode” a altura */
+  .chart-container canvas{
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+  }
+  

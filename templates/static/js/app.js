@@ -119,6 +119,8 @@ async function changeLanguage() {
     const languageSelect = document.getElementById('languageSelect');
     const selectedLanguage = languageSelect.value;
     
+    console.log('Mudando idioma de', currentLanguage, 'para', selectedLanguage);
+    
     if (selectedLanguage !== currentLanguage) {
         currentLanguage = selectedLanguage;
         localStorage.setItem('language', currentLanguage);
@@ -527,48 +529,280 @@ async function loadLanguage() {
     currentLanguage = savedLanguage;
     
     try {
+        console.log('Carregando traduções para:', currentLanguage);
         const response = await fetch(`/translations/${currentLanguage}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
+        console.log('Resposta do servidor:', data);
         
         if (data.success) {
             translations = data.translations;
+            console.log('Traduções carregadas:', Object.keys(translations));
             updateInterfaceLanguage();
+        } else {
+            console.error('Erro na resposta do servidor:', data.error);
         }
     } catch (error) {
         console.error('Erro ao carregar traduções:', error);
+        // Fallback para traduções básicas
+        translations = {
+            new_chat: currentLanguage === 'pt' ? 'Nova conversa' : 'New chat',
+            connection: currentLanguage === 'pt' ? '🔗 Conexão' : '🔗 Connection',
+            gemini_model: currentLanguage === 'pt' ? '🤖 Modelo Gemini' : '🤖 Gemini Model',
+            language: currentLanguage === 'pt' ? '🌐 Idioma' : '🌐 Language',
+            welcome_message: currentLanguage === 'pt' ? 'Olá! Sou o seu assistente MCP. Conecte-se ao servidor para começar a fazer perguntas.' : 'Hello! I\'m your MCP assistant. Connect to the server to start asking questions.',
+            input_placeholder: currentLanguage === 'pt' ? 'Digite a sua mensagem...' : 'Type your message...',
+            connect: currentLanguage === 'pt' ? 'Conectar ao servidor' : 'Connect to server',
+            disconnected: currentLanguage === 'pt' ? 'Desconectado' : 'Disconnected'
+        };
+        updateInterfaceLanguage();
     }
 }
 
 function updateInterfaceLanguage() {
+    try {
+        console.log('Atualizando interface para idioma:', currentLanguage);
+        console.log('Traduções disponíveis:', Object.keys(translations));
+        
     // Atualizar textos da interface
     if (translations.new_chat) {
-        document.getElementById('newChatText').textContent = translations.new_chat;
+            const newChatText = document.getElementById('newChatText');
+            if (newChatText) newChatText.textContent = translations.new_chat;
     }
     if (translations.connection) {
-        document.getElementById('connectionSectionTitle').textContent = translations.connection;
+            const connectionSection = document.getElementById('connectionSectionTitle');
+            if (connectionSection) connectionSection.textContent = translations.connection;
     }
     if (translations.gemini_model) {
-        document.getElementById('modelSectionTitle').textContent = translations.gemini_model;
+            const modelSection = document.getElementById('modelSectionTitle');
+            if (modelSection) modelSection.textContent = translations.gemini_model;
     }
     if (translations.language) {
-        document.getElementById('languageSectionTitle').textContent = translations.language;
+            const languageSection = document.getElementById('languageSectionTitle');
+            if (languageSection) languageSection.textContent = translations.language;
     }
     if (translations.tools) {
-        document.getElementById('toolsSectionTitle').textContent = translations.tools;
+            const toolsSection = document.getElementById('toolsSectionTitle');
+            if (toolsSection) toolsSection.textContent = translations.tools;
     }
     if (translations.welcome_message) {
-        document.getElementById('welcomeMessage').textContent = translations.welcome_message;
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            if (welcomeMessage) welcomeMessage.textContent = translations.welcome_message;
     }
     if (translations.input_placeholder) {
         const textarea = document.getElementById('messageInput');
+            if (textarea) {
         textarea.placeholder = translations.input_placeholder;
         textarea.setAttribute('data-placeholder', translations.input_placeholder);
+            }
     }
     if (translations.connect) {
-        document.getElementById('connectBtnText').textContent = translations.connect;
+            const connectBtnText = document.getElementById('connectBtnText');
+            if (connectBtnText) connectBtnText.textContent = translations.connect;
     }
     if (translations.disconnected) {
-        document.getElementById('statusText').textContent = translations.disconnected;
+            const statusText = document.getElementById('statusText');
+            if (statusText) statusText.textContent = translations.disconnected;
+        }
+        
+        // Atualizar placeholders
+        if (translations.server_path_placeholder) {
+            const serverPath = document.getElementById('serverPath');
+            if (serverPath) serverPath.placeholder = translations.server_path_placeholder;
+        }
+        if (translations.quiz_topic_placeholder) {
+            const quizTopic = document.getElementById('quizTopic');
+            if (quizTopic) quizTopic.placeholder = translations.quiz_topic_placeholder;
+        }
+        if (translations.quiz_num_questions_placeholder) {
+            const quizNumQuestions = document.getElementById('quizNumQuestions');
+            if (quizNumQuestions) quizNumQuestions.placeholder = translations.quiz_num_questions_placeholder;
+        }
+        if (translations.video_prompt_placeholder) {
+            const videoPrompt = document.getElementById('videoAIPrompt');
+            if (videoPrompt) videoPrompt.placeholder = translations.video_prompt_placeholder;
+        }
+        if (translations.connect_first) {
+            const messageInput = document.getElementById('messageInput');
+            if (messageInput && !isConnected) {
+                messageInput.placeholder = translations.connect_first;
+            }
+        }
+        
+        // Atualizar títulos dos botões
+        if (translations.clear_history_title) {
+            const clearHistoryBtn = document.querySelector('.clear-history-btn');
+            if (clearHistoryBtn) clearHistoryBtn.title = translations.clear_history_title;
+        }
+        if (translations.logout_title) {
+            const logoutBtn = document.querySelector('.logout-btn');
+            if (logoutBtn) logoutBtn.title = translations.logout_title;
+        }
+        if (translations.menu_title) {
+            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+            if (mobileMenuToggle) mobileMenuToggle.title = translations.menu_title;
+        }
+        if (translations.help_title) {
+            const helpToggle = document.getElementById('helpToggle');
+            if (helpToggle) helpToggle.title = translations.help_title;
+        }
+        if (translations.statistics) {
+            const statsToggle = document.getElementById('statsToggle');
+            if (statsToggle) statsToggle.title = translations.statistics;
+        }
+        if (translations.dark_mode) {
+            const darkModeToggle = document.getElementById('darkModeToggle');
+            if (darkModeToggle) darkModeToggle.title = translations.dark_mode;
+        }
+        
+        // Atualizar seções
+        if (translations.conversations) {
+            const conversationsSection = document.getElementById('conversationsSectionTitle');
+            if (conversationsSection) conversationsSection.textContent = translations.conversations;
+        }
+        if (translations.quiz_section) {
+            const quizSection = document.querySelector('#quizSection h3');
+            if (quizSection) quizSection.textContent = translations.quiz_section;
+        }
+        if (translations.video_ai_section) {
+            const videoSection = document.querySelector('#videoAISection h3');
+            if (videoSection) videoSection.textContent = translations.video_ai_section;
+        }
+        
+        // Atualizar descrição do modelo atual
+        updateModelDescription();
+
+        
+        // Atualizar opções dos selects
+        updateSelectOptions();
+        
+        // Atualizar botões
+        if (translations.generate_quiz) {
+            const generateQuizBtn = document.getElementById('generateQuizBtn');
+            if (generateQuizBtn) {
+                const currentText = generateQuizBtn.textContent;
+                const newText = currentText.replace(/Gerar Questionário|Generate Quiz/, translations.generate_quiz);
+                if (newText !== currentText) {
+                    generateQuizBtn.textContent = newText;
+                }
+            }
+        }
+        if (translations.generate_video_ai) {
+            const generateVideoBtn = document.getElementById('generateVideoAIBtn');
+            if (generateVideoBtn) {
+                const currentText = generateVideoBtn.textContent;
+                const newText = currentText.replace(/Gerar Vídeo com IA|Generate AI Video/, translations.generate_video_ai);
+                if (newText !== currentText) {
+                    generateVideoBtn.textContent = newText;
+                }
+            }
+        }
+        
+        // Atualizar footer
+        if (translations.mcp_client_interface) {
+            const footer = document.querySelector('.input-footer small');
+            if (footer) footer.textContent = translations.mcp_client_interface;
+        }
+        
+        // Atualizar modais
+        updateModalTranslations();
+        
+        console.log('Interface atualizada com sucesso');
+    } catch (error) {
+        console.error('Erro ao atualizar interface:', error);
+    }
+}
+
+function updateSelectOptions() {
+    try {
+        // Atualizar opções do quiz type
+        const quizTypeSelect = document.getElementById('quizType');
+        if (quizTypeSelect && translations.multiple_choice && translations.true_false) {
+            quizTypeSelect.innerHTML = `
+                <option value="multiple_choice">${translations.multiple_choice}</option>
+                <option value="true_false">${translations.true_false}</option>
+            `;
+        }
+        
+        // Atualizar opções do quiz format
+        const quizFormatSelect = document.getElementById('quizFormat');
+        if (quizFormatSelect && translations.markdown && translations.text) {
+            quizFormatSelect.innerHTML = `
+                <option value="markdown">${translations.markdown}</option>
+                <option value="text">${translations.text}</option>
+            `;
+        }
+        
+        // Atualizar opções do quiz difficulty
+        const quizDifficultySelect = document.getElementById('quizDifficulty');
+        if (quizDifficultySelect && translations.mixed && translations.easy && translations.medium && translations.hard) {
+            quizDifficultySelect.innerHTML = `
+                <option value="mixed">${translations.mixed}</option>
+                <option value="easy">${translations.easy}</option>
+                <option value="medium">${translations.medium}</option>
+                <option value="hard">${translations.hard}</option>
+            `;
+        }
+        
+        // Atualizar opções do video duration
+        const videoDurationSelect = document.getElementById('videoAIDuration');
+        if (videoDurationSelect && translations.seconds) {
+            videoDurationSelect.innerHTML = `
+                <option value="5">5 ${translations.seconds}</option>
+                <option value="6">6 ${translations.seconds}</option>
+                <option value="7">7 ${translations.seconds}</option>
+                <option value="8" selected>8 ${translations.seconds}</option>
+            `;
+        }
+        
+        // Atualizar opções do video aspect ratio
+        const videoAspectSelect = document.getElementById('videoAIAspectRatio');
+        if (videoAspectSelect && translations.widescreen && translations.desktop) {
+            videoAspectSelect.innerHTML = `
+                <option value="16:9" selected>${translations.widescreen}</option>
+                <option value="16:10">${translations.desktop}</option>
+            `;
+        }
+    } catch (error) {
+        console.error('Erro ao atualizar opções dos selects:', error);
+    }
+}
+
+function updateModalTranslations() {
+    try {
+        // Atualizar modal de ajuda
+        if (translations.available_tools) {
+            const helpModalTitle = document.querySelector('#helpModal h3');
+            if (helpModalTitle) helpModalTitle.textContent = translations.available_tools;
+        }
+        
+        // Atualizar modal de logout
+        if (translations.logout_modal_title) {
+            const logoutModalTitle = document.querySelector('#logoutModal h3');
+            if (logoutModalTitle) logoutModalTitle.textContent = translations.logout_modal_title;
+        }
+        if (translations.logout_confirm_message) {
+            const logoutMessage = document.querySelector('.logout-message');
+            if (logoutMessage) logoutMessage.textContent = translations.logout_confirm_message;
+        }
+        if (translations.logout_redirect_message) {
+            const logoutSubtitle = document.querySelector('.logout-subtitle');
+            if (logoutSubtitle) logoutSubtitle.textContent = translations.logout_redirect_message;
+        }
+        if (translations.cancel) {
+            const cancelBtn = document.querySelector('.logout-cancel-btn');
+            if (cancelBtn) cancelBtn.textContent = translations.cancel;
+        }
+        if (translations.confirm_logout) {
+            const confirmBtn = document.querySelector('.logout-confirm-btn');
+            if (confirmBtn) confirmBtn.textContent = translations.confirm_logout;
+        }
+    } catch (error) {
+        console.error('Erro ao atualizar traduções dos modais:', error);
     }
 }
 
@@ -894,6 +1128,11 @@ function toggleMobileMenu() {
     sidebar.classList.toggle('open');
 }
 
+// Open statistics page
+function openStatistics() {
+    window.open('/statistics-page', '_blank');
+}
+
 
 
 
@@ -1082,4 +1321,74 @@ function setQuizButtonLoading(buttonId, loading = true) {
             }
         }
     }
-} 
+}
+
+function setVideoButtonLoading(buttonId, loading = true) {
+    const button = document.getElementById(buttonId);
+    if (button) {
+        if (loading) {
+            button.disabled = true;
+            button.classList.add('loading');
+            
+            // Adicionar animação de loading
+            const originalText = button.textContent;
+            button.innerHTML = `
+                <svg class="btn-icon loading-spin" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                Gerando...
+            `;
+            
+            // Guardar texto original para restaurar depois
+            button.dataset.originalText = originalText;
+        } else {
+            button.disabled = false;
+            button.classList.remove('loading');
+            
+            // Restaurar texto original
+            if (button.dataset.originalText) {
+                button.textContent = button.dataset.originalText;
+            }
+        }
+    }
+}
+
+// Função para atualizar a descrição do modelo atual com base no idioma
+function updateModelDescription() {
+    try {
+        const modelSelect = document.getElementById('modelSelect');
+        const modelInfo = document.getElementById('modelInfo');
+        
+        if (modelSelect && modelInfo) {
+            const selectedModel = modelSelect.value;
+            
+            // Mapear modelos para chaves de tradução
+            const modelTranslationKeys = {
+                'gemini-1.5-flash-8b': 'model_description_fast',
+                'gemini-2.0-flash-lite': 'model_description_ultra_fast',
+                'gemini-2.5-flash-lite': 'model_description_optimized',
+                'gemini-1.5-flash': 'model_description_fast',
+                'gemini-2.0-flash': 'model_description_next_gen',
+                'gemini-2.5-flash': 'model_description_latest',
+                'gemini-2.0-pro': 'model_description_less_used',
+                'gemini-1.5-pro': 'model_description_popular',
+                'gemini-1.0-pro': 'model_description_first',
+                'gemini-pro': 'model_description_base',
+                'gemini-2.5-pro': 'model_description_top'
+            };
+            
+            const translationKey = modelTranslationKeys[selectedModel];
+            if (translationKey && translations[translationKey]) {
+                modelInfo.innerHTML = `<small>${translations[translationKey]}</small>`;
+            } else {
+                // Fallback para descrição padrão
+                const fallbackDescription = currentLanguage === 'pt' ? 
+                    'Modelo rápido e eficiente para tarefas gerais' : 
+                    'Fast and efficient model for general tasks';
+                modelInfo.innerHTML = `<small>${fallbackDescription}</small>`;
+            }
+        }
+    } catch (error) {
+        console.error('Erro ao atualizar descrição do modelo:', error);
+    }
+}
