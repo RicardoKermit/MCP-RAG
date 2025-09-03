@@ -38,6 +38,7 @@ dependencies = [
     "pillow>=11.3.0",
     "opencv-python>=4.12.0.88",
     "google-genai>=1.28.0",
+    "psycopg2>=2.9.10",
 ]
 
 [project.optional-dependencies]

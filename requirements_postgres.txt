@@ -1,0 +1,32 @@
+# =====================================================
+# PostgreSQL Requirements for RAG System
+# =====================================================
+
+# Database
+psycopg2-binary==2.9.7
+SQLAlchemy==2.0.23
+alembic==1.12.1
+
+# Connection pooling
+psycopg2-pool==1.1
+
+# Async support (optional)
+asyncpg==0.29.0
+
+# Environment and configuration
+python-dotenv==1.0.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Logging and monitoring
+structlog==23.2.0
+prometheus-client==0.19.0
+
+# Security
+cryptography==41.0.7
+passlib==1.7.4
+python-jose==3.3.0
+
+# Utilities
+click==8.1.7
+rich==13.7.0

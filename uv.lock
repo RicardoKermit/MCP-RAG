@@ -1881,6 +1881,15 @@ wheels = [
 ]
 
 [[package]]
+name = "psycopg2"
+version = "2.9.10"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/62/51/2007ea29e605957a17ac6357115d0c1a1b60c8c984951c19419b3474cdfd/psycopg2-2.9.10.tar.gz", hash = "sha256:12ec0b40b0273f95296233e8750441339298e6a572f7039da5b260e3c8b60e11", size = 385672 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ae/49/a6cfc94a9c483b1fa401fbcb23aca7892f60c7269c5ffa2ac408364f80dc/psycopg2-2.9.10-cp313-cp313-win_amd64.whl", hash = "sha256:91fd603a2155da8d0cfcdbf8ab24a2d54bca72795b90d2a3ed2b6da8d979dee2", size = 2569060 },
+]
+
+[[package]]
 name = "pyasn1"
 version = "0.6.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2224,6 +2233,7 @@ dependencies = [
     { name = "opencv-python" },
     { name = "pathlib2" },
     { name = "pillow" },
+    { name = "psycopg2" },
     { name = "pypdf" },
     { name = "pypdf2" },
     { name = "python-dotenv" },
@@ -2261,6 +2271,7 @@ requires-dist = [
     { name = "opencv-python", specifier = ">=4.12.0.88" },
     { name = "pathlib2", specifier = ">=2.3.7" },
     { name = "pillow", specifier = ">=11.3.0" },
+    { name = "psycopg2", specifier = ">=2.9.10" },
     { name = "pypdf", specifier = ">=3.17.0" },
     { name = "pypdf2", specifier = ">=3.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4.0" },
