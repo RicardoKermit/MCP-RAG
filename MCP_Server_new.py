@@ -229,73 +229,35 @@ def update_model(new_model_name: str) -> bool:
 def set_model(model_name: str) -> str:
     """
     Define o modelo Gemini a ser usado pelo servidor MCP.
-    
-    Permite alterar dinamicamente o modelo Gemini usado para geração de respostas,
-    sem necessidade de reiniciar o servidor. Útil para otimizar custos ou performance.
-    
-    Args:
-        model_name (str): Nome do modelo Gemini a usar. Deve ser uma das chaves
-                         do dicionário GEMINI_MODELS (ex: "gemini-1.5-flash-8b")
-    
-    Returns:
-        str: Mensagem de confirmação com o nome do modelo alterado, ou erro se
-             o modelo não for válido.
-    
-    Examples:
-        >>> set_model("gemini-1.5-flash-8b")
-        "Modelo alterado para Gemini 1.5 Flash 8B"
-        
-        >>> set_model("gemini-2.0-pro")
-        "Modelo alterado para Gemini 2.0 Pro"
-        
-        >>> set_model("invalid-model")
-        "Erro: Modelo 'invalid-model' não é válido"
-    
-    Notes:
-        - A alteração afeta todas as operações subsequentes (retrieve, generate_quiz, etc.)
-        - Modelos mais caros (Pro) têm melhor performance mas custo maior
-        - Modelos mais baratos (Flash) são ideais para uso prolongado
     """
     if update_model(model_name):
+        # Log em Postgres (sucesso)
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.API_CALL,
+                details={"tool": "set_model", "model_name": model_name},
+                status="success"
+            )
+        except Exception:
+            pass
         return f"Modelo alterado para {GEMINI_MODELS[model_name]['name']}"
     else:
+        # Log em Postgres (erro)
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.API_CALL,
+                details={"tool": "set_model", "error": "invalid_model", "model_name": model_name},
+                status="error",
+                error_message="invalid model"
+            )
+        except Exception:
+            pass
         return f"Erro: Modelo '{model_name}' não é válido"
 
 @mcp.tool()
 def get_current_model() -> dict:
     """
     Retorna informações sobre o modelo Gemini atual e lista todos os modelos disponíveis.
-    
-    Fornece informações detalhadas sobre o modelo em uso e todos os modelos
-    Gemini disponíveis, incluindo descrições, capacidades e custos relativos.
-    
-    Returns:
-        dict: Dicionário com as seguintes chaves:
-            - "current_model": Nome do modelo atualmente em uso
-            - "current_model_info": Informações detalhadas do modelo atual
-            - "available_models": Dicionário completo com todos os modelos disponíveis
-    
-    Examples:
-        >>> get_current_model()
-        {
-            "current_model": "gemini-1.5-flash-8b",
-            "current_model_info": {
-                "name": "Gemini 1.5 Flash 8B",
-                "description": "Modelo mais barato da família Gemini...",
-                "max_tokens": 4096,
-                "cost_rank": 1
-            },
-            "available_models": {
-                "gemini-1.5-flash-8b": {...},
-                "gemini-2.0-flash-lite": {...},
-                ...
-            }
-        }
-    
-    Notes:
-        - Útil para verificar qual modelo está ativo antes de alterá-lo
-        - Permite comparar diferentes modelos antes de fazer a troca
-        - Inclui informações de custo para ajudar na escolha do modelo
     """
     return {
         "current_model": current_model_name,
@@ -307,40 +269,10 @@ def get_current_model() -> dict:
 def retrieve(prompt: str) -> str:
     """
     Busca e gera respostas baseadas no conteúdo dos PDFs armazenados no vectorstore.
-    
-    Esta função utiliza o sistema RAG (Retrieval Augmented Generation) para:
-    1. Buscar documentos relevantes no vectorstore (Qdrant)
-    2. Combinar o contexto encontrado com o prompt do utilizador
-    3. Gerar uma resposta usando o modelo Gemini configurado
-    
-    Args:
-        prompt (str): A pergunta ou instrução do utilizador. Pode ser uma pergunta direta,
-                     uma instrução para gerar conteúdo, ou qualquer texto que precise
-                     de resposta baseada nos documentos disponíveis.
-    
-    Returns:
-        str: Resposta gerada baseada no conteúdo dos PDFs. Se não conseguir encontrar
-             informação relevante ou ocorrer um erro, retorna uma mensagem explicativa.
-    
-    Examples:
-        >>> retrieve("Quais são as regras do Monopoly?")
-        "Baseado nos documentos disponíveis, as regras do Monopoly incluem..."
-        
-        >>> retrieve("Gera 5 perguntas sobre Scala")
-        "## Perguntas sobre Scala\n\n1. O que é Scala?\n..."
-        
-        >>> retrieve("Explica o conceito de certificados")
-        "Um certificado é um documento digital que..."
-    
-    Notes:
-        - A função usa o modelo Gemini configurado (atualmente gemini-1.5-flash-8b)
-        - Busca os 5 documentos mais relevantes do vectorstore
-        - Responde sempre em português
-        - Se não encontrar informação relevante, indica claramente
     """
     start_time = time.time()
     try:
-        # Log da operação
+        # Log da operação (ficheiro/console)
         logger.info(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Starting")
         
         result = qa.invoke({"query": prompt})
@@ -348,17 +280,42 @@ def retrieve(prompt: str) -> str:
         
         # Calcular duração
         duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
         
-        # Log de sucesso
+        # Log de sucesso (ficheiro/console)
         logger.info(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Success | Duration: {duration:.2f}s")
+        # Log em Postgres
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.RAG_QUERY,
+                details={"operation": "retrieve", "topic": prompt[:50], "duration_ms": duration_ms, "model": current_model_name},
+                status="success",
+                duration_ms=duration_ms
+            )
+            postgres_logger.update_operation_stats(OperationType.RAG_QUERY.value, True, duration_ms)
+        except Exception:
+            pass
         
         return response
     except Exception as e:
         duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
         error_msg = str(e)
         
-        # Log de erro
+        # Log de erro (ficheiro/console)
         logger.error(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Error: {error_msg} | Duration: {duration:.2f}s")
+        # Log em Postgres
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.RAG_QUERY,
+                details={"operation": "retrieve", "topic": prompt[:50]},
+                status="error",
+                error_message=error_msg,
+                duration_ms=duration_ms
+            )
+            postgres_logger.update_operation_stats(OperationType.RAG_QUERY.value, False, duration_ms)
+        except Exception:
+            pass
         
         return f"Erro ao processar a pergunta: {error_msg}"
 
@@ -366,30 +323,10 @@ def retrieve(prompt: str) -> str:
 def add_new_pdfs() -> str:
     """
     Adiciona novos PDFs da pasta 'pdfs' ao vectorstore (Qdrant).
-    
-    Verifica a pasta 'pdfs' em busca de novos arquivos PDF que ainda não foram
-    processados e adicionados ao vectorstore. Útil para atualizar o conhecimento
-    do sistema sem reiniciar o servidor.
-    
-    Returns:
-        str: Mensagem indicando se novos PDFs foram adicionados ou se não há
-             novos arquivos para processar.
-    
-    Examples:
-        >>> add_new_pdfs()
-        "PDFs adicionados."
-        
-        >>> add_new_pdfs()
-        "Nenhum PDF novo para adicionar."
-    
-    Notes:
-        - Verifica apenas arquivos .pdf na pasta 'pdfs'
-        - Evita duplicação comparando com documentos já existentes
-        - Processa automaticamente o texto e cria embeddings
-        - Não requer reinicialização do servidor
     """
     existing_ids = set([d.metadata.get("source") for d in docsearch.similarity_search("", k=1000)])
     new_files_added = False
+    added_count = 0
     for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
         file_path = str(pdf_file.resolve())
         if file_path not in existing_ids:
@@ -399,48 +336,50 @@ def add_new_pdfs() -> str:
             texts = text_splitter.split_documents(data)
             docsearch.add_documents(texts)
             new_files_added = True
-    return "PDFs adicionados." if new_files_added else "Nenhum PDF novo para adicionar."
+            added_count += 1
+    msg = "PDFs adicionados." if new_files_added else "Nenhum PDF novo para adicionar."
+    # Log em Postgres (resumo da operação)
+    try:
+        postgres_logger.log_operation(
+            operation_type=OperationType.FILE_UPLOAD,
+            details={"operation": "add_new_pdfs", "added_count": added_count},
+            status="success"
+        )
+    except Exception:
+        pass
+    return msg
 
 @mcp.tool()
 def download_and_add_pdf(file_url: str) -> str:
     """
     Faz download de um PDF a partir de uma URL e adiciona-o ao vectorstore.
-    
-    Baixa um arquivo PDF de uma URL remota, salva-o na pasta 'pdfs' e
-    processa-o automaticamente para adicionar ao sistema RAG. Útil para
-    incorporar documentos externos sem intervenção manual.
-    
-    Args:
-        file_url (str): URL completa do arquivo PDF a baixar. Deve ser uma URL
-                        válida que aponte diretamente para um arquivo PDF.
-    
-    Returns:
-        str: Mensagem de sucesso com o nome do arquivo baixado, ou mensagem
-             de erro se a operação falhar.
-    
-    Examples:
-        >>> download_and_add_pdf("https://example.com/document.pdf")
-        "'document.pdf' adicionado com sucesso."
-        
-        >>> download_and_add_pdf("https://example.com/image.jpg")
-        "URL não é PDF."
-        
-        >>> download_and_add_pdf("https://invalid-url.com/file.pdf")
-        "Erro: Connection timeout"
-    
-    Notes:
-        - Valida se a URL termina com extensão .pdf
-        - Faz download usando requests com timeout
-        - Salva automaticamente na pasta 'pdfs'
-        - Processa e adiciona ao vectorstore imediatamente
-        - Trata erros de rede e arquivos inválidos
     """
     try:
         url_path = file_url.lower().split("?")[0]
         if not url_path.endswith(".pdf"):
+            # Log erro em Postgres
+            try:
+                postgres_logger.log_operation(
+                    operation_type=OperationType.FILE_DOWNLOAD,
+                    details={"operation": "download_and_add_pdf", "file_url": file_url},
+                    status="error",
+                    error_message="URL não é PDF"
+                )
+            except Exception:
+                pass
             return "URL não é PDF."
         response = requests.get(file_url)
         if response.status_code != 200:
+            # Log erro em Postgres
+            try:
+                postgres_logger.log_operation(
+                    operation_type=OperationType.FILE_DOWNLOAD,
+                    details={"operation": "download_and_add_pdf", "file_url": file_url, "http_status": response.status_code},
+                    status="error",
+                    error_message=f"HTTP {response.status_code}"
+                )
+            except Exception:
+                pass
             return f"Erro HTTP {response.status_code}"
         filename = url_path.split("/")[-1]
         pdf_path = Path(PDF_FOLDER) / filename
@@ -451,48 +390,33 @@ def download_and_add_pdf(file_url: str) -> str:
         text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         texts = text_splitter.split_documents(data)
         docsearch.add_documents(texts)
+        # Log sucesso em Postgres
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.FILE_UPLOAD,
+                details={"operation": "download_and_add_pdf", "filename": filename},
+                status="success"
+            )
+        except Exception:
+            pass
         return f"'{filename}' adicionado com sucesso."
     except Exception as e:
+        # Log erro em Postgres
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.FILE_DOWNLOAD,
+                details={"operation": "download_and_add_pdf", "file_url": file_url},
+                status="error",
+                error_message=str(e)
+            )
+        except Exception:
+            pass
         return f"Erro: {e}"
 
 @mcp.tool()
 def get_courses_by_field(field: str, value: str) -> dict:
     """
     Busca cursos no Moodle usando critérios específicos.
-    
-    Utiliza a API do Moodle para buscar cursos baseado em diferentes campos
-    como ID, nome curto, número de identificação ou categoria. Útil para
-    integrar com plataformas Moodle existentes.
-    
-    Args:
-        field (str): Campo de busca do curso. Opções válidas:
-            - "id": Busca por ID do curso
-            - "shortname": Busca por nome curto do curso
-            - "idnumber": Busca por número de identificação
-            - "category": Busca por categoria
-            - "": Retorna todos os cursos (vazio)
-        value (str): Valor a procurar no campo especificado. Se field for vazio,
-                    este valor é ignorado.
-    
-    Returns:
-        dict: Resposta da API do Moodle com lista de cursos encontrados, ou
-              dicionário com chave "error" se ocorrer algum erro.
-    
-    Examples:
-        >>> get_courses_by_field("shortname", "CS101")
-        {"courses": [{"id": 123, "shortname": "CS101", "fullname": "Computer Science 101"}]}
-        
-        >>> get_courses_by_field("", "")
-        {"courses": [{"id": 1, "shortname": "MATH101", "fullname": "Mathematics"}]}
-        
-        >>> get_courses_by_field("id", "999")
-        {"error": "Course not found"}
-    
-    Notes:
-        - Requer configuração válida de MOODLE_URL e MOODLE_TOKEN
-        - Usa timeout de 30 segundos para evitar travamentos
-        - Retorna dados no formato JSON do Moodle
-        - Útil para integração com sistemas educacionais existentes
     """
     params = {
         "wstoken": MOODLE_TOKEN,
@@ -504,57 +428,62 @@ def get_courses_by_field(field: str, value: str) -> dict:
     try:
         response = httpx.post(MOODLE_URL, data=params, timeout=30)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        # Log sucesso em Postgres (opcional)
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.API_CALL,
+                details={"tool": "get_courses_by_field", "field": field, "value": value},
+                status="success"
+            )
+        except Exception:
+            pass
+        return data
     except Exception as e:
+        # Log erro em Postgres (opcional)
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.API_CALL,
+                details={"tool": "get_courses_by_field", "field": field, "value": value},
+                status="error",
+                error_message=str(e)
+            )
+        except Exception:
+            pass
         return {"error": str(e)}
 
 @mcp.tool()
 def download_pdfs_from_course(course_fullname: str) -> dict:
     """
     Faz download de todos os PDFs de um curso específico do Moodle.
-    
-    Busca um curso no Moodle pelo nome completo, obtém todos os recursos PDF
-    disponíveis no curso e faz download automático para a pasta local. Ideal
-    para sincronizar materiais educacionais de plataformas Moodle existentes.
-    
-    Args:
-        course_fullname (str): Nome completo do curso no Moodle (ex: "Computer Science 101")
-    
-    Returns:
-        dict: Resumo da operação com as seguintes chaves:
-            - "course": Nome do curso processado
-            - "pdfs_downloaded": Lista de PDFs baixados com sucesso
-            - "pdfs_skipped": Lista de PDFs que já existiam localmente
-            - "pdfs_failed": Lista de PDFs que falharam no download
-            - "rag_result": Resultado da adição ao vectorstore
-    
-    Examples:
-        >>> download_pdfs_from_course("Computer Science 101")
-        {
-            "course": "Computer Science 101",
-            "pdfs_downloaded": ["lecture1.pdf", "assignment1.pdf"],
-            "pdfs_skipped": ["syllabus.pdf"],
-            "pdfs_failed": [],
-            "rag_result": "PDFs adicionados."
-        }
-        
-        >>> download_pdfs_from_course("Non-existent Course")
-        {"error": "Curso 'Non-existent Course' não encontrado."}
-    
-    Notes:
-        - Requer configuração válida de MOODLE_URL e MOODLE_TOKEN
-        - Evita duplicação verificando arquivos já existentes
-        - Processa automaticamente os PDFs para o vectorstore
-        - Trata erros de rede e arquivos corrompidos
-        - Usa autenticação token para aceder aos recursos protegidos
     """
     downloaded, skipped, failed = [], [], []
     courses_resp = get_courses_by_field(field="", value="")
     if "error" in courses_resp:
+        # Log erro em Postgres
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.API_CALL,
+                details={"tool": "download_pdfs_from_course", "course": course_fullname},
+                status="error",
+                error_message=f"Erro: {courses_resp['error']}"
+            )
+        except Exception:
+            pass
         return {"error": f"Erro: {courses_resp['error']}"}
     courses = courses_resp.get("courses", [])
     course = next((c for c in courses if c.get("fullname") == course_fullname), None)
     if not course:
+        # Log erro em Postgres
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.API_CALL,
+                details={"tool": "download_pdfs_from_course", "course": course_fullname},
+                status="error",
+                error_message="Curso não encontrado"
+            )
+        except Exception:
+            pass
         return {"error": f"Curso '{course_fullname}' não encontrado."}
     courseid = course["id"]
     params = {
@@ -568,6 +497,16 @@ def download_pdfs_from_course(course_fullname: str) -> dict:
         response.raise_for_status()
         contents = response.json()
     except Exception as e:
+        # Log erro em Postgres
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.API_CALL,
+                details={"tool": "download_pdfs_from_course", "course": course_fullname},
+                status="error",
+                error_message=f"Erro ao obter conteúdo: {str(e)}"
+            )
+        except Exception:
+            pass
         return {"error": f"Erro ao obter conteúdo: {str(e)}"}
 
     for section in contents:
@@ -593,6 +532,23 @@ def download_pdfs_from_course(course_fullname: str) -> dict:
                             failed.append({"filename": file_name, "error": str(e)})
 
     rag_result = add_new_pdfs()
+    # Log resumo em Postgres
+    try:
+        postgres_logger.log_operation(
+            operation_type=OperationType.FILE_DOWNLOAD,
+            details={
+                "tool": "download_pdfs_from_course",
+                "course": course_fullname,
+                "downloaded": downloaded,
+                "skipped": skipped,
+                "failed": failed,
+                "rag_result": rag_result
+            },
+            status="success" if not failed else "warning",
+            error_message=None if not failed else f"{len(failed)} ficheiros falharam"
+        )
+    except Exception:
+        pass
     return {
         "course": course_fullname,
         "pdfs_downloaded": downloaded,
@@ -605,77 +561,36 @@ def download_pdfs_from_course(course_fullname: str) -> dict:
 def clear_rag() -> str:
     """
     Limpa completamente o vectorstore (Qdrant) removendo todos os documentos.
-    
-    Apaga toda a coleção de documentos do Qdrant, efetivamente resetando
-    o conhecimento do sistema RAG. Útil para limpeza completa ou reset
-    do sistema quando necessário.
-    
-    Returns:
-        str: Mensagem de confirmação se a operação foi bem-sucedida, ou
-             mensagem de erro se ocorrer algum problema.
-    
-    Examples:
-        >>> clear_rag()
-        "Vectorstore (Qdrant) limpo."
-        
-        >>> clear_rag()
-        "Erro ao apagar vectorstore: Connection timeout"
-    
-    Notes:
-        - Remove permanentemente todos os documentos do vectorstore
-        - Requer nova adição de PDFs para restaurar o conhecimento
-        - Útil para reset completo do sistema
-        - Operação irreversível - use com cuidado
     """
     try:
         client.delete_collection(collection_name=QDRANT_COLLECTION_NAME)
+        # Log sucesso em Postgres
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.SYSTEM_MAINTENANCE,
+                details={"operation": "clear_rag", "collection": QDRANT_COLLECTION_NAME},
+                status="success"
+            )
+        except Exception:
+            pass
         return "Vectorstore (Qdrant) limpo."
     except Exception as e:
+        # Log erro em Postgres
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.SYSTEM_MAINTENANCE,
+                details={"operation": "clear_rag", "collection": QDRANT_COLLECTION_NAME},
+                status="error",
+                error_message=str(e)
+            )
+        except Exception:
+            pass
         return f"Erro ao apagar vectorstore: {e}"
 
 @mcp.tool()
 def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty: str = "mixed") -> dict:
     """
     Gera questionários com validação de dificuldade baseados no conteúdo dos PDFs.
-    
-    Cria perguntas de escolha múltipla e verdadeiro/falso com diferentes níveis
-    de dificuldade, baseadas no conteúdo encontrado sobre o tópico especificado.
-    Ideal para criar avaliações educacionais personalizadas.
-    
-    Args:
-        topic (str): Tópico sobre o qual gerar perguntas (ex: "Scala", "Monopoly")
-        num_questions (int): Número de perguntas a gerar (1-20)
-        difficulty (str): Nível de dificuldade ("easy", "medium", "hard", "mixed")
-    
-    Returns:
-        dict: Resultado da geração com as seguintes chaves:
-            - "success": Boolean indicando sucesso
-            - "quiz": Conteúdo do questionário formatado
-            - "message": Mensagem explicativa
-            - "topic": Tópico usado
-            - "difficulty": Dificuldade aplicada
-    
-    Examples:
-        >>> generate_quiz_with_difficulty("Scala", 5, "mixed")
-        {
-            "success": True,
-            "quiz": "**5 Perguntas sobre Scala (Nível Misturado)**\n\n1. Qual das seguintes...",
-            "message": "Questionário gerado com sucesso",
-            "topic": "Scala",
-            "difficulty": "mixed"
-        }
-        
-        >>> generate_quiz_with_difficulty("Tópico inexistente", 3, "easy")
-        {
-            "success": False,
-            "message": "Não foi possível encontrar conteúdo relevante"
-        }
-    
-    Notes:
-        - Usa conteúdo dos PDFs para gerar perguntas contextualizadas
-        - Suporta diferentes tipos de pergunta (múltipla escolha, verdadeiro/falso)
-        - Valida dificuldade baseada no conteúdo disponível
-        - Formato compatível com Moodle e outras plataformas
     """
     start_time = time.time()
     try:
@@ -694,33 +609,28 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         - Indica sempre a resposta correta
         - Formato: Pergunta + opções + "Resposta: X"
         - Dificuldade {difficulty}: ajusta complexidade das perguntas
-        
-        Exemplo de formato para escolha múltipla:
-        **{num_questions} Perguntas de Escolha Múltipla sobre {topic} (Nível {difficulty.title()})**
-        
-        1. Pergunta?
-           a) Opção A
-           b) Opção B  
-           c) Opção C
-           d) Opção D
-           Resposta: c
-        
-        Exemplo de formato para verdadeiro/falso:
-        **{num_questions} Perguntas de Verdadeiro/Falso sobre {topic} (Nível {difficulty.title()})**
-        
-        1. Pergunta?
-           a) Verdadeiro
-           b) Falso
-           Resposta: a
         """
         
         quiz_content = retrieve(difficulty_prompt)
         
         # Calcular duração
         duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
         
         if not quiz_content or "não foi possível" in quiz_content.lower():
             logger.warning(f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | No content found | Duration: {duration:.2f}s")
+            # Log em Postgres (sem conteúdo relevante)
+            try:
+                postgres_logger.log_operation(
+                    operation_type=OperationType.QUIZ_GENERATION,
+                    details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty},
+                    status="error",
+                    error_message="Sem conteúdo relevante",
+                    duration_ms=duration_ms
+                )
+                postgres_logger.update_operation_stats(OperationType.QUIZ_GENERATION.value, False, duration_ms)
+            except Exception:
+                pass
             return {
                 "success": False,
                 "message": f"Não foi possível encontrar conteúdo relevante sobre '{topic}'"
@@ -728,6 +638,16 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         
         # Log de sucesso
         logger.info(f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Success | Duration: {duration:.2f}s")
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.QUIZ_GENERATION,
+                details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty, "duration_ms": duration_ms},
+                status="success",
+                duration_ms=duration_ms
+            )
+            postgres_logger.update_operation_stats(OperationType.QUIZ_GENERATION.value, True, duration_ms)
+        except Exception:
+            pass
         
         return {
             "success": True,
@@ -739,53 +659,32 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         
     except Exception as e:
         duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
         error_msg = str(e)
         
         # Log de erro
         logger.error(f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Error: {error_msg} | Duration: {duration:.2f}s")
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.QUIZ_GENERATION,
+                details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty},
+                status="error",
+                error_message=error_msg,
+                duration_ms=duration_ms
+            )
+            postgres_logger.update_operation_stats(OperationType.QUIZ_GENERATION.value, False, duration_ms)
+        except Exception:
+            pass
         
         return {
             "success": False,
             "message": f"Erro ao gerar questionário: {error_msg}"
         }
 
-
-
 @mcp.tool()
 def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio: str = "16:9") -> dict:
     """
     Gera vídeo usando Gemini Veo (IA generativa de vídeo).
-    
-    Cria vídeos de alta qualidade usando IA generativa, muito mais eficiente
-    que métodos tradicionais de edição. Ideal para criar conteúdo educativo
-    visualmente atrativo.
-    
-    Args:
-        prompt (str): Descrição detalhada do vídeo a gerar
-        duration_seconds (int): Duração do vídeo (5-8 segundos)
-        aspect_ratio (str): Proporção do vídeo ("16:9" ou "16:10")
-    
-    Returns:
-        dict: Resultado da geração com as seguintes chaves:
-            - "success": Boolean indicando sucesso
-            - "video_path": Caminho do vídeo gerado (se sucesso)
-            - "message": Mensagem explicativa
-            - "duration": Duração real do vídeo gerado
-    
-    Examples:
-        >>> generate_video_with_veo("Um tutorial sobre Scala com código na tela", 8, "16:9")
-        {
-            "success": True,
-            "video_path": "video_veo_abc123.mp4",
-            "message": "Vídeo gerado com sucesso usando Gemini Veo",
-            "duration": 8
-        }
-    
-    Notes:
-        - Usa Gemini Veo para geração de vídeo com IA
-        - Qualidade muito superior a métodos tradicionais
-        - Processamento mais rápido (1-2 minutos)
-        - Requer API key do Gemini configurada
     """
     try:
         from google import genai
@@ -795,6 +694,16 @@ def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio
         # Verificar se a API key está configurada
         api_key = os.environ.get("GOOGLE_API_KEY")
         if not api_key:
+            # Log erro em Postgres
+            try:
+                postgres_logger.log_operation(
+                    operation_type=OperationType.VIDEO_GENERATION,
+                    details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio},
+                    status="error",
+                    error_message="API key não configurada"
+                )
+            except Exception:
+                pass
             return {
                 "success": False,
                 "message": "API key do Gemini não configurada. Configure a variável GEMINI_API_KEY."
@@ -830,6 +739,7 @@ def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio
         print(f"Iniciando geracao de video com Gemini Veo...")
         print(f"Prompt: {enhanced_prompt}")
         
+        start_time = time.time()
         # Gerar vídeo
         operation = client.models.generate_videos(
             model="veo-2.0-generate-001",
@@ -846,6 +756,16 @@ def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio
         
         result = operation.result
         if not result:
+            # Log erro em Postgres
+            try:
+                postgres_logger.log_operation(
+                    operation_type=OperationType.VIDEO_GENERATION,
+                    details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio},
+                    status="error",
+                    error_message="Resultado vazio do Gemini Veo"
+                )
+            except Exception:
+                pass
             return {
                 "success": False,
                 "message": "Erro durante a geração do vídeo com Gemini Veo"
@@ -853,6 +773,16 @@ def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio
         
         generated_videos = result.generated_videos
         if not generated_videos:
+            # Log erro em Postgres
+            try:
+                postgres_logger.log_operation(
+                    operation_type=OperationType.VIDEO_GENERATION,
+                    details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio},
+                    status="error",
+                    error_message="Nenhum vídeo gerado"
+                )
+            except Exception:
+                pass
             return {
                 "success": False,
                 "message": "Nenhum vídeo foi gerado pelo Gemini Veo"
@@ -868,6 +798,19 @@ def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio
         
         print(f"Video gerado com sucesso: {video_filename}")
         
+        # Log sucesso em Postgres
+        try:
+            duration_ms = int((time.time() - start_time) * 1000)
+            postgres_logger.log_operation(
+                operation_type=OperationType.VIDEO_GENERATION,
+                details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio, "video_path": video_filename, "generation_duration_ms": duration_ms},
+                status="success",
+                duration_ms=duration_ms
+            )
+            postgres_logger.update_operation_stats(OperationType.VIDEO_GENERATION.value, True, duration_ms)
+        except Exception:
+            pass
+        
         return {
             "success": True,
             "video_path": video_filename,
@@ -879,12 +822,20 @@ def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio
         error_msg = str(e)
         # Remover caracteres especiais que podem causar problemas de codificação
         error_msg = error_msg.encode('ascii', 'ignore').decode('ascii')
+        # Log erro em Postgres
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.VIDEO_GENERATION,
+                details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio},
+                status="error",
+                error_message=error_msg
+            )
+        except Exception:
+            pass
         return {
             "success": False,
             "message": f"Erro ao gerar video com Gemini Veo: {error_msg}"
         }
-
-
 
 if __name__ == "__main__":
     mcp.run()

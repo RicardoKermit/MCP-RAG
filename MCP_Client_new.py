@@ -489,47 +489,90 @@ postgres_logger = PostgresLogger({
     'password': 'rag_password_secure_2024'
 })
 
-# Funções de Log Específicas
-def log_rag_operation(operation: str, topic: str, success: bool, duration: float = None, error: str = None):
-    """Log para operações RAG (retrieve, add_pdfs)"""
-    log_msg = f"RAG_OPERATION | {operation} | Topic: {topic} | Success: {success}"
-    if duration:
-        log_msg += f" | Duration: {duration:.2f}s"
-    if error:
-        log_msg += f" | Error: {error}"
-    logger.info(log_msg)
+def log_rag_operation(operation: str, topic: str, success: bool, duration: float | None = None, error: str | None = None, user_id: str | None = None):
+    duration_ms = int(duration * 1000) if duration else None
+    # NEW: write to Postgres
+    try:
+        postgres_logger.log_operation(
+            operation_type=OperationType.RAG_QUERY,
+            user_id=user_id,
+            details={"operation": operation, "topic": topic, "duration_ms": duration_ms, **({"error": error} if error else {})},
+            status="success" if success else "error",
+            error_message=error,
+            duration_ms=duration_ms,
+            ip_address=(request.remote_addr if "request" in globals() and request else None),
+            user_agent=(request.headers.get("User-Agent") if "request" in globals() and request else None),
+        )
+        if duration_ms is not None:
+            postgres_logger.update_operation_stats(OperationType.RAG_QUERY.value, success, duration_ms)
+    except Exception as e:
+        logger.warning(f"Postgres log_rag_operation failed: {e}")
+    # keep existing file/console log
+    logger.info(f"RAG_OPERATION | {operation} | Topic: {topic} | Success: {success} | Duration: {duration}s | Error: {error}")
 
-def log_quiz_generation(topic: str, num_questions: int, difficulty: str, success: bool, duration: float = None, error: str = None):
-    """Log para geração de questionários"""
-    log_msg = f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Success: {success}"
-    if duration:
-        log_msg += f" | Duration: {duration:.2f}s"
-    if error:
-        log_msg += f" | Error: {error}"
-    logger.info(log_msg)
+def log_quiz_generation(topic: str, num_questions: int, difficulty: str, success: bool, duration: float | None = None, error: str | None = None, user_id: str | None = None):
+    duration_ms = int(duration * 1000) if duration else None
+    # NEW: write to Postgres
+    try:
+        postgres_logger.log_operation(
+            operation_type=OperationType.QUIZ_GENERATION,
+            user_id=user_id,
+            details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty, "duration_ms": duration_ms, **({"error": error} if error else {})},
+            status="success" if success else "error",
+            error_message=error,
+            duration_ms=duration_ms,
+        )
+        if duration_ms is not None:
+            postgres_logger.update_operation_stats(OperationType.QUIZ_GENERATION.value, success, duration_ms)
+    except Exception as e:
+        logger.warning(f"Postgres log_quiz_generation failed: {e}")
+    # keep existing file/console log
+    logger.info(f"QUIZ_GENERATION | {topic} | {num_questions} | {difficulty} | {success} | {duration}s | {error}")
+ 
 
-def log_video_generation(prompt: str, duration: int, aspect_ratio: str, success: bool, generation_duration: float = None, error: str = None):
-    """Log para geração de vídeos"""
-    log_msg = f"VIDEO_GENERATION | Prompt: {prompt[:50]}... | Duration: {duration}s | Aspect: {aspect_ratio} | Success: {success}"
-    if generation_duration:
-        log_msg += f" | GenerationTime: {generation_duration:.2f}s"
-    if error:
-        log_msg += f" | Error: {error}"
-    logger.info(log_msg)
+def log_video_generation(prompt: str, duration: int, aspect_ratio: str, success: bool, generation_duration: float | None = None, error: str | None = None, user_id: str | None = None):
+    gen_ms = int(generation_duration * 1000) if generation_duration else None
+    # NEW: write to Postgres
+    try:
+        postgres_logger.log_operation(
+            operation_type=OperationType.VIDEO_GENERATION,
+            user_id=user_id,
+            details={"prompt": prompt[:200], "video_duration_seconds": duration, "aspect_ratio": aspect_ratio, "generation_duration_ms": gen_ms, **({"error": error} if error else {})},
+            status="success" if success else "error",
+            error_message=error,
+            duration_ms=gen_ms,
+        )
+        if gen_ms is not None:
+            postgres_logger.update_operation_stats(OperationType.VIDEO_GENERATION.value, success, gen_ms)
+    except Exception as e:
+        logger.warning(f"Postgres log_video_generation failed: {e}")
+    # keep existing file/console log
+    logger.info(f"VIDEO_GENERATION | {duration}s | {aspect_ratio} | {success} | {generation_duration}s | {error}")
+ 
 
-def log_system_error(operation: str, error: str, context: dict = None):
-    """Log para erros do sistema"""
-    log_msg = f"SYSTEM_ERROR | Operation: {operation} | Error: {error}"
-    if context:
-        log_msg += f" | Context: {context}"
-    logger.error(log_msg)
+def log_system_error(operation: str, error: str, context: dict | None = None, user_id: str | None = None):
+    # NEW: write to Postgres
+    try:
+        postgres_logger.log_operation(
+            operation_type="system_error",
+            user_id=user_id,
+            details={"operation": operation, "context": context or {}},
+            status="error",
+            error_message=error,
+        )
+    except Exception as e:
+        logger.warning(f"Postgres log_system_error failed: {e}")
+    # keep existing file/console log
+    logger.error(f"SYSTEM_ERROR | Operation: {operation} | Error: {error} | Context: {context}")
 
-def log_user_interaction(action: str, details: dict = None):
-    """Log para interações do utilizador"""
-    log_msg = f"USER_INTERACTION | Action: {action}"
-    if details:
-        log_msg += f" | Details: {details}"
-    logger.info(log_msg)
+def log_user_interaction(action: str, details: dict | None = None, user_id: str | None = None, session_id: str | None = None):
+    # NEW: write to Postgres
+    try:
+        postgres_logger.log_user_interaction(user_id=user_id, action=action, details=details, session_id=session_id)
+    except Exception as e:
+        logger.warning(f"Postgres log_user_interaction failed: {e}")
+    # keep existing file/console log
+    logger.info(f"USER_INTERACTION | {action} | {details}")
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -538,6 +581,17 @@ if not GEMINI_API_KEY:
     raise ValueError("GOOGLE_API_KEY não definido no .env")
 
 genai.configure(api_key=GEMINI_API_KEY)
+
+# --- ADD: Postgres logger init ---
+db_config = {
+    "host": os.getenv("PG_HOST", "localhost"),
+    "port": int(os.getenv("PG_PORT", "5432")),
+    "database": os.getenv("PG_DATABASE", "rag_system"),
+    "user": os.getenv("PG_USER", "rag_user"),
+    "password": os.getenv("PG_PASSWORD", "rag_password_secure_2024"),
+}
+
+postgres_logger = PostgresLogger(db_config)
 
 # Dicionário de traduções
 TRANSLATIONS = {
