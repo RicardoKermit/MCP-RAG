@@ -743,16 +743,16 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         
         # 1. Buscar conteúdo sobre o tópico
         difficulty_prompt = f"""
-        Gera {num_questions} perguntas sobre {topic} com dificuldade {difficulty}.
-        
-        IMPORTANTE:
-        - Usa apenas informação dos PDFs disponíveis
-        - Gera APENAS o tipo de pergunta solicitado (escolha múltipla OU verdadeiro/falso)
-        - Para escolha múltipla: cada pergunta deve ter 4 opções (a, b, c, d)
-        - Para verdadeiro/falso: cada pergunta deve ter 2 opções (a) Verdadeiro, b) Falso)
-        - Indica sempre a resposta correta
-        - Formato: Pergunta + opções + "Resposta: X"
-        - Dificuldade {difficulty}: ajusta complexidade das perguntas
+        Generates {num_questions} questions about {topic} with difficulty {difficulty}.
+
+        IMPORTANT:
+        - Uses only information from available PDFs
+        - Generates ONLY the requested question type (multiple choice OR true/false)
+        - For multiple choice: each question must have 4 options (a, b, c, d)
+        - For true/false: each question must have 2 options (a) True, b) False)
+        - Always indicates the correct answer
+        - Format: Question + options + "Answer: X"
+        - Difficulty {difficulty}: adjusts question complexity
         """
         
         quiz_content = retrieve(difficulty_prompt)

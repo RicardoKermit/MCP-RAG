@@ -1131,31 +1131,30 @@ class MCPGeminiClient:
                 }
                 
                 follow_up_prompt = f"""
-Pergunta original: {query}
+Original question: {query}
 
-Informação encontrada:
+Information found:
 {raw_response}
 
 {final_language_instructions.get(self.current_language, final_language_instructions['pt'])}
 
-Por favor, apresenta esta informação de forma clara, bem estruturada e fácil de ler. 
-Usa formatação markdown para organizar a resposta:
+Please present this information in a clear, well-structured, and easy-to-read format.
+Use Markdown formatting to organize your answer:
 
-- Usa **negrito** para títulos e pontos importantes
-- Usa listas com * ou - para organizar informações
-- Usa parágrafos para separar ideias
-- Usa > para citações importantes
-- Organiza a resposta de forma lógica e estruturada
-- Destaca pontos importantes com **negrito**
-- Usa quebras de linha para melhor legibilidade
+- Use **bold** for headings and important points
+- Use lists with * or - to organize information
+- Use paragraphs to separate ideas
+- Use > for important quotes
+- Organize your answer in a logical and structured way
+- Highlight important points with **bold**
+- Use line breaks for better readability
 
-**IMPORTANTE:** 
-- Se a pergunta pedir especificamente para criar perguntas de escolha múltipla, cria o número de perguntas solicitado baseadas no conteúdo encontrado, com o número de opções apropriado (geralmente 4 opções a, b, c, d) e indica a resposta correta
-- Se a pergunta pedir especificamente para criar perguntas de verdadeiro/falso, cria o número de perguntas solicitado baseadas no conteúdo encontrado, cada uma com as opções "Verdadeiro" e "Falso" e indica a resposta correta
-- Para todas as outras perguntas, responde naturalmente com a informação encontrada
+**IMPORTANT:**
+- If the question specifically asks you to create multiple-choice questions, create the requested number of questions based on the content found, with the appropriate number of options (usually 4 options a, b, c, d) and indicate the correct answer.
+- If the question specifically asks you to create true/false questions, create the requested number of questions based on the content found, each with the options "True" and "False" and indicate the correct answer.
+- For all other questions, answer naturally with the information found.
 
-Responde de forma natural e direta, como se estivesses a explicar a alguém.
-Certifica-te de que a resposta está bem formatada e fácil de ler.
+Answer naturally and directly, as if you were explaining it to someone. Make sure your response is well formatted and easy to read.
 """
                 
                 print("🔄 Gerando resposta final...")
