@@ -924,6 +924,40 @@ async function loadCurrentModel() {
     }
 }
 
+// Load and change RAG backend
+async function loadRagBackend() {
+    try {
+        const response = await fetch('/rag-backend');
+        const data = await response.json();
+        const select = document.getElementById('ragBackendSelect');
+        if (data && data.backend && select) {
+            select.value = data.backend;
+        }
+    } catch (e) {
+        console.log('Erro ao carregar backend RAG:', e);
+    }
+}
+
+async function changeRagBackend() {
+    const select = document.getElementById('ragBackendSelect');
+    const backend = select.value;
+    try {
+        const response = await fetch('/set-rag-backend', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ backend })
+        });
+        const data = await response.json();
+        if (data && data.success) {
+            showConnectionStatus(`Backend RAG alterado para: ${data.backend}`);
+        } else {
+            showConnectionStatus(`Erro ao alterar backend RAG: ${data.error || 'desconhecido'}`, true);
+        }
+    } catch (e) {
+        showConnectionStatus(`Erro de rede ao alterar backend RAG: ${e.message}`, true);
+    }
+}
+
 // Function to check if user is authenticated
 async function checkAuthentication() {
     try {
@@ -966,6 +1000,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Load current model
             loadCurrentModel();
+            // Load RAG backend
+            loadRagBackend();
             
             // Load conversations
             loadConversations();

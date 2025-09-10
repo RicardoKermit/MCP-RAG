@@ -4,6 +4,14 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter, CharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAI
 from langchain.prompts import PromptTemplate
+try:
+    # Prefer new split packages
+    from langchain_chroma import Chroma
+    CHROMA_IMPORTED_FROM = "langchain_chroma"
+except ImportError:
+    # Fallback to community package if needed
+    from langchain_community.vectorstores import Chroma
+    CHROMA_IMPORTED_FROM = "langchain_community.vectorstores"
 from langchain_qdrant import Qdrant
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
@@ -145,43 +153,64 @@ QDRANT_COLLECTION_NAME=os.getenv("QDRANT_COLLECTION_NAME")
 QDRANT_API_KEY=os.getenv("QDRANT_API_KEY")
 QDRANT_URL=os.getenv("QDRANT_HOST")
 
+# RAG backend selection
+RAG_BACKEND=os.getenv("RAG_BACKEND").lower()  # "qdrant" or "chroma"
+CHROMA_DIR=os.getenv("CHROMA_DIR")
+
 MOODLE_URL=os.getenv("MOODLE_URL")
 MOODLE_TOKEN=os.getenv("MOODLE_TOKEN")
 
 # Pastas
-PDF_FOLDER = "pdfs"
+PDF_FOLDER = "pdfs_test"
 
 # MCP
 mcp = FastMCP(name="RAG_pdf_Mul_RemoteQdrant")
 
+"""Inicialização de embeddings e vectorstore, com suporte a Chroma (local) e Qdrant (cloud)."""
 # Embeddings
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-# Cliente Qdrant
-client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
-if QDRANT_COLLECTION_NAME not in [c.name for c in client.get_collections().collections]:
-    client.recreate_collection(
+if RAG_BACKEND == "qdrant":
+    # Cliente Qdrant
+    client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+    if QDRANT_COLLECTION_NAME not in [c.name for c in client.get_collections().collections]:
+        client.recreate_collection(
+            collection_name=QDRANT_COLLECTION_NAME,
+            vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+        )
+
+    # Preparar textos a indexar (apenas se houver PDFs)
+    all_texts = []
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=200)
+    for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
+        loader = PyPDFLoader(str(pdf_file))
+        data = loader.load()
+        texts = text_splitter.split_documents(data)
+        all_texts.extend(texts)
+
+    # Vectorstore Qdrant
+    docsearch = Qdrant(
+        client=client,
         collection_name=QDRANT_COLLECTION_NAME,
-        vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+        embeddings=embeddings
     )
+    if all_texts:
+        docsearch.add_documents(all_texts)
+else:
 
-# Vectorstore
-all_texts = []
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=200)
-for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
-    loader = PyPDFLoader(str(pdf_file))
-    data = loader.load()
-    texts = text_splitter.split_documents(data)
-    all_texts.extend(texts)
-
-docsearch = Qdrant(
-    client=client,
-    collection_name=QDRANT_COLLECTION_NAME,
-    embeddings=embeddings
-)
-
-if all_texts:
-    docsearch.add_documents(all_texts)
+    print("Chroma local com persistência")
+    # Chroma local com persistência
+    if os.path.exists(CHROMA_DIR) and os.path.isdir(CHROMA_DIR) and len(os.listdir(CHROMA_DIR)) > 0:
+        docsearch = Chroma(persist_directory=CHROMA_DIR, embedding_function=embeddings)
+    else:
+        all_texts = []
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=200)
+        for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
+            loader = PyPDFLoader(str(pdf_file))
+            data = loader.load()
+            texts = text_splitter.split_documents(data)
+            all_texts.extend(texts)
+        docsearch = Chroma.from_documents(all_texts, embeddings, persist_directory=CHROMA_DIR)
 
 retriever = docsearch.as_retriever(search_kwargs={"k": 5})
 
@@ -203,6 +232,45 @@ qa = RetrievalQA.from_chain_type(
     retriever=retriever,
     chain_type_kwargs={"prompt": custom_prompt}
 )
+
+def _reinitialize_vectorstore(new_backend: str) -> str:
+    """Reinicializa docsearch, retriever e qa com o backend indicado."""
+    global RAG_BACKEND, docsearch, retriever, qa
+    target_backend = (new_backend or RAG_BACKEND).lower()
+
+    # Embeddings já inicializados globalmente
+    if target_backend == "qdrant":
+        client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+        if QDRANT_COLLECTION_NAME not in [c.name for c in client.get_collections().collections]:
+            client.recreate_collection(
+                collection_name=QDRANT_COLLECTION_NAME,
+                vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+            )
+        # Não recarregar tudo obrigatoriamente; apenas garantir docsearch
+        docsearch = Qdrant(
+            client=client,
+            collection_name=QDRANT_COLLECTION_NAME,
+            embeddings=embeddings
+        )
+    elif target_backend == "chroma":
+        # Reabrir Chroma do disco (se existir) ou criar vazio
+        if os.path.exists(CHROMA_DIR) and os.path.isdir(CHROMA_DIR) and len(os.listdir(CHROMA_DIR)) > 0:
+            docsearch = Chroma(persist_directory=CHROMA_DIR, embedding_function=embeddings)
+        else:
+            # Base vazia
+            docsearch = Chroma.from_documents([], embeddings, persist_directory=CHROMA_DIR)
+    else:
+        raise ValueError("Backend inválido. Use 'qdrant' ou 'chroma'.")
+
+    retriever = docsearch.as_retriever(search_kwargs={"k": 5})
+    qa = RetrievalQA.from_chain_type(
+        llm=model,
+        chain_type="stuff",
+        retriever=retriever,
+        chain_type_kwargs={"prompt": custom_prompt}
+    )
+    RAG_BACKEND = target_backend
+    return RAG_BACKEND
 
 def update_model(new_model_name: str) -> bool:
     """Atualiza o modelo Gemini usado pelo servidor"""
@@ -266,6 +334,42 @@ def get_current_model() -> dict:
     }
 
 @mcp.tool()
+def set_rag_backend(backend: str) -> dict:
+    """
+    Altera o backend do RAG em tempo de execução.
+    backend: 'qdrant' ou 'chroma'
+    """
+    try:
+        new_backend = _reinitialize_vectorstore(backend)
+        # Log em Postgres (sucesso)
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.SYSTEM_MAINTENANCE,
+                details={"tool": "set_rag_backend", "backend": new_backend},
+                status="success"
+            )
+        except Exception:
+            pass
+        return {"success": True, "backend": new_backend}
+    except Exception as e:
+        # Log em Postgres (erro)
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.SYSTEM_MAINTENANCE,
+                details={"tool": "set_rag_backend", "backend": backend},
+                status="error",
+                error_message=str(e)
+            )
+        except Exception:
+            pass
+        return {"success": False, "error": str(e)}
+
+@mcp.tool()
+def get_rag_backend() -> dict:
+    """Retorna o backend RAG atual e info auxiliar."""
+    return {"backend": RAG_BACKEND, "options": ["qdrant", "chroma"], "chroma_dir": CHROMA_DIR, "qdrant_collection": QDRANT_COLLECTION_NAME}
+
+@mcp.tool()
 def retrieve(prompt: str) -> str:
     """
     Busca e gera respostas baseadas no conteúdo dos PDFs armazenados no vectorstore.
@@ -322,22 +426,54 @@ def retrieve(prompt: str) -> str:
 @mcp.tool()
 def add_new_pdfs() -> str:
     """
-    Adiciona novos PDFs da pasta 'pdfs' ao vectorstore (Qdrant).
+    Adiciona novos PDFs da pasta 'pdfs' ao vectorstore (Chroma ou Qdrant).
     """
-    existing_ids = set([d.metadata.get("source") for d in docsearch.similarity_search("", k=1000)])
     new_files_added = False
     added_count = 0
-    for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
-        file_path = str(pdf_file.resolve())
-        if file_path not in existing_ids:
-            loader = PyPDFLoader(file_path)
-            data = loader.load()
-            text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-            texts = text_splitter.split_documents(data)
-            docsearch.add_documents(texts)
-            new_files_added = True
-            added_count += 1
-    msg = "PDFs adicionados." if new_files_added else "Nenhum PDF novo para adicionar."
+
+    try:
+        if RAG_BACKEND == "qdrant":
+            # Obter fontes já indexadas via busca vazia (limite alto)
+            existing_ids = set([d.metadata.get("source") for d in docsearch.similarity_search("", k=1000)])
+            for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
+                file_path = str(pdf_file.resolve())
+                if file_path not in existing_ids:
+                    loader = PyPDFLoader(file_path)
+                    data = loader.load()
+                    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+                    texts = text_splitter.split_documents(data)
+                    docsearch.add_documents(texts)
+                    new_files_added = True
+                    added_count += 1
+        else:
+            # Chroma: ler metadados existentes
+            existing_metadatas = docsearch.get(include=["metadatas"]).get("metadatas", [])
+            existing_sources = set()
+            for meta_list in existing_metadatas:
+                for meta in meta_list:
+                    if isinstance(meta, dict):
+                        src = meta.get("source")
+                        if src:
+                            existing_sources.add(src)
+            for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
+                file_path = str(pdf_file.resolve())
+                if file_path not in existing_sources:
+                    loader = PyPDFLoader(file_path)
+                    data = loader.load()
+                    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+                    texts = text_splitter.split_documents(data)
+                    docsearch.add_documents(texts)
+                    new_files_added = True
+                    added_count += 1
+            if new_files_added:
+                try:
+                    docsearch.persist()
+                except Exception:
+                    pass
+
+        msg = "PDFs adicionados." if new_files_added else "Nenhum PDF novo para adicionar."
+    except Exception as e:
+        msg = f"Erro ao adicionar PDFs: {e}"
     # Log em Postgres (resumo da operação)
     try:
         postgres_logger.log_operation(
@@ -560,26 +696,34 @@ def download_pdfs_from_course(course_fullname: str) -> dict:
 @mcp.tool()
 def clear_rag() -> str:
     """
-    Limpa completamente o vectorstore (Qdrant) removendo todos os documentos.
+    Limpa completamente o vectorstore, conforme o backend selecionado.
+    - Qdrant: apaga a coleção remota
+    - Chroma: remove a pasta de persistência local
     """
     try:
-        client.delete_collection(collection_name=QDRANT_COLLECTION_NAME)
+        if RAG_BACKEND == "qdrant":
+            client.delete_collection(collection_name=QDRANT_COLLECTION_NAME)
+            result_msg = "Vectorstore (Qdrant) limpo."
+        else:
+            if os.path.exists(CHROMA_DIR):
+                shutil.rmtree(CHROMA_DIR)
+            result_msg = "Vectorstore (Chroma) limpo."
         # Log sucesso em Postgres
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.SYSTEM_MAINTENANCE,
-                details={"operation": "clear_rag", "collection": QDRANT_COLLECTION_NAME},
+                details={"operation": "clear_rag", "backend": RAG_BACKEND},
                 status="success"
             )
         except Exception:
             pass
-        return "Vectorstore (Qdrant) limpo."
+        return result_msg
     except Exception as e:
         # Log erro em Postgres
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.SYSTEM_MAINTENANCE,
-                details={"operation": "clear_rag", "collection": QDRANT_COLLECTION_NAME},
+                details={"operation": "clear_rag", "backend": RAG_BACKEND},
                 status="error",
                 error_message=str(e)
             )

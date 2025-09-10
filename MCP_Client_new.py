@@ -878,6 +878,63 @@ class MCPGeminiClient:
             return True
         return False
 
+    def get_rag_backend(self):
+        """Obtém o backend RAG atual a partir do servidor MCP."""
+        if not self.is_connected:
+            return {"success": False, "error": "Not connected"}
+        try:
+            result = run_async(self.session.call_tool("get_rag_backend", {}))
+            # Normalizar resultado (CallToolResult -> dict)
+            try:
+                # Alguns clientes retornam conteúdo em result.content (lista de partes)
+                content = getattr(result, 'content', None)
+                if isinstance(content, list) and content:
+                    # Procurar parte de texto
+                    for part in content:
+                        text = getattr(part, 'text', None) or part.get('text') if isinstance(part, dict) else None
+                        if text:
+                            import json as _json
+                            try:
+                                return _json.loads(text)
+                            except Exception:
+                                return {"success": True, "data": text}
+                # Se já for dict serializável
+                if isinstance(result, dict):
+                    return result
+                # Fallback para string
+                return {"success": True, "data": str(result)}
+            except Exception:
+                return {"success": True, "data": str(result)}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def set_rag_backend(self, backend):
+        """Define o backend RAG ("qdrant" ou "chroma") no servidor MCP."""
+        if not self.is_connected:
+            return {"success": False, "error": "Not connected"}
+        try:
+            result = run_async(self.session.call_tool("set_rag_backend", {"backend": backend}))
+            # Normalizar resultado (CallToolResult -> dict)
+            try:
+                content = getattr(result, 'content', None)
+                if isinstance(content, list) and content:
+                    for part in content:
+                        text = getattr(part, 'text', None) or part.get('text') if isinstance(part, dict) else None
+                        if text:
+                            import json as _json
+                            try:
+                                return _json.loads(text)
+                            except Exception:
+                                # Tentar inferir sucesso a partir do texto
+                                return {"success": "sucesso" in text.lower(), "message": text}
+                if isinstance(result, dict):
+                    return result
+                return {"success": True, "message": str(result)}
+            except Exception:
+                return {"success": True, "message": str(result)}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     def get_available_models(self):
         """Retorna a lista de modelos disponíveis"""
         return GEMINI_MODELS
@@ -1385,6 +1442,27 @@ def set_model():
             'success': False,
             'error': str(e)
         })
+
+@app.route('/rag-backend', methods=['GET'])
+def get_rag_backend_route():
+    """Retorna o backend RAG atual (qdrant/chroma)."""
+    if not session.get('authenticated'):
+        return jsonify({'error': 'Not authenticated'}), 401
+    result = mcp_client.get_rag_backend()
+    return jsonify(result)
+
+@app.route('/set-rag-backend', methods=['POST'])
+def set_rag_backend_route():
+    """Altera o backend RAG (qdrant/chroma) em tempo de execução."""
+    if not session.get('authenticated'):
+        return jsonify({'error': 'Not authenticated'}), 401
+    try:
+        data = request.get_json()
+        backend = data.get('backend', '').lower()
+        result = mcp_client.set_rag_backend(backend)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/translations/<language>', methods=['GET'])
 def get_translations(language):

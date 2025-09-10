@@ -42,7 +42,7 @@
                 <div class="connection-section">
                     <h3 id="connectionSectionTitle">🔗 Conexão</h3>
                     <div class="connection-form">
-                        <input type="text" id="serverPath" placeholder="Caminho do servidor MCP" value="MCP_Server.py">
+                        <input type="text" id="serverPath" placeholder="Caminho do servidor MCP" value="MCP_Server_new.py">
                         <button class="connect-btn" onclick="connectToServer()" id="connectButton">
                             <svg class="connect-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -78,6 +78,16 @@
                         <div class="model-info" id="modelInfo">
                             <small>Modelo rápido e eficiente para tarefas gerais</small>
                         </div>
+                    </div>
+                </div>
+                
+                <div class="language-section">
+                    <h3>🗄️ Backend RAG</h3>
+                    <div class="language-selector">
+                        <select id="ragBackendSelect" onchange="changeRagBackend()">
+                            <option value="qdrant">Qdrant (Cloud)</option>
+                            <option value="chroma">Chroma (Local)</option>
+                        </select>
                     </div>
                 </div>
                 
