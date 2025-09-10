@@ -30,6 +30,7 @@ from typing import List
 import time
 from datetime import datetime
 import logging
+from langchain_openai import ChatOpenAI
 
 # PostgreSQL Logging System
 from postgres_logger import PostgresLogger, OperationType
@@ -146,6 +147,36 @@ GEMINI_MODELS = {
         "description": "Topo de gama da Google. Multimodal, com capacidades avançadas e contexto alargado. Muito caro.",
         "max_tokens": 32768,
         "cost_rank": 11
+    }
+}
+
+ALL_MODELS = {
+    # GEMINI
+    "gemini-1.5-flash-8b": {
+        "provider": "gemini",
+        "name": "Gemini 1.5 Flash 8B",
+        "description": "Modelo mais barato da família Gemini, ideal para uso prolongado com baixo custo.",
+        "max_tokens": 4096
+    },
+    "gemini-2.5-pro": {
+        "provider": "gemini",
+        "name": "Gemini 2.5 Pro",
+        "description": "Topo de gama da Google, multimodal e caro.",
+        "max_tokens": 32768
+    },
+
+    # OPENAI
+    "gpt-4o-mini": {
+        "provider": "openai",
+        "name": "GPT-4o Mini",
+        "description": "Modelo da OpenAI otimizado para custo/velocidade.",
+        "max_tokens": 16384
+    },
+    "gpt-4.1": {
+        "provider": "openai",
+        "name": "GPT-4.1",
+        "description": "Modelo avançado da OpenAI com contexto extenso.",
+        "max_tokens": 128000
     }
 }
 
@@ -272,22 +303,25 @@ def _reinitialize_vectorstore(new_backend: str) -> str:
     RAG_BACKEND = target_backend
     return RAG_BACKEND
 
+
 def update_model(new_model_name: str) -> bool:
-    """Atualiza o modelo Gemini usado pelo servidor"""
+    """Atualiza o modelo Gemini ou OpenAI usado pelo servidor"""
     global model, qa, current_model_name
-    
-    if new_model_name not in GEMINI_MODELS:
+    if new_model_name not in ALL_MODELS:
         return False
-    
     try:
-        current_model_name = new_model_name
-        model = GoogleGenerativeAI(model=current_model_name, temperature=0.4)
+        model_info = ALL_MODELS[new_model_name]
+        if model_info["provider"] == "gemini":
+            model = GoogleGenerativeAI(model=new_model_name, temperature=0.4)
+        elif model_info["provider"] == "openai":
+            model = ChatOpenAI(model=new_model_name, api_key=os.getenv("OPENAI_API_KEY"), temperature=0.4)
         qa = RetrievalQA.from_chain_type(
             llm=model,
             chain_type="stuff",
             retriever=retriever,
             chain_type_kwargs={"prompt": custom_prompt}
         )
+        current_model_name = new_model_name
         return True
     except Exception as e:
         print(f"Erro ao atualizar modelo: {e}")
@@ -308,7 +342,7 @@ def set_model(model_name: str) -> str:
             )
         except Exception:
             pass
-        return f"Modelo alterado para {GEMINI_MODELS[model_name]['name']}"
+        return f"Modelo alterado para {ALL_MODELS[model_name]['name']}"
     else:
         # Log em Postgres (erro)
         try:
@@ -329,8 +363,8 @@ def get_current_model() -> dict:
     """
     return {
         "current_model": current_model_name,
-        "current_model_info": GEMINI_MODELS[current_model_name],
-        "available_models": GEMINI_MODELS
+        "current_model_info": ALL_MODELS[current_model_name],
+        "available_models": ALL_MODELS
     }
 
 @mcp.tool()

@@ -19,6 +19,8 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
 import sqlite3
+from openai import OpenAI
+
 
 # PostgreSQL Logging System
 from postgres_logger import PostgresLogger, OperationType
@@ -576,6 +578,7 @@ def log_user_interaction(action: str, details: dict | None = None, user_id: str 
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 if not GEMINI_API_KEY:
     raise ValueError("GOOGLE_API_KEY não definido no .env")
@@ -822,6 +825,36 @@ GEMINI_MODELS = {
         "cost_rank": 11
     }
 }
+ALL_MODELS = {
+    # GEMINI
+    "gemini-1.5-flash-8b": {
+        "provider": "gemini",
+        "name": "Gemini 1.5 Flash 8B",
+        "description": "Modelo mais barato da família Gemini, ideal para uso prolongado com baixo custo.",
+        "max_tokens": 4096
+    },
+    "gemini-2.5-pro": {
+        "provider": "gemini",
+        "name": "Gemini 2.5 Pro",
+        "description": "Topo de gama da Google, multimodal e caro.",
+        "max_tokens": 32768
+    },
+
+    # OPENAI
+    "gpt-4o-mini": {
+        "provider": "openai",
+        "name": "GPT-4o Mini",
+        "description": "Modelo da OpenAI otimizado para custo/velocidade.",
+        "max_tokens": 16384
+    },
+    "gpt-4.1": {
+        "provider": "openai",
+        "name": "GPT-4.1",
+        "description": "Modelo avançado da OpenAI com contexto extenso.",
+        "max_tokens": 128000
+    }
+}
+
 
 app = Flask(__name__, static_folder='templates/static')
 app.config['SECRET_KEY'] = 'your-secret-key-here'
@@ -860,14 +893,18 @@ class MCPGeminiClient:
         self.session_cm = None
         self.is_connected = False
         self.current_model = "gemini-1.5-flash-8b"  # Changed to the most economical model
+        self.current_provider = ALL_MODELS[self.current_model]["provider"]
         self.current_language = "pt"  # Idioma padrão (Português)
         self.conversation_history = []  # Histórico da conversa
 
     def set_model(self, model_name):
-        """Define o modelo Gemini a ser usado"""
-        if model_name in GEMINI_MODELS:
+        """Define o modelo a ser usado (Gemini ou OpenAI) e sincroniza com o servidor"""
+        if model_name in ALL_MODELS:
             self.current_model = model_name
-            # Sincronizar com o servidor se estiver conectado
+            self.current_provider = ALL_MODELS[model_name]["provider"]
+            print(f"✅ Modelo definido: {model_name} (provider={self.current_provider})")
+        
+            # Se já estiver conectado ao servidor, sincroniza
             if self.is_connected:
                 try:
                     # Chamar a ferramenta set_model do servidor
@@ -937,7 +974,7 @@ class MCPGeminiClient:
 
     def get_available_models(self):
         """Retorna a lista de modelos disponíveis"""
-        return GEMINI_MODELS
+        return ALL_MODELS
     
     def set_language(self, language):
         """Define o idioma atual para as respostas"""
@@ -1038,7 +1075,7 @@ class MCPGeminiClient:
         
         try:
             print(f"🤔 Processando pergunta: {query}")
-            print(f"🤖 Usando modelo: {self.current_model}")
+            print(f"🤖 Usando modelo: {self.current_model} (provider={self.current_provider})")
             
             # Adicionar pergunta ao histórico
             self.conversation_history.append({"role": "user", "content": query})
@@ -1078,10 +1115,21 @@ class MCPGeminiClient:
                 "TOOL: <nome_da_ferramenta>\nARGS: <json_com_argumentos>\n"
             )
             
-            print("🤖 Gerando resposta com Gemini...")
-            model = genai.GenerativeModel(self.current_model)
-            response = model.generate_content(prompt)
-            text = response.text.strip()
+            print(f"🤖 Usando modelo: {self.current_model} (provider={self.current_provider})")
+
+            if self.current_provider == "gemini":
+                model = genai.GenerativeModel(self.current_model)
+                response = model.generate_content(prompt)
+                text = response.text.strip()
+            elif self.current_provider == "openai":
+                response = openai_client.chat.completions.create(
+                    model=self.current_model,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                text = response.choices[0].message.content.strip()
+            else:
+                raise ValueError(f"Provider desconhecido: {self.current_provider}")
+
             
             print(f"📝 Resposta do Gemini: {text[:100]}...")
             
@@ -1158,8 +1206,16 @@ Answer naturally and directly, as if you were explaining it to someone. Make sur
 """
                 
                 print("🔄 Gerando resposta final...")
-                follow_up_response = model.generate_content(follow_up_prompt)
-                final_response = follow_up_response.text.strip()
+                if self.current_provider == "gemini":
+                    follow_up_response = model.generate_content(follow_up_prompt)
+                    final_response = follow_up_response.text.strip()
+                elif self.current_provider == "openai":
+                    follow_up_response = openai_client.chat.completions.create(
+                    model=self.current_model,
+                    messages=[{"role": "user", "content": follow_up_prompt}]
+                    )
+                    final_response = follow_up_response.choices[0].message.content.strip()
+                    
                 print(f"✅ Resposta final: {final_response[:100]}...")
                 
                 # Adicionar resposta ao histórico
