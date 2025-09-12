@@ -1208,6 +1208,12 @@ function openStatistics() {
     window.open('/statistics-page', '_blank');
 }
 
+// Open statistics page
+function openSettings() {
+    window.open('/settings-page', '_blank');
+}
+
+
 
 
 
