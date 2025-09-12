@@ -868,7 +868,46 @@ const MODEL_INFO = {
     "gemini-2.5-pro": {
         name: "Gemini 2.5 Pro",
         description: "Modelo mais avançado da nova geração para tarefas complexas"
-    }
+    },
+    // OpenAI
+    "gpt-3.5-turbo": {
+        name: "GPT-3.5 Turbo",
+        description: "Modelo rápido e económico da OpenAI"
+    },
+    "gpt-4o": {
+        name: "GPT-4o",
+        description: "Modelo multimodal otimizado da OpenAI"
+    },
+    "gpt-4o-mini": {
+        name: "GPT-4o Mini",
+        description: "Versão mais leve e barata do GPT-4o"
+    },
+    "gpt-4.1": {
+        name: "GPT-4.1",
+        description: "Modelo avançado com contexto extenso"
+    },
+
+    // Ollama
+    "llama3": {
+        name: "LLaMA 3 (8B)",
+        description: "Modelo base Meta LLaMA 3 com 8B parâmetros"
+    },
+    "llama3-70b": {
+        name: "LLaMA 3 (70B)",
+        description: "Modelo maior, melhor raciocínio mas pesado"
+    },
+    "mistral": {
+        name: "Mistral 7B",
+        description: "Modelo rápido e eficiente em máquinas locais"
+    },
+    "codellama": {
+        name: "CodeLLaMA",
+        description: "Modelo otimizado para programação e código"
+    },
+    "gemma": {
+        name: "Gemma 7B",
+        description: "Modelo Google leve para uso local"
+  }
 };
 
 // Change model function

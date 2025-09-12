@@ -31,6 +31,9 @@ import time
 from datetime import datetime
 import logging
 from langchain_openai import ChatOpenAI
+import requests  # para chamar o Ollama via API HTTP
+import re
+
 
 # PostgreSQL Logging System
 from postgres_logger import PostgresLogger, OperationType
@@ -158,6 +161,60 @@ ALL_MODELS = {
         "description": "Modelo mais barato da família Gemini, ideal para uso prolongado com baixo custo.",
         "max_tokens": 4096
     },
+    "gemini-2.0-flash-lite": {
+        "name": "Gemini 2.0 Flash Lite",
+        "description": "Modelo leve e rápido, bom para tarefas simples com excelente relação custo/eficiência.",
+        "max_tokens": 4096,
+        "cost_rank": 2
+    },
+    "gemini-2.5-flash-lite": {
+        "name": "Gemini 2.5 Flash Lite",
+        "description": "Versão optimizada e recente do Flash Lite. Mais rápida e estável, mantendo baixo custo.",
+        "max_tokens": 4096,
+        "cost_rank": 3
+    },
+    "gemini-1.5-flash": {
+        "name": "Gemini 1.5 Flash",
+        "description": "Modelo eficiente para tarefas gerais com bom custo/benefício e suporte a contexto maior.",
+        "max_tokens": 8192,
+        "cost_rank": 4
+    },
+    "gemini-2.0-flash": {
+        "name": "Gemini 2.0 Flash",
+        "description": "Geração seguinte do Flash com melhor suporte multimodal. Um pouco mais caro.",
+        "max_tokens": 8192,
+        "cost_rank": 5
+    },
+    "gemini-2.5-flash": {
+        "name": "Gemini 2.5 Flash",
+        "description": "Mais rápido e versátil que os anteriores. Ideal para aplicações em tempo real com contexto médio.",
+        "max_tokens": 8192,
+        "cost_rank": 6
+    },
+    "gemini-2.0-pro": {
+        "name": "Gemini 2.0 Pro",
+        "description": "Modelo menos usado da linha Pro, com bom desempenho mas preço já mais elevado.",
+        "max_tokens": 32768,
+        "cost_rank": 7
+    },
+    "gemini-1.5-pro": {
+        "name": "Gemini 1.5 Pro",
+        "description": "Modelo Pro popular para tarefas complexas com contexto grande. Mais caro que os Flash.",
+        "max_tokens": 32768,
+        "cost_rank": 8
+    },
+    "gemini-1.0-pro": {
+        "name": "Gemini 1.0 Pro",
+        "description": "Primeiro Pro lançado. Já ultrapassado, mas ainda competente para aplicações estáveis.",
+        "max_tokens": 32768,
+        "cost_rank": 9
+    },
+    "gemini-pro": {
+        "name": "Gemini Pro",
+        "description": "Modelo base Pro, com desempenho genérico e preço elevado face aos mais recentes.",
+        "max_tokens": 32768,
+        "cost_rank": 10
+    },
     "gemini-2.5-pro": {
         "provider": "gemini",
         "name": "Gemini 2.5 Pro",
@@ -165,6 +222,18 @@ ALL_MODELS = {
         "max_tokens": 32768
     },
 
+    "gpt-3.5-turbo": {
+        "provider": "openai",
+        "name": "GPT-3.5 Turbo",
+        "description": "Modelo rápido e económico da OpenAI",
+        "max_tokens": 4096,
+    },
+    "gpt-4o": {
+        "provider": "openai",
+        "name": "GPT-4o",
+        "description": "Modelo multimodal otimizado da OpenAI",
+        "max_tokens": 128000,
+    },
     # OPENAI
     "gpt-4o-mini": {
         "provider": "openai",
@@ -177,6 +246,37 @@ ALL_MODELS = {
         "name": "GPT-4.1",
         "description": "Modelo avançado da OpenAI com contexto extenso.",
         "max_tokens": 128000
+    },
+    # LOCAL (Ollama)
+    "llama3": {
+        "provider": "ollama",
+        "name": "LLaMA 3 (Local via Ollama)",
+        "description": "Modelo local correndo no Ollama",
+        "max_tokens": 4096,
+    },
+    "llama3-70b": {
+        "provider": "ollama",
+        "name": "LLaMA 3 (70B)",
+        "description": "Modelo maior, melhor raciocínio mas mais pesado",
+        "max_tokens": 8192,
+    },
+    "mistral": {
+        "provider": "ollama",
+        "name": "Mistral 7B",
+        "description": "Modelo rápido e eficiente em máquinas locais",
+        "max_tokens": 4096,
+    },
+    "codellama": {
+        "provider": "ollama",
+        "name": "CodeLLaMA",
+        "description": "Modelo otimizado para programação e código",
+        "max_tokens": 4096,
+    },
+    "gemma": {
+        "provider": "ollama",
+        "name": "Gemma 7B",
+        "description": "Modelo Google leve para uso local",
+        "max_tokens": 4096,
     }
 }
 
@@ -305,7 +405,7 @@ def _reinitialize_vectorstore(new_backend: str) -> str:
 
 
 def update_model(new_model_name: str) -> bool:
-    """Atualiza o modelo Gemini ou OpenAI usado pelo servidor"""
+    """Atualiza o modelo Gemini ou OpenAI ou Ollama usado pelo servidor"""
     global model, qa, current_model_name
     if new_model_name not in ALL_MODELS:
         return False
@@ -315,12 +415,22 @@ def update_model(new_model_name: str) -> bool:
             model = GoogleGenerativeAI(model=new_model_name, temperature=0.4)
         elif model_info["provider"] == "openai":
             model = ChatOpenAI(model=new_model_name, api_key=os.getenv("OPENAI_API_KEY"), temperature=0.4)
+        elif model_info["provider"] == "ollama":
+            from langchain_community.chat_models import ChatOllama
+            model = ChatOllama(
+                model=new_model_name,
+                base_url="http://localhost:11434",
+                temperature=0.4
+            )
+
+        # Reconstruir o QA pipeline
         qa = RetrievalQA.from_chain_type(
             llm=model,
             chain_type="stuff",
             retriever=retriever,
-            chain_type_kwargs={"prompt": custom_prompt}
+            chain_type_kwargs={"prompt": custom_prompt},
         )
+
         current_model_name = new_model_name
         return True
     except Exception as e:
@@ -330,7 +440,10 @@ def update_model(new_model_name: str) -> bool:
 @mcp.tool()
 def set_model(model_name: str) -> str:
     """
-    Define o modelo Gemini a ser usado pelo servidor MCP.
+    Changes the current LLM model used by the server.
+    Normally this tool should NOT be called by the assistant directly.
+    Arguments:
+      - model_name: the identifier of the model (e.g., "gemini-2.5-pro", "gpt-4o-mini").
     """
     if update_model(model_name):
         # Log em Postgres (sucesso)
@@ -359,7 +472,8 @@ def set_model(model_name: str) -> str:
 @mcp.tool()
 def get_current_model() -> dict:
     """
-    Retorna informações sobre o modelo Gemini atual e lista todos os modelos disponíveis.
+    Returns information about the current model in use and the list of available models.
+    Use only when explicitly asked about the active model or supported models.
     """
     return {
         "current_model": current_model_name,
@@ -370,8 +484,10 @@ def get_current_model() -> dict:
 @mcp.tool()
 def set_rag_backend(backend: str) -> dict:
     """
-    Altera o backend do RAG em tempo de execução.
-    backend: 'qdrant' ou 'chroma'
+    Switches the active RAG backend (e.g., "chroma", "faiss", "weaviate").
+    ONLY use this tool if the user explicitly asks to change the knowledge base backend.
+    Arguments:
+      - backend_name: the backend identifier.
     """
     try:
         new_backend = _reinitialize_vectorstore(backend)
@@ -400,13 +516,20 @@ def set_rag_backend(backend: str) -> dict:
 
 @mcp.tool()
 def get_rag_backend() -> dict:
-    """Retorna o backend RAG atual e info auxiliar."""
+    """
+    Returns the name of the currently active RAG backend (e.g., "chroma", "faiss").
+    ONLY use this tool if the user explicitly asks which backend is currently being used.
+    Do not use it to answer knowledge questions.
+    """
     return {"backend": RAG_BACKEND, "options": ["qdrant", "chroma"], "chroma_dir": CHROMA_DIR, "qdrant_collection": QDRANT_COLLECTION_NAME}
 
 @mcp.tool()
 def retrieve(prompt: str) -> str:
     """
-    Busca e gera respostas baseadas no conteúdo dos PDFs armazenados no vectorstore.
+    Retrieves information directly from the knowledge base (indexed PDFs).
+    ALWAYS use this tool whenever the user asks a question about the content of the PDFs.
+    Arguments:
+      - prompt: the user’s question.
     """
     start_time = time.time()
     try:
@@ -460,7 +583,9 @@ def retrieve(prompt: str) -> str:
 @mcp.tool()
 def add_new_pdfs() -> str:
     """
-    Adiciona novos PDFs da pasta 'pdfs' ao vectorstore (Chroma ou Qdrant).
+    Adds new PDF documents to the knowledge base (RAG).
+    ONLY use this tool when the user explicitly provides new files to be added.
+    Do not use it for general questions.
     """
     new_files_added = False
     added_count = 0
@@ -522,7 +647,10 @@ def add_new_pdfs() -> str:
 @mcp.tool()
 def download_and_add_pdf(file_url: str) -> str:
     """
-    Faz download de um PDF a partir de uma URL e adiciona-o ao vectorstore.
+    Downloads a PDF from the given URL and adds it to the knowledge base (RAG).
+    ALWAYS use this tool when the user provides a valid file URL and explicitly asks to add that PDF.
+    Arguments:
+      - file_url: direct link to the PDF file to be downloaded and indexed.
     """
     try:
         url_path = file_url.lower().split("?")[0]
@@ -586,7 +714,11 @@ def download_and_add_pdf(file_url: str) -> str:
 @mcp.tool()
 def get_courses_by_field(field: str, value: str) -> dict:
     """
-    Busca cursos no Moodle usando critérios específicos.
+    Retrieves courses that match a given field and value.
+    ONLY use this tool when the user explicitly asks to search for courses.
+    Arguments:
+      - field: the field to filter courses.
+      - value: the value to match in that field.
     """
     params = {
         "wstoken": MOODLE_TOKEN,
@@ -625,7 +757,10 @@ def get_courses_by_field(field: str, value: str) -> dict:
 @mcp.tool()
 def download_pdfs_from_course(course_fullname: str) -> dict:
     """
-    Faz download de todos os PDFs de um curso específico do Moodle.
+    Downloads all PDF resources from a given course and adds them to the knowledge base (RAG).
+    ALWAYS use this tool when the user requests to add PDFs from a specific course.
+    Arguments:
+      - course_fullname: the exact name of the course.
     """
     downloaded, skipped, failed = [], [], []
     courses_resp = get_courses_by_field(field="", value="")
@@ -768,7 +903,13 @@ def clear_rag() -> str:
 @mcp.tool()
 def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty: str = "mixed") -> dict:
     """
-    Gera questionários com validação de dificuldade baseados no conteúdo dos PDFs.
+    Generates a quiz based on a specific topic.
+    ALWAYS use this tool whenever the user asks for questions, quizzes, true/false, or multiple-choice exercises.
+    Arguments:
+      - topic: the subject of the quiz.
+      - num_questions: number of questions to generate.
+      - difficulty: difficulty level ("easy", "medium", "hard", or "mixed").
+      - question_type: type of question ("multiple_choice" or "true_false").
     """
     start_time = time.time()
     try:
@@ -860,9 +1001,111 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         }
 
 @mcp.tool()
+def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "en") -> dict:
+    """
+    Generates development-related questions about a given topic.
+    ALWAYS use this tool when the user asks for programming/development questions that should include both the question and the answer.
+
+    Arguments:
+      - topic: the development subject (e.g., "Scala", "Python", "Docker").
+      - num_questions: number of questions to generate (default: 3).
+      - language: language of the output ("en" for English, "pt" for Portuguese).
+    """
+    start_time = time.time()
+    try:
+        logger.info(f"DEV_QUESTIONS | Topic: {topic} | Questions: {num_questions} | Language: {language} | Starting")
+
+        # Prompt para o LLM
+        dev_prompt = f"""
+        Generate {num_questions} development-related questions about "{topic}".
+        For each question, also provide the answer immediately below.
+
+        Format strictly as:
+        Question: <question>
+        Answer: <answer>
+
+        Language of the output: {language}.
+        """
+
+        # Chamada à função retrieve (podes trocar por chamada direta ao modelo se preferires)
+        dev_content = retrieve(dev_prompt)
+
+        # Calcular duração
+        duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
+
+        if not dev_content or "não foi possível" in dev_content.lower():
+            logger.warning(f"DEV_QUESTIONS | Topic: {topic} | No content found | Duration: {duration:.2f}s")
+            try:
+                postgres_logger.log_operation(
+                    operation_type=OperationType.QUIZ_GENERATION,  # podes criar um novo tipo se quiseres (DEV_QUESTIONS)
+                    details={"topic": topic, "num_questions": num_questions, "language": language},
+                    status="error",
+                    error_message="No relevant content",
+                    duration_ms=duration_ms
+                )
+                postgres_logger.update_operation_stats(OperationType.QUIZ_GENERATION.value, False, duration_ms)
+            except Exception:
+                pass
+            return {
+                "success": False,
+                "message": f"No relevant content found about '{topic}'"
+            }
+
+        logger.info(f"DEV_QUESTIONS | Topic: {topic} | Questions: {num_questions} | Success | Duration: {duration:.2f}s")
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.QUIZ_GENERATION,
+                details={"topic": topic, "num_questions": num_questions, "language": language, "duration_ms": duration_ms},
+                status="success",
+                duration_ms=duration_ms
+            )
+            postgres_logger.update_operation_stats(OperationType.QUIZ_GENERATION.value, True, duration_ms)
+        except Exception:
+            pass
+
+        return {
+            "success": True,
+            "questions": dev_content,
+            "message": f"Development questions successfully generated about {topic}",
+            "topic": topic,
+            "language": language
+        }
+
+    except Exception as e:
+        duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
+        error_msg = str(e)
+
+        logger.error(f"DEV_QUESTIONS | Topic: {topic} | Error: {error_msg} | Duration: {duration:.2f}s")
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.QUIZ_GENERATION,
+                details={"topic": topic, "num_questions": num_questions, "language": language},
+                status="error",
+                error_message=error_msg,
+                duration_ms=duration_ms
+            )
+            postgres_logger.update_operation_stats(OperationType.QUIZ_GENERATION.value, False, duration_ms)
+        except Exception:
+            pass
+
+        return {
+            "success": False,
+            "message": f"Error while generating development questions: {error_msg}"
+        }
+
+
+
+@mcp.tool()
 def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio: str = "16:9") -> dict:
     """
-    Gera vídeo usando Gemini Veo (IA generativa de vídeo).
+    Generates a video using the Gemini Veo API based on a textual description.
+    ALWAYS use this tool whenever the user asks to create or generate a video.
+    Arguments:
+      - description: a textual description of the video.
+      - style: the style of the video (default: "realistic").
+      - duration: duration of the video in seconds (default: 30).
     """
     try:
         from google import genai

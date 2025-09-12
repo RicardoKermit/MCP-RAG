@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from enum import Enum
 import sqlite3
 from openai import OpenAI
+import requests
 
 
 # PostgreSQL Logging System
@@ -833,6 +834,60 @@ ALL_MODELS = {
         "description": "Modelo mais barato da família Gemini, ideal para uso prolongado com baixo custo.",
         "max_tokens": 4096
     },
+    "gemini-2.0-flash-lite": {
+        "name": "Gemini 2.0 Flash Lite",
+        "description": "Modelo leve e rápido, bom para tarefas simples com excelente relação custo/eficiência.",
+        "max_tokens": 4096,
+        "cost_rank": 2
+    },
+    "gemini-2.5-flash-lite": {
+        "name": "Gemini 2.5 Flash Lite",
+        "description": "Versão optimizada e recente do Flash Lite. Mais rápida e estável, mantendo baixo custo.",
+        "max_tokens": 4096,
+        "cost_rank": 3
+    },
+    "gemini-1.5-flash": {
+        "name": "Gemini 1.5 Flash",
+        "description": "Modelo eficiente para tarefas gerais com bom custo/benefício e suporte a contexto maior.",
+        "max_tokens": 8192,
+        "cost_rank": 4
+    },
+    "gemini-2.0-flash": {
+        "name": "Gemini 2.0 Flash",
+        "description": "Geração seguinte do Flash com melhor suporte multimodal. Um pouco mais caro.",
+        "max_tokens": 8192,
+        "cost_rank": 5
+    },
+    "gemini-2.5-flash": {
+        "name": "Gemini 2.5 Flash",
+        "description": "Mais rápido e versátil que os anteriores. Ideal para aplicações em tempo real com contexto médio.",
+        "max_tokens": 8192,
+        "cost_rank": 6
+    },
+    "gemini-2.0-pro": {
+        "name": "Gemini 2.0 Pro",
+        "description": "Modelo menos usado da linha Pro, com bom desempenho mas preço já mais elevado.",
+        "max_tokens": 32768,
+        "cost_rank": 7
+    },
+    "gemini-1.5-pro": {
+        "name": "Gemini 1.5 Pro",
+        "description": "Modelo Pro popular para tarefas complexas com contexto grande. Mais caro que os Flash.",
+        "max_tokens": 32768,
+        "cost_rank": 8
+    },
+    "gemini-1.0-pro": {
+        "name": "Gemini 1.0 Pro",
+        "description": "Primeiro Pro lançado. Já ultrapassado, mas ainda competente para aplicações estáveis.",
+        "max_tokens": 32768,
+        "cost_rank": 9
+    },
+    "gemini-pro": {
+        "name": "Gemini Pro",
+        "description": "Modelo base Pro, com desempenho genérico e preço elevado face aos mais recentes.",
+        "max_tokens": 32768,
+        "cost_rank": 10
+    },
     "gemini-2.5-pro": {
         "provider": "gemini",
         "name": "Gemini 2.5 Pro",
@@ -840,6 +895,18 @@ ALL_MODELS = {
         "max_tokens": 32768
     },
 
+    "gpt-3.5-turbo": {
+        "provider": "openai",
+        "name": "GPT-3.5 Turbo",
+        "description": "Modelo rápido e económico da OpenAI",
+        "max_tokens": 4096,
+    },
+    "gpt-4o": {
+        "provider": "openai",
+        "name": "GPT-4o",
+        "description": "Modelo multimodal otimizado da OpenAI",
+        "max_tokens": 128000,
+    },
     # OPENAI
     "gpt-4o-mini": {
         "provider": "openai",
@@ -852,6 +919,37 @@ ALL_MODELS = {
         "name": "GPT-4.1",
         "description": "Modelo avançado da OpenAI com contexto extenso.",
         "max_tokens": 128000
+    },
+    # LOCAL (Ollama)
+    "llama3": {
+        "provider": "ollama",
+        "name": "LLaMA 3 (Local via Ollama)",
+        "description": "Modelo local correndo no Ollama",
+        "max_tokens": 4096,
+    },
+    "llama3-70b": {
+        "provider": "ollama",
+        "name": "LLaMA 3 (70B)",
+        "description": "Modelo maior, melhor raciocínio mas mais pesado",
+        "max_tokens": 8192,
+    },
+    "mistral": {
+        "provider": "ollama",
+        "name": "Mistral 7B",
+        "description": "Modelo rápido e eficiente em máquinas locais",
+        "max_tokens": 4096,
+    },
+    "codellama": {
+        "provider": "ollama",
+        "name": "CodeLLaMA",
+        "description": "Modelo otimizado para programação e código",
+        "max_tokens": 4096,
+    },
+    "gemma": {
+        "provider": "ollama",
+        "name": "Gemma 7B",
+        "description": "Modelo Google leve para uso local",
+        "max_tokens": 4096,
     }
 }
 
@@ -1072,159 +1170,233 @@ class MCPGeminiClient:
     async def process_query(self, query):
         if not self.is_connected:
             return "Erro: Cliente não está conectado ao servidor MCP."
-        
+    
         try:
             print(f"🤔 Processando pergunta: {query}")
             print(f"🤖 Usando modelo: {self.current_model} (provider={self.current_provider})")
-            
+        
             # Adicionar pergunta ao histórico
             self.conversation_history.append({"role": "user", "content": query})
-            
+        
             # Construir contexto da conversa
             conversation_context = ""
             if len(self.conversation_history) > 1:
-                # Incluir as últimas 3 trocas de mensagens para contexto
-                recent_history = self.conversation_history[-6:]  # 3 pares de user/assistant
+                recent_history = self.conversation_history[-6:]
                 conversation_context = "\n\nContexto da conversa anterior:\n"
                 for msg in recent_history:
                     role = "Utilizador" if msg["role"] == "user" else "Assistente"
                     conversation_context += f"{role}: {msg['content']}\n"
-            
+        
             tool_descriptions = "\n".join(
                 f"- {tool.name}: {tool.description}" for tool in self.tools
             )
-            
-            # Instruções de idioma baseadas no idioma atual
+        
             language_instructions = {
                 "pt": "IMPORTANTE: Responde SEMPRE em português de Portugal. Usa termos e expressões apropriados para português europeu.",
                 "en": "IMPORTANTE: Always respond in British English. Use appropriate British English terms and expressions."
             }
-            
-            prompt = (
-                f"{conversation_context}\n"
-                f"Pergunta atual do utilizador: {query}\n"
-                f"Ferramentas disponíveis:\n{tool_descriptions}\n"
-                f"{language_instructions.get(self.current_language, language_instructions['pt'])}\n"
-                "IMPORTANTE: Tens SEMPRE de usar uma ferramenta. NUNCA respondas diretamente.\n"
-                "Para qualquer pergunta sobre conteúdo dos PDFs, usa a ferramenta 'retrieve'.\n"
-                "Para a ferramenta 'retrieve', usa sempre 'prompt' como chave do argumento.\n"
-                "Para gerar questionários com validação de dificuldade, usa 'generate_quiz_with_difficulty'.\n"
-    
-                "Para gerar vídeos com IA (Gemini Veo), usa 'generate_video_with_veo'.\n"
-                "Responde SEMPRE no formato:\n"
-                "TOOL: <nome_da_ferramenta>\nARGS: <json_com_argumentos>\n"
-            )
-            
-            print(f"🤖 Usando modelo: {self.current_model} (provider={self.current_provider})")
 
+            few_shot_examples = """
+Exemplo 1:
+Pergunta: Quem escreveu Os Lusíadas?
+TOOL: retrieve
+ARGS: {"prompt": "Os Lusíadas autor"}
+
+Exemplo 2:
+Pergunta: Quais são as regras do Monopoly?
+TOOL: retrieve
+ARGS: {"prompt": "Regras do jogo Monopoly"}
+
+Exemplo 3:
+Pergunta: Qual a importância educativa da LEGO?
+TOOL: retrieve
+ARGS: {"prompt": "Importância educativa da LEGO"}
+
+Exemplo 4:
+Pergunta: Cria 5 perguntas de dificuldade média sobre Inteligência Artificial.
+TOOL: generate_quiz_with_difficulty
+ARGS: {"topic": "Inteligência Artificial", "num_questions": 5, "difficulty": "medium"}
+
+Exemplo 5:
+Pergunta: Faz um questionário de 3 perguntas fáceis sobre redes de computadores.
+TOOL: generate_quiz_with_difficulty
+ARGS: {"topic": "Redes de Computadores", "num_questions": 3, "difficulty": "easy"}
+"""
+
+        
+            prompt = (
+    f"{conversation_context}\n"
+    f"Ferramentas disponíveis:\n{tool_descriptions}\n"
+    f"{language_instructions.get(self.current_language, language_instructions['pt'])}\n"
+    "IMPORTANTE: Tens SEMPRE de usar uma ferramenta. NUNCA respondas diretamente.\n"
+    "Para qualquer pergunta sobre conteúdo dos PDFs, usa a ferramenta 'retrieve'.\n"
+    "Para a ferramenta 'retrieve', usa sempre 'prompt' como chave do argumento.\n"
+    "Para gerar questionários com validação de dificuldade, usa 'generate_quiz_with_difficulty'.\n"
+    "Para gerar vídeos com IA (Gemini Veo), usa 'generate_video_with_veo'.\n"
+    "Responde SEMPRE no formato:\n"
+    "TOOL: <nome_da_ferramenta>\nARGS: <json_com_argumentos>\n"
+    "Aqui estão alguns exemplos:\n"
+    f"{few_shot_examples}\n"
+    f"---\n"
+    f"Pergunta atual do utilizador: {query}\n"
+)
+        
+            # --- PRIMEIRA GERAÇÃO ---
             if self.current_provider == "gemini":
                 model = genai.GenerativeModel(self.current_model)
                 response = model.generate_content(prompt)
                 text = response.text.strip()
+
             elif self.current_provider == "openai":
                 response = openai_client.chat.completions.create(
                     model=self.current_model,
                     messages=[{"role": "user", "content": prompt}]
                 )
                 text = response.choices[0].message.content.strip()
+
+            elif self.current_provider == "ollama":
+                import requests
+                try:
+                    r = requests.post(
+                        "http://localhost:11434/api/chat",
+                        json={
+                            "model": self.current_model,
+                            "messages": [{"role": "user", "content": prompt}],
+                            "stream": False
+                        },
+                        timeout=60
+                    )
+                    data = r.json()
+                    if "message" in data and "content" in data["message"]:
+                        text = data["message"]["content"].strip()
+                    elif "content" in data:
+                        text = data["content"].strip()
+                    else:
+                        text = str(data)
+                except Exception as e:
+                    text = f"Erro ao chamar Ollama local: {e}"
+
             else:
                 raise ValueError(f"Provider desconhecido: {self.current_provider}")
 
-            
-            print(f"📝 Resposta do Gemini: {text[:100]}...")
-            
-            if text.startswith("TOOL:"):
-                lines = text.splitlines()
-                tool_name = lines[0].replace("TOOL:", "").strip()
-                args_line = next((l for l in lines if l.startswith("ARGS:")), None)
-                tool_args = json.loads(args_line.replace("ARGS:", "").strip()) if args_line else {}
+            print(f"📝 Resposta inicial do modelo: {text[:100]}...")
+
+            # --- PARSER VIA REGEX ---
+            match = re.search(r"TOOL:\s*(\w+)\s*ARGS:\s*(\{.*\})", text, re.DOTALL)
+            if match:
+                # Extrair TOOL e ARGS
+                #lines = text.splitlines()
+                #tool_name = lines[0].replace("TOOL:", "").strip()
+                #args_line = next((l for l in lines if l.startswith("ARGS:")), None)
+                #tool_args = json.loads(args_line.replace("ARGS:", "").strip()) if args_line else {}
                 
+                tool_name = match.group(1).strip()
+                try:
+                    tool_args = json.loads(match.group(2))
+                except Exception:
+                    tool_args = {}
+            
+                # Lista de ferramentas válidas
+                allowed_tools = ["retrieve", "generate_quiz_with_difficulty", "generate_video_with_veo", "generate_dev_questions"]
+                if tool_name not in allowed_tools:
+                    print(f"⚠️ Ferramenta inválida sugerida: {tool_name}, forçando 'retrieve'")
+                    tool_name = "retrieve"
+                    tool_args = {"prompt": query}
+
                 print(f"🔧 Chamando ferramenta: {tool_name} com args: {tool_args}")
-                
+
                 if tool_name == "retrieve":
                     if "query" in tool_args:
                         tool_args["prompt"] = tool_args.pop("query")
                     if not tool_args.get("prompt"):
                         tool_args["prompt"] = query
-                
+
                 result = await self.session.call_tool(tool_name, tool_args)
-                
+
                 if hasattr(result.content, 'text'):
                     raw_response = result.content.text
                 elif hasattr(result.content, '__iter__'):
-                    # Tentar processar como lista de conteúdos
                     content_list = list(result.content)
                     if content_list:
                         raw_response = content_list[0].text if hasattr(content_list[0], 'text') else str(content_list[0])
                     else:
                         raw_response = str(result.content)
                 else:
-                    content_str = str(result.content)
-                    if '[TextContent(type=\'text\', text=\'' in content_str:
-                        start = content_str.find('[TextContent(type=\'text\', text=\'') + len('[TextContent(type=\'text\', text=\'')
-                        end = content_str.find('\', annotations=None, meta=None)]')
-                        if end != -1:
-                            raw_response = content_str[start:end]
-                        else:
-                            raw_response = content_str
-                    else:
-                        raw_response = content_str
-                
-                print(f"📄 Resposta bruta: {raw_response[:100]}...")
-                
-                # Instruções de idioma para a resposta final
+                    raw_response = str(result.content)
+
+                print(f"📄 Resposta bruta da ferramenta: {raw_response}...")
+
                 final_language_instructions = {
                     "pt": "IMPORTANTE: Responde SEMPRE em português de Portugal. Usa termos e expressões apropriados para português europeu.",
                     "en": "IMPORTANTE: Always respond in British English. Use appropriate British English terms and expressions."
                 }
-                
+
                 follow_up_prompt = f"""
-Original question: {query}
+    Original question: {query}
 
-Information found:
-{raw_response}
+    Information found:
+    {raw_response}
 
-{final_language_instructions.get(self.current_language, final_language_instructions['pt'])}
+    {final_language_instructions.get(self.current_language, final_language_instructions['pt'])}
 
-Please present this information in a clear, well-structured, and easy-to-read format.
-Use Markdown formatting to organize your answer:
+    Please present this information in a clear, well-structured, and easy-to-read format.
+    Use Markdown formatting to organize your answer:
 
-- Use **bold** for headings and important points
-- Use lists with * or - to organize information
-- Use paragraphs to separate ideas
-- Use > for important quotes
-- Organize your answer in a logical and structured way
-- Highlight important points with **bold**
-- Use line breaks for better readability
+    - Use **bold** for headings and important points
+    - Use lists with * or - to organize information
+    - Use paragraphs to separate ideas
+    - Use > for important quotes
+    - Organize your answer in a logical and structured way
+    - Highlight important points with **bold**
+    - Use line breaks for better readability
+    """
 
-**IMPORTANT:**
-- If the question specifically asks you to create multiple-choice questions, create the requested number of questions based on the content found, with the appropriate number of options (usually 4 options a, b, c, d) and indicate the correct answer.
-- If the question specifically asks you to create true/false questions, create the requested number of questions based on the content found, each with the options "True" and "False" and indicate the correct answer.
-- For all other questions, answer naturally with the information found.
-
-Answer naturally and directly, as if you were explaining it to someone. Make sure your response is well formatted and easy to read.
-"""
-                
                 print("🔄 Gerando resposta final...")
+
+                # --- SEGUNDA GERAÇÃO (follow_up) ---
                 if self.current_provider == "gemini":
                     follow_up_response = model.generate_content(follow_up_prompt)
                     final_response = follow_up_response.text.strip()
+
                 elif self.current_provider == "openai":
                     follow_up_response = openai_client.chat.completions.create(
-                    model=self.current_model,
-                    messages=[{"role": "user", "content": follow_up_prompt}]
+                        model=self.current_model,
+                        messages=[{"role": "user", "content": follow_up_prompt}]
                     )
                     final_response = follow_up_response.choices[0].message.content.strip()
-                    
+
+                elif self.current_provider == "ollama":
+                    try:
+                        r = requests.post(
+                            "http://localhost:11434/api/chat",
+                            json={
+                                "model": self.current_model,
+                                "messages": [{"role": "user", "content": follow_up_prompt}],
+                                "stream": False
+                            },
+                            timeout=60
+                        )
+                        data = r.json()
+                        if "message" in data and "content" in data["message"]:
+                            final_response = data["message"]["content"].strip()
+                        elif "content" in data:
+                            final_response = data["content"].strip()
+                        else:
+                            final_response = str(data)
+                    except Exception as e:
+                        final_response = f"Erro ao gerar resposta final com Ollama: {e}"
+
+                else:
+                    raise ValueError(f"Provider desconhecido: {self.current_provider}")
+
                 print(f"✅ Resposta final: {final_response[:100]}...")
-                
-                # Adicionar resposta ao histórico
                 self.conversation_history.append({"role": "assistant", "content": final_response})
-                
                 return final_response
+
             else:
                 print(f"⚠️ Resposta não contém TOOL: {text}")
                 return text
+
         except Exception as e:
             error_msg = f"Erro ao processar a pergunta: {str(e)}"
             print(f"❌ {error_msg}")
