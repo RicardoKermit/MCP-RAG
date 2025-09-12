@@ -1264,10 +1264,13 @@ body {
         gap: var(--spacing-md);
     }
     
+    
+    /*
     .quiz-actions,
     .video-ai-actions {
-        /* Botão único agora ocupa toda a largura */
+         Botão único agora ocupa toda a largura 
     }
+    */
     
     /* Mobile logo adjustments */
     .app-brand {

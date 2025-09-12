@@ -1629,7 +1629,7 @@ def set_rag_backend_route():
         data = request.get_json()
         backend = data.get('backend', '').lower()
         result = mcp_client.set_rag_backend(backend)
-        return jsonify(result)
+        return jsonify({"success": True, "backend": backend})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 

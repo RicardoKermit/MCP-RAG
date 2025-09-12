@@ -987,8 +987,25 @@ async function changeRagBackend() {
             body: JSON.stringify({ backend })
         });
         const data = await response.json();
-        if (data && data.success) {
-            showConnectionStatus(`Backend RAG alterado para: ${data.backend}`);
+
+        let backendName;
+        if (data.backend) {
+            backendName = data.backend;
+        } else if (data.message) {
+            try {
+                // tentar extrair JSON de dentro de message
+                const innerJson = data.message.match(/\{.*\}/s);
+                if (innerJson) {
+                    const parsed = JSON.parse(innerJson[0]);
+                    backendName = parsed.backend;
+                }
+            } catch (e) {
+                console.error("Erro a parsear backend:", e);
+            }
+        }
+
+        if (backendName) {
+            showConnectionStatus(`Backend RAG alterado para: ${backendName}`);
         } else {
             showConnectionStatus(`Erro ao alterar backend RAG: ${data.error || 'desconhecido'}`, true);
         }
@@ -996,6 +1013,7 @@ async function changeRagBackend() {
         showConnectionStatus(`Erro de rede ao alterar backend RAG: ${e.message}`, true);
     }
 }
+
 
 // Function to check if user is authenticated
 async function checkAuthentication() {
@@ -1210,20 +1228,9 @@ function openStatistics() {
 
 // Open statistics page
 function openSettings() {
-    window.open('/settings-page', '_blank');
+    /*window.open('/settings-page', '_blank');*/
+    window.location.href="/settings-page"
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1473,3 +1480,4 @@ function updateModelDescription() {
         console.error('Erro ao atualizar descrição do modelo:', error);
     }
 }
+
