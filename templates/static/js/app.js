@@ -969,6 +969,7 @@ async function loadRagBackend() {
         const response = await fetch('/rag-backend');
         const data = await response.json();
         const select = document.getElementById('ragBackendSelect');
+        
         if (data && data.backend && select) {
             select.value = data.backend;
         }
@@ -1480,4 +1481,25 @@ function updateModelDescription() {
         console.error('Erro ao atualizar descrição do modelo:', error);
     }
 }
+
+async function loadSettings() {
+    try {
+      const modelResp = await fetch("/model"); // se já tiveres algo equivalente no client
+      const modelData = await modelResp.json();
+      if (modelData.success) {
+        document.getElementById("modelSelect").value = modelData.model;
+      }
+  
+      const ragResp = await fetch("/rag-backend"); // <-- usa o endpoint que já tens
+      const ragData = await ragResp.json();
+      if (ragData.success) {
+        document.getElementById("ragBackendSelect").value = ragData.backend;
+      }
+    } catch (e) {
+      console.error("Erro a carregar settings:", e);
+    }
+  }
+  
+  window.onload = loadSettings;
+  
 

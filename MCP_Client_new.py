@@ -955,6 +955,12 @@ class MCPGeminiClient:
             return True
         return False
 
+    def get_current_model(self):
+        return self.current_model
+
+    def get_current_rag_backend(self):
+        return self.current_rag_backend
+
     def get_rag_backend(self):
         """Obtém o backend RAG atual a partir do servidor MCP."""
         if not self.is_connected:
@@ -1239,7 +1245,7 @@ ARGS: {"topic": "Redes de Computadores", "num_questions": 3, "difficulty": "easy
                     tool_args = {}
             
                 # Lista de ferramentas válidas
-                allowed_tools = ["retrieve", "generate_quiz_with_difficulty", "generate_video_with_veo", "generate_dev_questions"]
+                allowed_tools = ["retrieve", "generate_quiz_with_difficulty", "generate_video_with_veo", "generate_dev_questions","study_plan_generator","generate_lesson_summary","interactive_flashcards","generate_test"]
                 if tool_name not in allowed_tools:
                     print(f"⚠️ Ferramenta inválida sugerida: {tool_name}, forçando 'retrieve'")
                     tool_name = "retrieve"

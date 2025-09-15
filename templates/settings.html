@@ -8,6 +8,37 @@
 
 </head>
 <body>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <div class="main-header">
+        <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" id="mobileMenuToggle" title="Menu">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+
+        <button class="help-toggle" onclick="toggleHelpModal()" id="helpToggle" title="Ajuda">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+            </svg>
+        </button>
+        <button class="stats-toggle" onclick="openStatistics()" id="statsToggle" title="Estatísticas">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 3v18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <button class="dark-mode-toggle" onclick="toggleDarkMode()" id="darkModeToggle" title="Alternar modo escuro">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <button class="dark-mode-toggle" onclick="openSettings()" id="darkModeToggle" title="settings">⚙️</button>
+    </div>
+</div>
+
   <h1>⚙️ Settings</h1>
 
   <div class="model-section">
@@ -44,6 +75,7 @@
         <small>Choose the LLM you want to use</small>
       </div>
       <div id="connectionStatus"></div>
+      
     </div>
   </div>
 
@@ -56,6 +88,8 @@
       </select>
     </div>
   </div>
+
+  
 
   <!-- Mantém o JS global -->
   <script src="{{ url_for('static', filename='js/app.js') }}">

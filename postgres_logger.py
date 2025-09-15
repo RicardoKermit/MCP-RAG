@@ -44,6 +44,9 @@ class OperationType(Enum):
     SYSTEM_MAINTENANCE = "system_maintenance"
     DATABASE_OPERATION = "database_operation"
     API_CALL = "api_call"
+    SUMMARY_GENERATION="summary_generation"
+    STUDY_PLAN_GENERATION="study_plan",
+    FLASHCARD_GENERATION="flashcard_generation"
 
 
 class PostgresLogger:

@@ -522,6 +522,7 @@ def retrieve(prompt: str) -> str:
         
         return f"Erro ao processar a pergunta: {error_msg}"
 
+
 @mcp.tool()
 def add_new_pdfs() -> str:
     """
@@ -846,7 +847,7 @@ def clear_rag() -> str:
 def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty: str = "mixed") -> dict:
     """
     Generates a quiz based on a specific topic.
-    ALWAYS use this tool whenever the user asks for questions, quizzes, true/false, or multiple-choice exercises.
+    ALWAYS use this tool whenever the user asks for questions, quizzes, true/false, or multiple-choice exercises, not mock tests.
     Arguments:
       - topic: the subject of the quiz.
       - num_questions: number of questions to generate.
@@ -877,6 +878,8 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         # Calcular duração
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
+
+        
         
         if not quiz_content or "não foi possível" in quiz_content.lower():
             logger.warning(f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | No content found | Duration: {duration:.2f}s")
@@ -1037,6 +1040,429 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
             "message": f"Error while generating development questions: {error_msg}"
         }
 
+@mcp.tool()
+def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_per_week: int = 5, weeks: int = 4) -> dict:
+    """
+    Generates a personalized study plan based on PDFs (core content) 
+    plus additional external multimedia resources.
+
+    Arguments:
+      - student_id: unique identifier for the student.
+      - goals: list of main learning goals.
+      - weaknesses: list of topics where the student struggles.
+      - hours_per_week: number of hours available per week.
+      - weeks: duration of the plan in weeks.
+    """
+    start_time = time.time()
+    try:
+        logger.info(
+            f"STUDY_PLAN | Student: {student_id} | Goals: {goals} | Weaknesses: {weaknesses} | "
+            f"Hours/week: {hours_per_week} | Weeks: {weeks} | Starting"
+        )
+
+        # Prompt atualizado
+        plan_prompt = f"""
+        Create a personalized study plan in Portuguese (Portugal).
+
+        Inputs:
+        - Student ID: {student_id}
+        - Learning goals: {goals}
+        - Weaknesses: {weaknesses}
+        - Hours available per week: {hours_per_week}
+        - Duration: {weeks} weeks
+
+        REQUIREMENTS:
+        1. Base the study plan structure and weekly topics primarily on the retrieved PDFs.
+        2. Divide the plan by weeks. For each week, include:
+           - Total study hours
+           - Suggested number of sessions and hours per session
+           - Focus topics (aligned with goals and weaknesses)
+           - Activities (theory, exercises, small projects)
+           - Evaluation criteria (how to measure progress that week)
+        3. At the end, include ONE final integrative project combining all major topics.
+        4. After the main plan, add a separate section titled "Recursos adicionais".
+           - List 3–5 external resources (e.g. YouTube videos, online courses, official docs)
+           - Prefer resources in Portuguese, but English is acceptable if high quality.
+        5. Output must be structured Markdown with headings and bullet points.
+        6. Be specific, avoid generic advice.
+        """
+
+        # Invocar retriever com RAG
+        plan_content = retrieve(plan_prompt)
+
+        duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
+
+        if not plan_content or "sem conteúdo relevante" in plan_content.lower():
+            logger.warning(f"STUDY_PLAN | Student: {student_id} | No content found | Duration: {duration:.2f}s")
+            try:
+                postgres_logger.log_operation(
+                    operation_type=OperationType.STUDY_PLAN_GENERATION,
+                    details={"student_id": student_id, "goals": goals, "weeks": weeks},
+                    status="error",
+                    error_message="Sem conteúdo relevante",
+                    duration_ms=duration_ms
+                )
+                postgres_logger.update_operation_stats(OperationType.STUDY_PLAN_GENERATION.value, False, duration_ms)
+            except Exception:
+                pass
+            return {
+                "success": False,
+                "message": f"Não foi possível gerar um plano de estudos para '{student_id}'"
+            }
+
+        # Log de sucesso
+        logger.info(f"STUDY_PLAN | Student: {student_id} | Success | Duration: {duration:.2f}s")
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.STUDY_PLAN_GENERATION,
+                details={
+                    "student_id": student_id,
+                    "goals": goals,
+                    "weaknesses": weaknesses,
+                    "hours_per_week": hours_per_week,
+                    "weeks": weeks,
+                    "duration_ms": duration_ms
+                },
+                status="success",
+                duration_ms=duration_ms
+            )
+            postgres_logger.update_operation_stats(OperationType.STUDY_PLAN_GENERATION.value, True, duration_ms)
+        except Exception:
+            pass
+
+        return {
+            "success": True,
+            "plan": plan_content,
+            "message": f"Plano de estudos gerado com sucesso para {student_id}",
+            "student_id": student_id,
+            "weeks": weeks
+        }
+
+    except Exception as e:
+        duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
+        error_msg = str(e)
+
+        logger.error(f"STUDY_PLAN | Student: {student_id} | Error: {error_msg} | Duration: {duration:.2f}s")
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.STUDY_PLAN_GENERATION,
+                details={"student_id": student_id, "goals": goals, "weeks": weeks},
+                status="error",
+                error_message=error_msg,
+                duration_ms=duration_ms
+            )
+            postgres_logger.update_operation_stats(OperationType.STUDY_PLAN_GENERATION.value, False, duration_ms)
+        except Exception:
+            pass
+
+        return {
+            "success": False,
+            "message": f"Erro ao gerar plano de estudos: {error_msg}"
+        }
+
+@mcp.tool()
+def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
+    """
+    Generates a contextualized lesson summary about a specific topic.
+    ALWAYS use this tool whenever the user asks for summaries, overviews, or syntheses of content.
+
+    Arguments:
+      - topic: the subject of the summary.
+      - detail_level: "brief" for short summaries, "detailed" for in-depth summaries.
+    """
+    start_time = time.time()
+    try:
+        logger.info(f"LESSON_SUMMARY | Topic: {topic} | Detail: {detail_level} | Starting")
+
+        # 1. Construção do prompt
+        summary_prompt = f"""
+        Generate a {detail_level} summary about the topic: {topic}.
+
+        IMPORTANT:
+        - Use only information from the available PDFs
+        - If no relevant content is found, say explicitly "Sem conteúdo relevante encontrado"
+        - The summary must be coherent, structured in paragraphs
+        - Highlight key concepts, definitions and examples
+        - For 'detailed', provide extended explanations and subtopics
+        - For 'brief', keep the text concise (max 3 paragraphs)
+        """
+
+        # 2. Invocar RAG retriever
+        summary_content = retrieve(summary_prompt)
+
+        duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
+
+        if not summary_content or "sem conteúdo relevante" in summary_content.lower():
+            logger.warning(f"LESSON_SUMMARY | Topic: {topic} | No content found | Duration: {duration:.2f}s")
+            try:
+                postgres_logger.log_operation(
+                    operation_type=OperationType.SUMMARY_GENERATION,
+                    details={"topic": topic, "detail_level": detail_level},
+                    status="error",
+                    error_message="Sem conteúdo relevante",
+                    duration_ms=duration_ms
+                )
+                postgres_logger.update_operation_stats(OperationType.SUMMARY_GENERATION.value, False, duration_ms)
+            except Exception:
+                pass
+            return {
+                "success": False,
+                "message": f"Não foi possível encontrar conteúdo relevante sobre '{topic}'"
+            }
+
+        # Log de sucesso
+        logger.info(f"LESSON_SUMMARY | Topic: {topic} | Success | Duration: {duration:.2f}s")
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.SUMMARY_GENERATION,
+                details={"topic": topic, "detail_level": detail_level, "duration_ms": duration_ms},
+                status="success",
+                duration_ms=duration_ms
+            )
+            postgres_logger.update_operation_stats(OperationType.SUMMARY_GENERATION.value, True, duration_ms)
+        except Exception:
+            pass
+
+        return {
+            "success": True,
+            "summary": summary_content,
+            "message": f"Resumo gerado com sucesso sobre {topic}",
+            "topic": topic,
+            "detail_level": detail_level
+        }
+
+    except Exception as e:
+        duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
+        error_msg = str(e)
+
+        logger.error(f"LESSON_SUMMARY | Topic: {topic} | Error: {error_msg} | Duration: {duration:.2f}s")
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.SUMMARY_GENERATION,
+                details={"topic": topic, "detail_level": detail_level},
+                status="error",
+                error_message=error_msg,
+                duration_ms=duration_ms
+            )
+            postgres_logger.update_operation_stats(OperationType.SUMMARY_GENERATION.value, False, duration_ms)
+        except Exception:
+            pass
+
+        return {
+            "success": False,
+            "message": f"Erro ao gerar resumo: {error_msg}"
+        }
+
+@mcp.tool()
+def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
+    """
+    Generates flashcards in plain text style based on a specific topic.
+    Each flashcard is returned as simple Q/A text, easy to read or copy.
+    
+    Arguments:
+      - topic: subject of the flashcards
+      - num_cards: number of flashcards to generate
+    """
+    start_time = time.time()
+    try:
+        logger.info(f"FLASHCARD_GENERATION | Topic: {topic} | Cards: {num_cards} | Starting")
+
+        # Prompt para gerar flashcards em texto
+        flashcard_prompt = f"""
+        Generate {num_cards} flashcards about {topic}.
+
+        IMPORTANT:
+        - Use only information from the available PDFs
+        - Return the flashcards as plain text in Portuguese (Portugal)
+        - Format each card as:
+
+          Flashcard X
+          Q: ...
+          A: ...
+
+        - Do not return JSON or any extra commentary.
+        """
+
+        # Invocar o modelo (podes usar retrieve ou qa.invoke → ambos devolvem texto)
+        #flashcards_text = retrieve(flashcard_prompt)
+        res = qa.invoke({"query": flashcard_prompt})
+        if isinstance(res, dict):
+            flashcards_text = res.get("result", "")
+        else:
+            flashcards_text = str(res)
+
+        duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
+
+        if not flashcards_text or "não foi possível" in flashcards_text.lower():
+            logger.warning(f"FLASHCARD_GENERATION | Topic: {topic} | No content found | Duration: {duration:.2f}s")
+            try:
+                postgres_logger.log_operation(
+                    operation_type=OperationType.FLASHCARD_GENERATION,
+                    details={"topic": topic, "num_cards": num_cards},
+                    status="error",
+                    error_message="Sem conteúdo relevante",
+                    duration_ms=duration_ms
+                )
+            except Exception:
+                pass
+            return {
+                "success": False,
+                "message": f"Não foi possível gerar flashcards sobre '{topic}'"
+            }
+
+        # Log de sucesso
+        logger.info(f"FLASHCARD_GENERATION | Topic: {topic} | Success | Duration: {duration:.2f}s")
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.FLASHCARD_GENERATION,
+                details={"topic": topic, "num_cards": num_cards, "duration_ms": duration_ms},
+                status="success",
+                duration_ms=duration_ms
+            )
+        except Exception:
+            pass
+
+        return {
+            "success": True,
+            "flashcards": flashcards_text,
+            "message": f"Flashcards gerados com sucesso sobre {topic}",
+            "topic": topic
+        }
+
+    except Exception as e:
+        duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
+        error_msg = str(e)
+
+        logger.error(f"FLASHCARD_GENERATION | Topic: {topic} | Error: {error_msg} | Duration: {duration:.2f}s")
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.FLASHCARD_GENERATION,
+                details={"topic": topic, "num_cards": num_cards},
+                status="error",
+                error_message=error_msg,
+                duration_ms=duration_ms
+            )
+        except Exception:
+            pass
+
+        return {
+            "success": False,
+            "message": f"Erro ao gerar flashcards: {error_msg}"
+        }
+
+@mcp.tool()
+def generate_test(topic: str, num_questions: int = 10) -> dict:
+    """
+    Generates a mixed test (mock exam) about a given topic.
+    The test includes multiple-choice, true/false, and open-ended questions.
+    
+    Arguments:
+      - topic: subject of the test
+      - num_questions: total number of questions
+    """
+    start_time = time.time()
+    try:
+        logger.info(f"TEST_GENERATION | Topic: {topic} | Questions: {num_questions} | Starting")
+
+        test_prompt = f"""
+        Generate a test with {num_questions} questions about {topic}.
+
+        REQUIREMENTS:
+        - Use only information from the available PDFs
+        - Mix question types: multiple choice, true/false, and open-ended
+        - For multiple choice:
+          * Provide 4 options (a, b, c, d)
+          * Indicate the correct option
+        - For true/false:
+          * Provide statement + answer (True/False)
+        - For open-ended:
+          * Provide the question and a short "expected answer"
+        - Format the output in Markdown like this:
+
+        ### Question 1 (Multiple Choice)
+        Text...
+        a) ...
+        b) ...
+        c) ...
+        d) ...
+        Answer: X
+
+        ### Question 2 (True/False)
+        Statement...
+        Answer: True
+
+        ### Question 3 (Open-ended)
+        Question text...
+        Expected answer: ...
+        """
+
+        test_content = retrieve(test_prompt)
+
+        duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
+
+        if not test_content or "não foi possível" in test_content.lower():
+            logger.warning(f"TEST_GENERATION | Topic: {topic} | No content found | Duration: {duration:.2f}s")
+            try:
+                postgres_logger.log_operation(
+                    operation_type=OperationType.TEST_GENERATION,
+                    details={"topic": topic, "num_questions": num_questions},
+                    status="error",
+                    error_message="Sem conteúdo relevante",
+                    duration_ms=duration_ms
+                )
+            except Exception:
+                pass
+            return {
+                "success": False,
+                "message": f"Não foi possível gerar teste sobre '{topic}'"
+            }
+
+        logger.info(f"TEST_GENERATION | Topic: {topic} | Questions: {num_questions} | Success | Duration: {duration:.2f}s")
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.TEST_GENERATION,
+                details={"topic": topic, "num_questions": num_questions, "duration_ms": duration_ms},
+                status="success",
+                duration_ms=duration_ms
+            )
+        except Exception:
+            pass
+
+        return {
+            "success": True,
+            "test": test_content,
+            "message": f"Teste gerado com sucesso sobre {topic}",
+            "topic": topic
+        }
+
+    except Exception as e:
+        duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
+        error_msg = str(e)
+
+        logger.error(f"TEST_GENERATION | Topic: {topic} | Error: {error_msg} | Duration: {duration:.2f}s")
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.TEST_GENERATION,
+                details={"topic": topic, "num_questions": num_questions},
+                status="error",
+                error_message=error_msg,
+                duration_ms=duration_ms
+            )
+        except Exception:
+            pass
+
+        return {
+            "success": False,
+            "message": f"Erro ao gerar teste: {error_msg}"
+        }
 
 
 @mcp.tool()
