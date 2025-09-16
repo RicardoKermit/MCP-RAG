@@ -6,16 +6,16 @@
 }
 
 :root {
-    --bg-primary: #343541;
-    --bg-secondary: #444654;
-    --bg-tertiary: #202123;
-    --bg-sidebar: #202123;
-    --text-primary: #ececf1;
-    --text-secondary: #d1d5db;
-    --text-muted: #8e8ea0;
-    --border-color: #4a4b53;
-    --accent-color: #10a37f;
-    --accent-hover: #0d8a6f;
+    --bg-primary: #1a1b1e;      /* fundo principal ainda mais escuro */
+    --bg-secondary: #2a2b31;    /* painéis intermédios */
+    --bg-tertiary: #121214;     /* áreas ainda mais escuras */
+    --bg-sidebar: #121214;      /* sidebar preta */
+    --text-primary: #f0f0f5;    /* texto branco suave */
+    --text-secondary: #c0c0cc;  /* cinza claro */
+    --text-muted: #8a8a99;      /* cinza médio */
+    --border-color: #2f2f38;    /* bordas discretas */
+    --accent-color: #10a37f;    /* mantém o verde */
+    --accent-hover: #0d8a6f; 
     --error-color: #ef4444;
     --success-color: #10b981;
     --warning-color: #f59e0b;
@@ -36,16 +36,16 @@
 
 /* Light mode variables */
 [data-theme="light"] {
-    --bg-primary: #ffffff;
-    --bg-secondary: #f8fafc;
-    --bg-tertiary: #f1f5f9;
-    --bg-sidebar: #f1f5f9;
-    --text-primary: #0f172a;
-    --text-secondary: #334155;
-    --text-muted: #64748b;
-    --border-color: #e2e8f0;
-    --accent-color: #0ea5e9;
-    --accent-hover: #0284c7;
+    --bg-primary: #f4f5f7;        /* cinza muito claro em vez de branco puro */
+    --bg-secondary: #d9dbe0;      /* cinza claro para blocos/caixas */
+    --bg-tertiary: #dde1e7;       /* áreas de fundo intermédio */
+    --bg-sidebar: #f0f2f5;        /* sidebar clara mas não branca */
+    --text-primary: #1e1e2f;      /* texto principal quase preto */
+    --text-secondary: #3a3a4f;    /* texto secundário */
+    --text-muted: #6a6a7d;        /* texto suave */
+    --border-color: #c9cdd4;      /* bordas suaves */
+    --accent-color: #10a37f;      /* mantém o verde como acento */
+    --accent-hover: #0d8a6f;
     --shadow-light: rgba(0, 0, 0, 0.04);
     --shadow-medium: rgba(0, 0, 0, 0.08);
     --shadow-heavy: rgba(0, 0, 0, 0.12);
@@ -76,6 +76,7 @@ body {
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    transition: width 0.3s ease;
 }
 
 .sidebar-header {
@@ -1329,8 +1330,8 @@ body {
 }
 
 [data-theme="light"] .input-group {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.123);
+    border: 1px solid #cacbcc;
 }
 
 [data-theme="light"] .input-group:focus-within {
@@ -1651,3 +1652,56 @@ body {
     max-height: 100% !important;
   }
   
+/* Sidebar colapsada */
+.sidebar.collapsed {
+    width: 60px;
+}
+
+/* Esconder título e todo o conteúdo interno, menos logo e botão */
+.sidebar.collapsed .app-title,
+.sidebar.collapsed .sidebar-header-buttons,
+.sidebar.collapsed .sidebar-content,
+.sidebar.collapsed .connection-section,
+.sidebar.collapsed .model-section,
+.sidebar.collapsed .language-section,
+.sidebar.collapsed .conversations-section,
+.sidebar.collapsed .quiz-section,
+.sidebar.collapsed .video-ai-section {
+    display: none !important;
+}
+
+/* Quando colapsada, sidebar fica em coluna estreita */
+.sidebar.collapsed {
+    width: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;  /* força todos os filhos a ficarem centrados */
+}
+
+/* Centra especificamente o botão */
+.sidebar.collapsed .sidebar-toggle {
+    margin: 10px 0;       /* margem em cima/baixo */
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Estado normal */
+.sidebar-toggle {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: background-color 0.2s ease;
+    margin: 5px;
+}
+
+.sidebar-toggle:hover {
+    background-color: var(--accent-color);
+    color: #fff;
+}

@@ -1499,6 +1499,11 @@ async function loadSettings() {
       console.error("Erro a carregar settings:", e);
     }
   }
+
+
+function toggleSidebar() {
+    document.getElementById("sidebar").classList.toggle("collapsed");
+}
   
   window.onload = loadSettings;
   

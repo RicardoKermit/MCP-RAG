@@ -11,18 +11,18 @@
 </head>
 <body>
     <div class="app-container">
+        
         <!-- Sidebar -->
         <div class="sidebar" id="sidebar">
-                        <div class="sidebar-header">
+            <div class="sidebar-header">
                 <div class="app-brand">
                     <img src="{{ url_for('static', filename='images/icon.png') }}" alt="RAG System" class="app-logo">
                     <h2 class="app-title">RAG System</h2>
                 </div>
+                <button onclick="toggleSidebar()" class="sidebar-toggle"  title="Expandir/Colapsar">☰</button>
                 <div class="sidebar-header-buttons">
                     <button class="new-chat-btn" onclick="newChat()">
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 4.5v15m7.5-7.5h-15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
+                        
                         <span id="newChatText">Nova conversa</span>
                     </button>
                     <button class="clear-history-btn" onclick="clearHistory()" title="Limpar histórico">
@@ -196,6 +196,7 @@
         <!-- Main Content -->
         <div class="main-content">
             <div class="main-header">
+                
                 <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" id="mobileMenuToggle" title="Menu">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
