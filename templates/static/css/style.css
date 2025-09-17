@@ -1717,3 +1717,19 @@ body {
     padding-bottom: 20px;
 
 }
+
+/* Garantir que todos os ícones dentro de botões aparecem completos */
+button svg {
+    width: 24px;
+    height: 24px;
+    overflow: visible;     /* evita cortes */
+    display: block;        /* elimina alinhamentos estranhos */
+}
+
+/* Opcional: centralizar melhor o SVG dentro do botão */
+button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+

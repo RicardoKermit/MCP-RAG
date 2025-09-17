@@ -504,6 +504,7 @@ async function checkStatus() {
 function toggleDarkMode() {
     const html = document.documentElement;
     const toggle = document.getElementById('darkModeToggle');
+    const logo = document.getElementById('appLogo');
     
     if (html.getAttribute('data-theme') === 'light') {
         html.removeAttribute('data-theme');
@@ -513,6 +514,10 @@ function toggleDarkMode() {
             </svg>
         `;
         localStorage.setItem('theme', 'dark');
+
+        // trocar para logotipo branco
+        logo.src = "/static/images/icon_white.png";
+
     } else {
         html.setAttribute('data-theme', 'light');
         toggle.innerHTML = `
@@ -521,8 +526,12 @@ function toggleDarkMode() {
             </svg>
         `;
         localStorage.setItem('theme', 'light');
+
+        // voltar ao logotipo normal
+        logo.src = "/static/images/icon.png";
     }
 }
+
 
 async function loadLanguage() {
     const savedLanguage = localStorage.getItem('language') || 'pt';

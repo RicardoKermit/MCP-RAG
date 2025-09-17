@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RAG System - Interface Web</title>
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/icon.png') }}">
+    <title>Dialogus</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/icon_white.png') }}">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -16,25 +16,30 @@
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="app-brand">
-                    <img src="{{ url_for('static', filename='images/icon.png') }}" alt="RAG System" class="app-logo">
-                    <h2 class="app-title">RAG System</h2>
+                    <img src="{{ url_for('static', filename='images/icon_white.png') }}" alt="RAG System" class="app-logo" id="appLogo">
+                    <h2 class="app-title">Dialogus</h2>
                 </div>
                 <button onclick="toggleSidebar()" class="sidebar-toggle"  title="Expandir/Colapsar">☰</button>
                 <div class="sidebar-header-buttons">
                     <button class="new-chat-btn" onclick="newChat()">
-                        
                         <span id="newChatText">Nova conversa</span>
                     </button>
+                    <!-- Botão Limpar Histórico -->
                     <button class="clear-history-btn" onclick="clearHistory()" title="Limpar histórico">
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2-2V6h14z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <svg viewBox="-2 -2 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+                            <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2-2H6a2 2 0 0 1-2-2V6h18z"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </button>
+
+                    <!-- Botão Terminar Sessão -->
                     <button class="logout-btn" onclick="logout()" title="Terminar sessão">
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 20 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <svg viewBox="-2 -2 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </button>
+
                 </div>
             </div>
             
