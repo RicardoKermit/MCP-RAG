@@ -492,6 +492,7 @@ postgres_logger = PostgresLogger({
     'password': 'rag_password_secure_2024'
 })
 
+
 def log_rag_operation(operation: str, topic: str, success: bool, duration: float | None = None, error: str | None = None, user_id: str | None = None):
     duration_ms = int(duration * 1000) if duration else None
     # NEW: write to Postgres

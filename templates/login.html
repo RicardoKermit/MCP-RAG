@@ -11,7 +11,7 @@
         /* Login page specific styles */
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(100deg, #000000 0%, #7a7a7a 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -24,7 +24,9 @@
             border-radius: 12px;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             width: 100%;
-            max-width: 400px;
+            max-width: 500px;
+            height: 600px;
+            max-height: 100%;
         }
 
         .login-header {
@@ -73,7 +75,7 @@
 
         .login-btn {
             width: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(100deg, #000000 0%, #7a7a7a 100%);
             color: white;
             border: none;
             padding: 0.75rem;
@@ -140,13 +142,13 @@
 
         <form id="loginForm">
             <div class="form-group">
-                <label for="username">Nome de utilizador</label>
-                <input type="text" id="username" name="username" required>
+                <label for="username">Email</label>
+                <input type="text" id="username" name="username" placeholder="Email" required>
             </div>
 
             <div class="form-group">
                 <label for="password">Palavra-passe</label>
-                <input type="password" id="password" name="password" required>
+                <input type="password" id="password" name="password" placeholder="Password" required>
             </div>
 
             <button type="submit" class="login-btn" id="loginBtn">
