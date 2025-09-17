@@ -438,8 +438,11 @@ body {
 
 
 .conversations-section {
-    padding: var(--spacing-lg);
-    border-bottom: 1px solid var(--border-color);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-lg);
 }
 
 .conversations-section h3 {
@@ -449,27 +452,16 @@ body {
     font-weight: 600;
 }
 
-.conversations-list {
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-.conversation-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--spacing-sm) var(--spacing-md);
-    margin-bottom: var(--spacing-xs);
-    background-color: var(--bg-secondary);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: 1px solid transparent;
-}
 
 .conversation-item:hover {
-    background-color: var(--bg-tertiary);
-    border-color: var(--border-color);
+    background-color: var(--bg-secondary); /* só aparece no hover */
+}
+
+.conversation-icon svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--text-muted);
 }
 
 .conversation-item.active {
@@ -483,11 +475,11 @@ body {
 
 .conversation-title {
     flex: 1;
-    font-size: 13px;
+    font-size: 14px;
     color: var(--text-primary);
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .conversation-item.active .conversation-title {
@@ -994,13 +986,16 @@ body {
     color: var(--text-primary);
 }
 
-/* Fix para conversas - remover scrollbars e corrigir bug do botão de apagar */
 .conversations-list {
-    max-height: 200px;
+    flex: 1;                 /* ocupa todo o espaço disponível */
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
     overflow-y: auto;
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge */
+    padding-right: 4px;
+    max-height: none;         /* remover limite fixo */
 }
+
 
 .conversations-list::-webkit-scrollbar {
     display: none; /* Chrome, Safari, Opera */
@@ -1009,44 +1004,41 @@ body {
 .conversation-item {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: var(--spacing-sm) var(--spacing-md);
-    padding-right: 40px; /* Espaço para o botão de apagar */
-    margin-bottom: var(--spacing-xs);
-    background-color: var(--bg-secondary);
+    gap: 8px;
+    padding: 8px 10px;
+    background-color: transparent;   /* fundo transparente por defeito */
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition: all 0.2s ease;
-    border: 1px solid transparent;
+    transition: background-color 0.2s ease;
     position: relative;
-    min-height: 40px;
 }
 
 .conversation-delete {
     opacity: 0;
-    transition: opacity 0.2s ease;
     background: none;
     border: none;
-    color: var(--text-muted);
     cursor: pointer;
+    color: var(--text-muted);
     padding: 4px;
     border-radius: var(--radius-sm);
-    position: absolute;
-    right: var(--spacing-sm);
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 10;
-    min-width: 24px;
-    min-height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+    margin-left: auto;        /* empurra para a direita */
 }
 
 .conversation-delete svg {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     flex-shrink: 0;
+}
+
+.conversation-delete:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--error-color);
+}
+
+.conversation-delete svg {
+    width: 16px;
+    height: 16px;
 }
 
 .conversation-item:hover .conversation-delete,
