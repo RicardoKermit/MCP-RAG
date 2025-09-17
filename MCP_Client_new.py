@@ -22,7 +22,6 @@ import sqlite3
 from openai import OpenAI
 import requests
 
-
 # PostgreSQL Logging System
 from postgres_logger import PostgresLogger, OperationType
 
@@ -605,303 +604,19 @@ ROLE_PERMISSIONS = {
 postgres_logger = PostgresLogger(db_config)
 
 # Dicionário de traduções
-TRANSLATIONS = {
-    'pt': {
-        'new_chat': 'Nova conversa',
-        'clear_history': 'Limpar histórico',
-        'clear_history_title': 'Limpar histórico',
-        'connection': '🔗 Conexão',
-        'server_path_placeholder': 'Caminho do servidor MCP',
-        'connect': 'Conectar ao servidor',
-        'connected': 'Conectado',
-        'connecting': 'Conectando...',
-        'disconnected': 'Desconectado',
-        'gemini_model': '🤖 Modelo Gemini',
-        'tools': '🔧 Ferramentas',
-        'language': '🌐 Idioma',
-        'portuguese': 'Português',
-        'english': 'English',
-        'welcome_message': 'Olá! Sou o seu assistente MCP. Conecte-se ao servidor para começar a fazer perguntas.',
-        'input_placeholder': 'Digite a sua mensagem...',
-        'send': 'Enviar',
-        'clear_history_success': 'Histórico limpo com sucesso',
-        'model_changed': 'Modelo alterado para',
-        'invalid_model': 'Modelo inválido',
-        'connection_success': 'Conectado com sucesso',
-        'connection_error': 'Erro de conexão',
-        'sync_with_server': 'sincronizado com servidor',
-        'dark_mode': 'Alternar modo escuro',
-        'logout_title': 'Terminar sessão',
-        'menu_title': 'Menu',
-        'help_title': 'Ajuda',
-        'statistics': 'Estatísticas',
-        'new_chat_welcome': 'Nova conversa iniciada. Como posso ajudá-lo hoje?',
-        'error_processing': 'Erro ao processar a pergunta:',
-        'history_cleared': 'Histórico limpo com sucesso',
-        'error_clearing_history': 'Erro ao limpar histórico:',
-        'please_provide_question': 'Por favor, forneça uma pergunta.',
-        'input_placeholder': 'Digite a sua pergunta...',
-        'connect_first': 'Conecte-se primeiro ao servidor...',
-        'quiz_topic_placeholder': 'Tópico...',
-        'quiz_num_questions_placeholder': 'Nº Perguntas',
-        'video_prompt_placeholder': 'Descrição detalhada do vídeo (ex: Tutorial sobre Scala com código na tela)',
-        'generation_cancelled': 'Geração cancelada pelo utilizador.',
-        'conversations': '💬 Conversas',
-        'quiz_section': '📝 Questionários',
-        'video_ai_section': '🤖 Vídeos com IA (Gemini Veo)',
-        'model_description': 'Descrição dos modelos',
-        'model_description_fast': 'Modelo rápido e eficiente para tarefas gerais',
-        'model_description_advanced': 'Modelo avançado para tarefas complexas',
-        'model_description_stable': 'Modelo estável e confiável',
-        'model_description_versatile': 'Modelo versátil para diversas aplicações',
-        'model_description_ultra_fast': 'Modelo ultra-rápido e leve para tarefas simples',
-        'model_description_next_gen': 'Modelo rápido da nova geração para tarefas gerais',
-        'model_description_optimized': 'Versão optimizada e recente do Flash Lite. Mais rápida e estável, mantendo baixo custo.',
-        'model_description_latest': 'Modelo mais recente e rápido para tarefas avançadas',
-        'model_description_less_used': 'Modelo menos usado da linha Pro, com bom desempenho mas preço já mais elevado.',
-        'model_description_popular': 'Modelo Pro popular para tarefas complexas com contexto grande. Mais caro que os Flash.',
-        'model_description_first': 'Primeiro Pro lançado. Já ultrapassado, mas ainda competente para aplicações estáveis.',
-        'model_description_base': 'Modelo base Pro, com desempenho genérico e preço elevado face aos mais recentes.',
-        'model_description_top': 'Topo de gama da Google. Multimodal, com capacidades avançadas e contexto alargado. Muito caro.',
-        'generate_quiz': 'Gerar Questionário',
-        'generate_video_ai': 'Gerar Vídeo com IA',
-        'multiple_choice': 'Escolha Múltipla',
-        'true_false': 'Verdadeiro/Falso',
-        'markdown': 'Markdown',
-        'text': 'Texto Simples',
-        'mixed': 'Misturado',
-        'easy': 'Fácil',
-        'medium': 'Médio',
-        'hard': 'Difícil',
-        'seconds': 'segundos',
-        'widescreen': '16:9 (Widescreen)',
-        'desktop': '16:10 (Desktop)',
-        'mcp_client_interface': 'MCP Client - Interface Web',
-        'available_tools': '🔧 Ferramentas Disponíveis',
-        'logout_modal_title': '🚪 Terminar Sessão',
-        'logout_confirm_message': 'Tem a certeza que pretende terminar a sessão?',
-        'logout_redirect_message': 'Será redirecionado para a página de login.',
-        'cancel': 'Cancelar',
-        'confirm_logout': 'Terminar Sessão'
-    },
-    'en': {
-        'new_chat': 'New chat',
-        'clear_history': 'Clear history',
-        'clear_history_title': 'Clear history',
-        'connection': '🔗 Connection',
-        'server_path_placeholder': 'MCP server path',
-        'connect': 'Connect to server',
-        'connected': 'Connected',
-        'connecting': 'Connecting...',
-        'disconnected': 'Disconnected',
-        'gemini_model': '🤖 Gemini Model',
-        'tools': '🔧 Tools',
-        'language': '🌐 Language',
-        'portuguese': 'Português',
-        'english': 'English',
-        'welcome_message': 'Hello! I\'m your MCP assistant. Connect to the server to start asking questions.',
-        'input_placeholder': 'Type your message...',
-        'send': 'Send',
-        'clear_history_success': 'History cleared successfully',
-        'model_changed': 'Model changed to',
-        'invalid_model': 'Invalid model',
-        'connection_success': 'Connected successfully',
-        'connection_error': 'Connection error',
-        'sync_with_server': 'synchronized with server',
-        'dark_mode': 'Toggle dark mode',
-        'logout_title': 'End session',
-        'menu_title': 'Menu',
-        'help_title': 'Help',
-        'statistics': 'Statistics',
-        'new_chat_welcome': 'New chat started. How can I help you today?',
-        'error_processing': 'Error processing question:',
-        'history_cleared': 'History cleared successfully',
-        'error_clearing_history': 'Error clearing history:',
-        'please_provide_question': 'Please provide a question.',
-        'input_placeholder': 'Type your question...',
-        'connect_first': 'Connect to server first...',
-        'quiz_topic_placeholder': 'Topic...',
-        'quiz_num_questions_placeholder': 'Nº Questions',
-        'video_prompt_placeholder': 'Detailed video description (ex: Tutorial about Scala with code on screen)',
-        'generation_cancelled': 'Generation cancelled by user.',
-        'conversations': '💬 Conversations',
-        'quiz_section': '📝 Quizzes',
-        'video_ai_section': '🤖 AI Videos (Gemini Veo)',
-        'model_description': 'Model descriptions',
-        'model_description_fast': 'Fast and efficient model for general tasks',
-        'model_description_advanced': 'Advanced model for complex tasks',
-        'model_description_stable': 'Stable and reliable model',
-        'model_description_versatile': 'Versatile model for various applications',
-        'model_description_ultra_fast': 'Ultra-fast and lightweight model for simple tasks',
-        'model_description_next_gen': 'Next generation fast model for general tasks',
-        'model_description_optimized': 'Recent optimized version of Flash Lite. Faster and more stable, maintaining low cost.',
-        'model_description_latest': 'Most recent and fast model for advanced tasks',
-        'model_description_less_used': 'Less used model from Pro line, with good performance but already higher price.',
-        'model_description_popular': 'Popular Pro model for complex tasks with large context. More expensive than Flash models.',
-        'model_description_first': 'First Pro released. Already outdated, but still competent for stable applications.',
-        'model_description_base': 'Base Pro model, with generic performance and high price compared to newer ones.',
-        'model_description_top': 'Google\'s top of the line. Multimodal, with advanced capabilities and extended context. Very expensive.',
-        'generate_quiz': 'Generate Quiz',
-        'generate_video_ai': 'Generate AI Video',
-        'multiple_choice': 'Multiple Choice',
-        'true_false': 'True/False',
-        'markdown': 'Markdown',
-        'text': 'Plain Text',
-        'mixed': 'Mixed',
-        'easy': 'Easy',
-        'medium': 'Medium',
-        'hard': 'Hard',
-        'seconds': 'seconds',
-        'widescreen': '16:9 (Widescreen)',
-        'desktop': '16:10 (Desktop)',
-        'mcp_client_interface': 'MCP Client - Web Interface',
-        'available_tools': '🔧 Available Tools',
-        'logout_modal_title': '🚪 End Session',
-        'logout_confirm_message': 'Are you sure you want to end the session?',
-        'logout_redirect_message': 'You will be redirected to the login page.',
-        'cancel': 'Cancel',
-        'confirm_logout': 'End Session'
-    }
-}
+#TRANSLATIONS=os.getenv("TRANSLATIONS")
+
+translations_file = os.getenv("TRANSLATIONS", "translations.json")
+with open(Path(__file__).parent / translations_file, "r", encoding="utf-8") as f:
+    TRANSLATIONS = json.load(f)
 
 # Modelos Gemini disponíveis (ordenados por custo - menor para maior)
-ALL_MODELS = {
-    # GEMINI
-    "gemini-1.5-flash-8b": {
-        "provider": "gemini",
-        "name": "Gemini 1.5 Flash 8B",
-        "description": "Modelo mais barato da família Gemini, ideal para uso prolongado com baixo custo.",
-        "max_tokens": 4096
-    },
-    "gemini-2.0-flash-lite": {
-        "provider": "gemini",
-        "name": "Gemini 2.0 Flash Lite",
-        "description": "Modelo leve e rápido, bom para tarefas simples com excelente relação custo/eficiência.",
-        "max_tokens": 4096,
-        "cost_rank": 2
-    },
-    "gemini-2.5-flash-lite": {
-        "provider": "gemini",
-        "name": "Gemini 2.5 Flash Lite",
-        "description": "Versão optimizada e recente do Flash Lite. Mais rápida e estável, mantendo baixo custo.",
-        "max_tokens": 4096,
-        "cost_rank": 3
-    },
-    "gemini-1.5-flash": {
-        "provider": "gemini",
-        "name": "Gemini 1.5 Flash",
-        "description": "Modelo eficiente para tarefas gerais com bom custo/benefício e suporte a contexto maior.",
-        "max_tokens": 8192,
-        "cost_rank": 4
-    },
-    "gemini-2.0-flash": {
-        "provider": "gemini",
-        "name": "Gemini 2.0 Flash",
-        "description": "Geração seguinte do Flash com melhor suporte multimodal. Um pouco mais caro.",
-        "max_tokens": 8192,
-        "cost_rank": 5
-    },
-    "gemini-2.5-flash": {
-        "provider": "gemini",
-        "name": "Gemini 2.5 Flash",
-        "description": "Mais rápido e versátil que os anteriores. Ideal para aplicações em tempo real com contexto médio.",
-        "max_tokens": 8192,
-        "cost_rank": 6
-    },
-    "gemini-2.0-pro": {
-        "provider": "gemini",
-        "name": "Gemini 2.0 Pro",
-        "description": "Modelo menos usado da linha Pro, com bom desempenho mas preço já mais elevado.",
-        "max_tokens": 32768,
-        "cost_rank": 7
-    },
-    "gemini-1.5-pro": {
-        "provider": "gemini",
-        "name": "Gemini 1.5 Pro",
-        "description": "Modelo Pro popular para tarefas complexas com contexto grande. Mais caro que os Flash.",
-        "max_tokens": 32768,
-        "cost_rank": 8
-    },
-    "gemini-1.0-pro": {
-        "provider": "gemini",
-        "name": "Gemini 1.0 Pro",
-        "description": "Primeiro Pro lançado. Já ultrapassado, mas ainda competente para aplicações estáveis.",
-        "max_tokens": 32768,
-        "cost_rank": 9
-    },
-    "gemini-pro": {
-        "provider": "gemini",
-        "name": "Gemini Pro",
-        "description": "Modelo base Pro, com desempenho genérico e preço elevado face aos mais recentes.",
-        "max_tokens": 32768,
-        "cost_rank": 10
-    },
-    "gemini-2.5-pro": {
-        "provider": "gemini",
-        "name": "Gemini 2.5 Pro",
-        "description": "Topo de gama da Google, multimodal e caro.",
-        "max_tokens": 32768
-    },
+#ALL_MODELS=os.getenv("ALL_MODELS")
 
-    # OPENAI
-    "gpt-3.5-turbo": {
-        "provider": "openai",
-        "name": "GPT-3.5 Turbo",
-        "description": "Modelo rápido e económico da OpenAI",
-        "max_tokens": 4096
-    },
-    "gpt-4o": {
-        "provider": "openai",
-        "name": "GPT-4o",
-        "description": "Modelo multimodal otimizado da OpenAI",
-        "max_tokens": 128000
-    },
-    "gpt-4o-mini": {
-        "provider": "openai",
-        "name": "GPT-4o Mini",
-        "description": "Modelo da OpenAI otimizado para custo/velocidade.",
-        "max_tokens": 16384
-    },
-    "gpt-4.1": {
-        "provider": "openai",
-        "name": "GPT-4.1",
-        "description": "Modelo avançado da OpenAI com contexto extenso.",
-        "max_tokens": 128000
-    },
+models_file = os.getenv("ALL_MODELS", "models.json")
 
-    # LOCAL (Ollama)
-    "llama3": {
-        "provider": "ollama",
-        "name": "LLaMA 3 (Local via Ollama)",
-        "description": "Modelo local correndo no Ollama",
-        "max_tokens": 4096
-    },
-    "llama3-70b": {
-        "provider": "ollama",
-        "name": "LLaMA 3 (70B)",
-        "description": "Modelo maior, melhor raciocínio mas mais pesado",
-        "max_tokens": 8192
-    },
-    "mistral": {
-        "provider": "ollama",
-        "name": "Mistral 7B",
-        "description": "Modelo rápido e eficiente em máquinas locais",
-        "max_tokens": 4096
-    },
-    "codellama": {
-        "provider": "ollama",
-        "name": "CodeLLaMA",
-        "description": "Modelo otimizado para programação e código",
-        "max_tokens": 4096
-    },
-    "gemma": {
-        "provider": "ollama",
-        "name": "Gemma 7B",
-        "description": "Modelo Google leve para uso local",
-        "max_tokens": 4096
-    }
-}
-
+with open(Path(__file__).parent / models_file, "r", encoding="utf-8") as f:
+    ALL_MODELS = json.load(f)
 
 app = Flask(__name__, static_folder='templates/static')
 app.config['SECRET_KEY'] = 'your-secret-key-here'
@@ -1234,7 +949,7 @@ ARGS: {"topic": "Redes de Computadores", "num_questions": 3, "difficulty": "easy
             else:
                 raise ValueError(f"Provider desconhecido: {self.current_provider}")
 
-            print(f"📝 Resposta inicial do modelo: {text[:100]}...")
+            print(f"📝 Resposta inicial do modelo: {text}...")
 
             # --- PARSER VIA REGEX ---
             match = re.search(r"TOOL:\s*(\w+)\s*ARGS:\s*(\{.*\})", text, re.DOTALL)

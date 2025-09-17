@@ -33,6 +33,8 @@ import logging
 from langchain_openai import ChatOpenAI
 import requests  # para chamar o Ollama via API HTTP
 import re
+import json
+
 
 
 # PostgreSQL Logging System
@@ -84,143 +86,11 @@ postgres_logger = PostgresLogger({
 load_dotenv()
 
 
-ALL_MODELS = {
-    # GEMINI
-    "gemini-1.5-flash-8b": {
-        "provider": "gemini",
-        "name": "Gemini 1.5 Flash 8B",
-        "description": "Modelo mais barato da família Gemini, ideal para uso prolongado com baixo custo.",
-        "max_tokens": 4096
-    },
-    "gemini-2.0-flash-lite": {
-        "provider": "gemini",
-        "name": "Gemini 2.0 Flash Lite",
-        "description": "Modelo leve e rápido, bom para tarefas simples com excelente relação custo/eficiência.",
-        "max_tokens": 4096,
-        "cost_rank": 2
-    },
-    "gemini-2.5-flash-lite": {
-        "provider": "gemini",
-        "name": "Gemini 2.5 Flash Lite",
-        "description": "Versão optimizada e recente do Flash Lite. Mais rápida e estável, mantendo baixo custo.",
-        "max_tokens": 4096,
-        "cost_rank": 3
-    },
-    "gemini-1.5-flash": {
-        "provider": "gemini",
-        "name": "Gemini 1.5 Flash",
-        "description": "Modelo eficiente para tarefas gerais com bom custo/benefício e suporte a contexto maior.",
-        "max_tokens": 8192,
-        "cost_rank": 4
-    },
-    "gemini-2.0-flash": {
-        "provider": "gemini",
-        "name": "Gemini 2.0 Flash",
-        "description": "Geração seguinte do Flash com melhor suporte multimodal. Um pouco mais caro.",
-        "max_tokens": 8192,
-        "cost_rank": 5
-    },
-    "gemini-2.5-flash": {
-        "provider": "gemini",
-        "name": "Gemini 2.5 Flash",
-        "description": "Mais rápido e versátil que os anteriores. Ideal para aplicações em tempo real com contexto médio.",
-        "max_tokens": 8192,
-        "cost_rank": 6
-    },
-    "gemini-2.0-pro": {
-        "provider": "gemini",
-        "name": "Gemini 2.0 Pro",
-        "description": "Modelo menos usado da linha Pro, com bom desempenho mas preço já mais elevado.",
-        "max_tokens": 32768,
-        "cost_rank": 7
-    },
-    "gemini-1.5-pro": {
-        "provider": "gemini",
-        "name": "Gemini 1.5 Pro",
-        "description": "Modelo Pro popular para tarefas complexas com contexto grande. Mais caro que os Flash.",
-        "max_tokens": 32768,
-        "cost_rank": 8
-    },
-    "gemini-1.0-pro": {
-        "provider": "gemini",
-        "name": "Gemini 1.0 Pro",
-        "description": "Primeiro Pro lançado. Já ultrapassado, mas ainda competente para aplicações estáveis.",
-        "max_tokens": 32768,
-        "cost_rank": 9
-    },
-    "gemini-pro": {
-        "provider": "gemini",
-        "name": "Gemini Pro",
-        "description": "Modelo base Pro, com desempenho genérico e preço elevado face aos mais recentes.",
-        "max_tokens": 32768,
-        "cost_rank": 10
-    },
-    "gemini-2.5-pro": {
-        "provider": "gemini",
-        "name": "Gemini 2.5 Pro",
-        "description": "Topo de gama da Google, multimodal e caro.",
-        "max_tokens": 32768
-    },
+#ALL_MODELS=os.getenv("ALL_MODELS")
 
-    # OPENAI
-    "gpt-3.5-turbo": {
-        "provider": "openai",
-        "name": "GPT-3.5 Turbo",
-        "description": "Modelo rápido e económico da OpenAI",
-        "max_tokens": 4096
-    },
-    "gpt-4o": {
-        "provider": "openai",
-        "name": "GPT-4o",
-        "description": "Modelo multimodal otimizado da OpenAI",
-        "max_tokens": 128000
-    },
-    "gpt-4o-mini": {
-        "provider": "openai",
-        "name": "GPT-4o Mini",
-        "description": "Modelo da OpenAI otimizado para custo/velocidade.",
-        "max_tokens": 16384
-    },
-    "gpt-4.1": {
-        "provider": "openai",
-        "name": "GPT-4.1",
-        "description": "Modelo avançado da OpenAI com contexto extenso.",
-        "max_tokens": 128000
-    },
-
-    # LOCAL (Ollama)
-    "llama3": {
-        "provider": "ollama",
-        "name": "LLaMA 3 (Local via Ollama)",
-        "description": "Modelo local correndo no Ollama",
-        "max_tokens": 4096
-    },
-    "llama3-70b": {
-        "provider": "ollama",
-        "name": "LLaMA 3 (70B)",
-        "description": "Modelo maior, melhor raciocínio mas mais pesado",
-        "max_tokens": 8192
-    },
-    "mistral": {
-        "provider": "ollama",
-        "name": "Mistral 7B",
-        "description": "Modelo rápido e eficiente em máquinas locais",
-        "max_tokens": 4096
-    },
-    "codellama": {
-        "provider": "ollama",
-        "name": "CodeLLaMA",
-        "description": "Modelo otimizado para programação e código",
-        "max_tokens": 4096
-    },
-    "gemma": {
-        "provider": "ollama",
-        "name": "Gemma 7B",
-        "description": "Modelo Google leve para uso local",
-        "max_tokens": 4096
-    }
-}
-
+models_file = os.getenv("ALL_MODELS", "models.json")
+with open(Path(__file__).parent / models_file, "r", encoding="utf-8") as f:
+    ALL_MODELS = json.load(f)
 
 QDRANT_COLLECTION_NAME=os.getenv("QDRANT_COLLECTION_NAME")
 QDRANT_API_KEY=os.getenv("QDRANT_API_KEY")
