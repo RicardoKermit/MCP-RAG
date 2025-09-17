@@ -596,6 +596,12 @@ db_config = {
     "password": os.getenv("PG_PASSWORD", "rag_password_secure_2024"),
 }
 
+ROLE_PERMISSIONS = {
+                    "Admin": os.getenv("ADMIN_TOOLS", "all").split(","),
+                    "Professor": os.getenv("TEACHER_TOOLS", "").split(","),
+                    "Aluno": os.getenv("STUDENT_TOOLS", "").split(","),
+                }
+
 postgres_logger = PostgresLogger(db_config)
 
 # Dicionário de traduções
@@ -1244,9 +1250,33 @@ ARGS: {"topic": "Redes de Computadores", "num_questions": 3, "difficulty": "easy
                     tool_args = json.loads(match.group(2))
                 except Exception:
                     tool_args = {}
+
+
+                def get_allowed_tools():
+                    if session["role"] == "Professor":
+                       return  ROLE_PERMISSIONS["Professor"]
+                    elif session["role"] == "Admin":
+                        return 
+                    else:
+                        return ROLE_PERMISSIONS["Admin"]
+
+                # Mapa de permissões
+                
+                print("ROLE DO UTILIZADOR AQUI22222:", session["role"])
+                print("ADMIN: ",ROLE_PERMISSIONS["Admin"])
+                print("PROF: ",ROLE_PERMISSIONS["Professor"])
+                print("ALUNO: ",ROLE_PERMISSIONS["Aluno"])
+
+
+
             
                 # Lista de ferramentas válidas
-                allowed_tools = ["retrieve", "generate_quiz_with_difficulty", "generate_video_with_veo", "generate_dev_questions","study_plan_generator","generate_lesson_summary","interactive_flashcards","generate_test"]
+                #allowed_tools = ["retrieve", "generate_quiz_with_difficulty", "generate_video_with_veo", "generate_dev_questions","study_plan_generator","generate_lesson_summary","interactive_flashcards","generate_test"]
+                allowed_tools=get_allowed_tools()
+
+
+                print(allowed_tools)
+                
                 if tool_name not in allowed_tools:
                     print(f"⚠️ Ferramenta inválida sugerida: {tool_name}, forçando 'retrieve'")
                     tool_name = "retrieve"
@@ -1390,20 +1420,52 @@ def index():
     response.headers['Expires'] = '0'
     return response
 
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    def get_role_from_username(username: str) -> str:
+        """Determina o role pelo primeiro caracter do username/email."""
+        if not username:
+            return "Aluno"
+        first_char = username[0]
+        if first_char.isalpha():
+            return "Professor"
+        elif first_char.isdigit():
+            return "Aluno"
+        return "Aluno"
+
+    def get_or_create_user(username: str, email: str = None, full_name: str = None) -> str:
+        """Verifica se o user existe, senão cria com role atribuído automaticamente."""
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT role FROM users WHERE username = %s", (username,))
+                row = cur.fetchone()
+
+                if row:
+                    return row[0]
+
+                # Se não existir → criar
+                role = get_role_from_username(username)
+                cur.execute(
+                    """
+                    INSERT INTO users (username, email, full_name, role)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (username, email, full_name, role)
+                )
+                conn.commit()
+                return role
+
     if request.method == 'GET':
-        # If already authenticated, redirect to main page
         if session.get('authenticated'):
             return redirect(url_for('index'))
-        
-        # Add headers to prevent caching
+
         response = make_response(render_template('login.html'))
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
         return response
-    
+
     elif request.method == 'POST':
         try:
             data = request.get_json()
@@ -1413,7 +1475,7 @@ def login():
             if not username or not password:
                 return jsonify({'success': False, 'error': 'Nome de utilizador e palavra-passe são obrigatórios'})
             
-            # Call Moodle authentication endpoint
+            # Autenticação no Moodle
             auth_url = "http://localhost/login/token.php"
             params = {
                 'username': username,
@@ -1421,7 +1483,6 @@ def login():
                 'service': 'moodle_mobile_app'
             }
             
-            # Make the request to Moodle
             with httpx.Client() as client:
                 response = client.get(auth_url, params=params)
                 
@@ -1429,20 +1490,40 @@ def login():
                     try:
                         auth_data = response.json()
                         if 'token' in auth_data and auth_data['token']:
-                            # Authentication successful
+                            # Autenticação válida
                             session['authenticated'] = True
                             session['username'] = username
                             session['moodle_token'] = auth_data['token']
-                            return jsonify({'success': True})
+
+                            # Criar ou obter utilizador na BD
+                            role = get_or_create_user(username, email=username)
+                            session['role'] = role
+
+                            # Log opcional
+                            postgres_logger.log_operation(
+                                operation_type="user_login",
+                                details={"username": username, "role": role},
+                                status="success"
+                            )
+
+                            return jsonify({'success': True, 'role': role})
                         else:
                             return jsonify({'success': False, 'error': 'Credenciais inválidas'})
                     except json.JSONDecodeError:
-                        return jsonify({'success': False, 'error': 'Resposta inválida do servidor'})
+                        return jsonify({'success': False, 'error': 'Resposta inválida do servidor Moodle'})
                 else:
-                    return jsonify({'success': False, 'error': 'Erro na autenticação'})
+                    return jsonify({'success': False, 'error': 'Erro na autenticação com Moodle'})
                     
         except Exception as e:
+            postgres_logger.log_operation(
+                operation_type="user_login",
+                details={"username": username},
+                status="error",
+                error_message=str(e)
+            )
             return jsonify({'success': False, 'error': f'Erro interno: {str(e)}'})
+
+
 
 @app.route('/logout')
 def logout():
@@ -1863,6 +1944,15 @@ def export_statistics():
             'success': False,
             'error': str(e)
         })
+
+@app.route('/whoami')
+def whoami():
+    if not session.get('authenticated'):
+        return jsonify({"error": "Não autenticado"})
+    return jsonify({
+        "username": session['username'],
+        "role": session['role']
+    })
 
 
 

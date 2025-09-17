@@ -12,12 +12,6 @@
   <!-- Main Content -->
   <div class="main-content">
     <div class="main-header">
-        <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" id="mobileMenuToggle" title="Menu">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        </button>
-
         <button class="help-toggle" onclick="toggleHelpModal()" id="helpToggle" title="Ajuda">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -35,57 +29,57 @@
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
         </button>
-        <button class="dark-mode-toggle" onclick="openSettings()" id="darkModeToggle" title="settings">⚙️</button>
+        
     </div>
 </div>
 
-  <h1>⚙️ Settings</h1>
-
-  <div class="model-section">
-    <h3 id="modelSectionTitle">🤖 Select Model</h3>
-    <div class="model-selector">
-      <select id="modelSelect" onchange="changeModel()">
-        <!-- Gemini -->
-        <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash 8B</option>
-        <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
-        <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
-        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-        <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-        <option value="gemini-2.0-pro">Gemini 2.0 Pro</option>
-        <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-        <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
-        <option value="gemini-pro">Gemini Pro</option>
-        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-
-        <!-- OpenAI -->
-        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-        <option value="gpt-4o">GPT-4o</option>
-        <option value="gpt-4o-mini">GPT-4o Mini</option>
-        <option value="gpt-4.1">GPT-4.1</option>
-
-        <!-- Ollama -->
-        <option value="llama3">LLaMA 3 (8B)</option>
-        <option value="llama3-70b">LLaMA 3 (70B)</option>
-        <option value="mistral">Mistral 7B</option>
-        <option value="codellama">CodeLLaMA</option>
-        <option value="gemma">Gemma 7B</option>
-      </select>
-      <div class="model-info" id="modelInfo">
-        <small>Choose the LLM you want to use</small>
+  <div class="settings">
+    <div class="model-section">
+      <h3 id="modelSectionTitle">🤖 Select Model</h3>
+      <div class="model-selector">
+        <select id="modelSelect" onchange="changeModel()">
+          <!-- Gemini -->
+          <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash 8B</option>
+          <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
+          <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+          <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+          <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+          <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+          <option value="gemini-2.0-pro">Gemini 2.0 Pro</option>
+          <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+          <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
+          <option value="gemini-pro">Gemini Pro</option>
+          <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+  
+          <!-- OpenAI -->
+          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+          <option value="gpt-4o">GPT-4o</option>
+          <option value="gpt-4o-mini">GPT-4o Mini</option>
+          <option value="gpt-4.1">GPT-4.1</option>
+  
+          <!-- Ollama -->
+          <option value="llama3">LLaMA 3 (8B)</option>
+          <option value="llama3-70b">LLaMA 3 (70B)</option>
+          <option value="mistral">Mistral 7B</option>
+          <option value="codellama">CodeLLaMA</option>
+          <option value="gemma">Gemma 7B</option>
+        </select>
+        <div class="model-info" id="modelInfo">
+          <small>Choose the LLM you want to use</small>
+        </div>
+        <div id="connectionStatus"></div>
+        
       </div>
-      <div id="connectionStatus"></div>
-      
     </div>
-  </div>
-
-  <div class="language-section">
-    <h3>🗄️ RAG Backend</h3>
-    <div class="language-selector">
-      <select id="ragBackendSelect" onchange="changeRagBackend()">
-        <option value="qdrant">Qdrant (Cloud)</option>
-        <option value="chroma">Chroma (Local)</option>
-      </select>
+  
+    <div class="language-section">
+      <h3>🗄️ RAG Backend</h3>
+      <div class="language-selector">
+        <select id="ragBackendSelect" onchange="changeRagBackend()">
+          <option value="qdrant">Qdrant (Cloud)</option>
+          <option value="chroma">Chroma (Local)</option>
+        </select>
+      </div>
     </div>
   </div>
 
