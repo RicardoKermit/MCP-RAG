@@ -602,6 +602,13 @@ ROLE_PERMISSIONS = {
                     "Aluno": os.getenv("STUDENT_TOOLS", "").split(","),
                 }
 
+ROLE_PROMPTS = {
+    "Professor": os.getenv("PROMPT_PROFESSOR", ""),
+    "Aluno": os.getenv("PROMPT_ALUNO", ""),
+    "Admin": os.getenv("PROMPT_ADMIN", "")
+}
+
+
 postgres_logger = PostgresLogger(db_config)
 
 # Dicionário de traduções
@@ -758,6 +765,17 @@ class MCPGeminiClient:
         self.conversation_history = []
         print("🗑️ Histórico da conversa limpo")
 
+    def build_prompt(user_role: str, user_query: str) -> str:
+        """
+        Constrói o prompt final juntando o contexto do role e a pergunta do utilizador.
+        """
+        base_prompt = ROLE_PROMPTS.get(user_role, "")
+        if base_prompt:
+            return f"{base_prompt}\n\nPergunta: {user_query}"
+
+        return user_query
+
+
     async def connect_to_server(self, server_script_path):
         try:
             print(f"🔗 Tentando conectar ao servidor: {server_script_path}")
@@ -842,7 +860,11 @@ class MCPGeminiClient:
         if not self.is_connected:
             return "Erro: Cliente não está conectado ao servidor MCP."
     
-        try:
+        try: 
+            
+            usertype=os.getenv(session["role"])
+            print(usertype)
+
             print(f"🤔 Processando pergunta: {query}")
             print(f"🤖 Usando modelo: {self.current_model} (provider={self.current_provider})")
         
@@ -910,6 +932,7 @@ ARGS: {"topic": "Redes de Computadores", "num_questions": 3, "difficulty": "easy
     f"{few_shot_examples}\n"
     f"---\n"
     f"Pergunta atual do utilizador: {query}\n"
+    f"Tipo de utilizador: {usertype}\n"
 )
         
             # --- PRIMEIRA GERAÇÃO ---
@@ -975,17 +998,7 @@ ARGS: {"topic": "Redes de Computadores", "num_questions": 3, "difficulty": "easy
                         return ROLE_PERMISSIONS["Admin"]
                     else:
                         return ROLE_PERMISSIONS["Aluno"]
-
-                # Mapa de permissões
-                
-                print("ROLE DO UTILIZADOR AQUI22222:", session["role"])
-                print("ADMIN: ",ROLE_PERMISSIONS["Admin"])
-                print("PROF: ",ROLE_PERMISSIONS["Professor"])
-                print("ALUNO: ",ROLE_PERMISSIONS["Aluno"])
-
-
-
-            
+          
                 # Lista de ferramentas válidas
                 #allowed_tools = ["retrieve", "generate_quiz_with_difficulty", "generate_video_with_veo", "generate_dev_questions","study_plan_generator","generate_lesson_summary","interactive_flashcards","generate_test"]
                 allowed_tools=get_allowed_tools()
@@ -1031,6 +1044,8 @@ ARGS: {"topic": "Redes de Computadores", "num_questions": 3, "difficulty": "easy
 
     Information found:
     {raw_response}
+
+    Type of user: {usertype}
 
     {final_language_instructions.get(self.current_language, final_language_instructions['pt'])}
 

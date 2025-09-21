@@ -818,11 +818,11 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
 @mcp.tool()
 def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "en") -> dict:
     """
-    Generates development-related questions about a given topic.
-    ALWAYS use this tool when the user asks for programming/development questions that should include both the question and the answer.
+    Generates open end questions about a given topic.
+    ALWAYS use this tool when the user asks for questions that should include both the question and the answer.
 
     Arguments:
-      - topic: the development subject (e.g., "Scala", "Python", "Docker").
+      - topic: the  subject (e.g., "Scala", "Python", "Docker").
       - num_questions: number of questions to generate (default: 3).
       - language: language of the output ("en" for English, "pt" for Portuguese).
     """
@@ -832,7 +832,7 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
 
         # Prompt para o LLM
         dev_prompt = f"""
-        Generate {num_questions} development-related questions about "{topic}".
+        Generate {num_questions} open ended questions about "{topic}".
         For each question, also provide the answer immediately below.
 
         Format strictly as:
