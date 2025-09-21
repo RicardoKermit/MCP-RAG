@@ -1150,15 +1150,15 @@ def login():
             return "Aluno"
         return "Aluno"
 
-    def get_or_create_user(username: str, email: str = None, full_name: str = None) -> str:
+    def get_or_create_user(username: str, email: str = None, full_name: str = None):
         """Verifica se o user existe, senão cria com role atribuído automaticamente."""
         with postgres_logger.get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT role FROM users WHERE username = %s", (username,))
+                cur.execute("SELECT id, role FROM users WHERE username = %s", (username,))
                 row = cur.fetchone()
 
                 if row:
-                    return row[0]
+                    return str(row[0]), row[1]  # id, role
 
                 # Se não existir → criar
                 role = get_role_from_username(username)
@@ -1166,11 +1166,13 @@ def login():
                     """
                     INSERT INTO users (username, email, full_name, role)
                     VALUES (%s, %s, %s, %s)
+                    RETURNING id
                     """,
                     (username, email, full_name, role)
                 )
+                new_id = cur.fetchone()[0]
                 conn.commit()
-                return role
+                return str(new_id), role
 
     if request.method == 'GET':
         if session.get('authenticated'):
@@ -1190,7 +1192,7 @@ def login():
             
             if not username or not password:
                 return jsonify({'success': False, 'error': 'Nome de utilizador e palavra-passe são obrigatórios'})
-            
+
             # Autenticação no Moodle
             auth_url = "http://localhost/login/token.php"
             params = {
@@ -1212,7 +1214,8 @@ def login():
                             session['moodle_token'] = auth_data['token']
 
                             # Criar ou obter utilizador na BD
-                            role = get_or_create_user(username, email=username)
+                            user_id, role = get_or_create_user(username, email=username)
+                            session['user_id'] = user_id  # 🔑 agora guardamos o ID
                             session['role'] = role
 
                             # Log opcional
@@ -1222,7 +1225,7 @@ def login():
                                 status="success"
                             )
 
-                            return jsonify({'success': True, 'role': role})
+                            return jsonify({'success': True, 'role': role, 'user_id': user_id})
                         else:
                             return jsonify({'success': False, 'error': 'Credenciais inválidas'})
                     except json.JSONDecodeError:
@@ -1238,7 +1241,6 @@ def login():
                 error_message=str(e)
             )
             return jsonify({'success': False, 'error': f'Erro interno: {str(e)}'})
-
 
 
 @app.route('/logout')
@@ -1674,44 +1676,54 @@ def whoami():
 # Conversas
 # ========================
 
+# Listar conversas do utilizador autenticado
 @app.route("/conversations", methods=["GET"])
 def get_conversations():
     try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"success": False, "error": "Não autenticado"}), 401
+
         with postgres_logger.get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
                     SELECT id, title, model_used, created_at, updated_at, is_archived
                     FROM conversations
-                    WHERE is_archived = FALSE
+                    WHERE is_archived = FALSE AND user_id = %s
                     ORDER BY updated_at DESC
-                """)
+                """, (user_id,))
                 rows = cur.fetchall()
-                return jsonify({"success": True, "conversations": rows})
+
+        return jsonify({"success": True, "conversations": rows})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# Criar conversa
 @app.route("/conversations", methods=["POST"])
 def create_conversation():
-    """Cria nova conversa"""
     try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"success": False, "error": "Não autenticado"}), 401
+
         data = request.json
         title = data.get("title", "Nova conversa")
-        model_used = data.get("model_used", "default")
+        model_used = data.get("model", "default")
 
         with postgres_logger.get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    "INSERT INTO conversations (title, model_used) VALUES (%s, %s) RETURNING id",
-                    (title, model_used)
-                )
-                conv_id = cur.fetchone()[0]
+                cur.execute("""
+                    INSERT INTO conversations (user_id, title, model_used)
+                    VALUES (%s, %s, %s)
+                    RETURNING id
+                """, (user_id, title, model_used))
+                new_id = cur.fetchone()[0]
                 conn.commit()
 
-        return jsonify({"success": True, "id": conv_id})
+        return jsonify({"success": True, "id": new_id})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
-
 
 @app.route("/conversations/<uuid:conv_id>", methods=["DELETE"])
 def delete_conversation(conv_id):
@@ -1730,11 +1742,21 @@ def delete_conversation(conv_id):
 # Mensagens
 # ========================
 
+# Listar mensagens de uma conversa
 @app.route("/conversations/<uuid:conv_id>/messages", methods=["GET"])
 def get_messages(conv_id):
     try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"success": False, "error": "Não autenticado"}), 401
+
         with postgres_logger.get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # garantir que a conversa pertence ao utilizador
+                cur.execute("SELECT id FROM conversations WHERE id = %s AND user_id = %s", (str(conv_id), user_id))
+                if not cur.fetchone():
+                    return jsonify({"success": False, "error": "Acesso negado"}), 403
+
                 cur.execute("""
                     SELECT id, role, content, tokens_used, created_at
                     FROM conversation_messages
@@ -1742,39 +1764,46 @@ def get_messages(conv_id):
                     ORDER BY created_at ASC
                 """, (str(conv_id),))
                 rows = cur.fetchall()
-                return jsonify({"success": True, "messages": rows})
+
+        return jsonify({"success": True, "messages": rows})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# Adicionar mensagem a uma conversa
 @app.route("/conversations/<uuid:conv_id>/messages", methods=["POST"])
 def add_message(conv_id):
-    """Adiciona mensagem a uma conversa"""
     try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"success": False, "error": "Não autenticado"}), 401
+
         data = request.json
         role = data.get("role")
         content = data.get("content")
-        tokens_used = data.get("tokens_used")
 
         if not role or not content:
             return jsonify({"success": False, "error": "role e content são obrigatórios"}), 400
 
         with postgres_logger.get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO conversation_messages (conversation_id, role, content, tokens_used)
-                    VALUES (%s, %s, %s, %s)
-                    RETURNING id
-                """, (str(conv_id), role, content, tokens_used))
-                msg_id = cur.fetchone()[0]
+                # garantir que a conversa pertence ao utilizador
+                cur.execute("SELECT id FROM conversations WHERE id = %s AND user_id = %s", (str(conv_id), user_id))
+                if not cur.fetchone():
+                    return jsonify({"success": False, "error": "Acesso negado"}), 403
 
-                # Atualizar updated_at da conversa
-                cur.execute("UPDATE conversations SET updated_at = NOW() WHERE id = %s", (str(conv_id),))
+                cur.execute("""
+                    INSERT INTO conversation_messages (conversation_id, role, content)
+                    VALUES (%s, %s, %s)
+                    RETURNING id
+                """, (str(conv_id), role, content))
+                new_id = cur.fetchone()[0]
                 conn.commit()
 
-        return jsonify({"success": True, "id": msg_id})
+        return jsonify({"success": True, "id": new_id})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route("/conversations/<uuid:conv_id>", methods=["PUT"])
 def update_conversation(conv_id):

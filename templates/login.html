@@ -130,13 +130,22 @@
 </head>
 <body>
     <div class="login-container">
-                        <div class="login-header">
+                <div class="login-header">
                     <div class="login-logo">
                         <img src="{{ url_for('static', filename='images/icon.png') }}" alt="RAG System" class="login-app-logo">
                     </div>
                     <h1>Bem-vindo</h1>
                     <p>Faça login com as suas credenciais do Moodle</p>
                 </div>
+                <div class="language-switch">
+                    <button onclick="setLanguage('pt')" title="Português">
+                        <img src="{{ url_for('static', filename='images/flag_pt.png') }}" alt="Português" class="flag-icon">
+                    </button>
+                    <button onclick="setLanguage('en')" title="English">
+                        <img src="{{ url_for('static', filename='images/flag_en.png') }}" alt="English" class="flag-icon">
+                    </button>
+                </div>
+                
 
         <div class="error-message" id="errorMessage"></div>
 
@@ -146,10 +155,18 @@
                 <input type="text" id="username" name="username" placeholder="Email" required>
             </div>
 
-            <div class="form-group">
+            
+
+            <div class="form-group password-group">
                 <label for="password">Palavra-passe</label>
-                <input type="password" id="password" name="password" placeholder="Password" required>
+                <div class="password-wrapper">
+                    <input type="password" id="password" name="password" placeholder="Password" required>
+                    <button type="button" class="toggle-password" onclick="togglePassword()">
+                        👁️
+                    </button>
+                </div>
             </div>
+            
 
             <button type="submit" class="login-btn" id="loginBtn">
                 <span id="loginBtnText">Entrar</span>
@@ -213,6 +230,38 @@
                 loading.style.display = 'none';
             }
         });
+
+        function setLanguage(lang) {
+    if (lang === 'pt') {
+        document.querySelector('.login-header h1').textContent = "Bem-vindo";
+        document.querySelector('.login-header p').textContent = "Faça login com as suas credenciais do Moodle";
+        document.querySelector('label[for="username"]').textContent = "Email";
+        document.querySelector('label[for="password"]').textContent = "Palavra-passe";
+        document.getElementById('loginBtnText').textContent = "Entrar";
+        document.getElementById('loading').querySelector('p').textContent = "A autenticar...";
+    } else if (lang === 'en') {
+        document.querySelector('.login-header h1').textContent = "Welcome";
+        document.querySelector('.login-header p').textContent = "Login with your Moodle credentials";
+        document.querySelector('label[for="username"]').textContent = "Email";
+        document.querySelector('label[for="password"]').textContent = "Password";
+        document.getElementById('loginBtnText').textContent = "Login";
+        document.getElementById('loading').querySelector('p').textContent = "Authenticating...";
+    }
+}
+
+function togglePassword() {
+    const passwordInput = document.getElementById('password');
+    const toggleBtn = document.querySelector('.toggle-password');
+
+    if (passwordInput.type === "password") {
+        passwordInput.type = "text";
+        toggleBtn.textContent = "🙈"; // muda o ícone
+    } else {
+        passwordInput.type = "password";
+        toggleBtn.textContent = "👁️";
+    }
+}
+
     </script>
 </body>
 </html> 
