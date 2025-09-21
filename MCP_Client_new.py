@@ -627,6 +627,8 @@ with open(Path(__file__).parent / models_file, "r", encoding="utf-8") as f:
     ALL_MODELS = json.load(f)
 
 app = Flask(__name__, static_folder='templates/static')
+
+
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
 # Event loop global
@@ -666,6 +668,7 @@ class MCPGeminiClient:
         self.current_provider = ALL_MODELS[self.current_model]["provider"]
         self.current_language = "pt"  # Idioma padrão (Português)
         self.conversation_history = []  # Histórico da conversa
+        
 
     def set_model(self, model_name):
         """Define o modelo a ser usado (Gemini ou OpenAI) e sincroniza com o servidor"""
@@ -765,15 +768,6 @@ class MCPGeminiClient:
         self.conversation_history = []
         print("🗑️ Histórico da conversa limpo")
 
-    def build_prompt(user_role: str, user_query: str) -> str:
-        """
-        Constrói o prompt final juntando o contexto do role e a pergunta do utilizador.
-        """
-        base_prompt = ROLE_PROMPTS.get(user_role, "")
-        if base_prompt:
-            return f"{base_prompt}\n\nPergunta: {user_query}"
-
-        return user_query
 
 
     async def connect_to_server(self, server_script_path):
@@ -1439,6 +1433,7 @@ def get_rag_backend_route():
     if not session.get('authenticated'):
         return jsonify({'error': 'Not authenticated'}), 401
     result = mcp_client.get_rag_backend()
+    print("RAGBACK: ",result)
     return jsonify(result)
 
 @app.route('/set-rag-backend', methods=['POST'])
@@ -1543,6 +1538,8 @@ def settings_page():
     # Check if user is authenticated
     if not session.get('authenticated'):
         return redirect('/login')
+    if not session["role"] =="Professor":
+        return render_template('simple.html')
     
     return render_template('settings.html')
 

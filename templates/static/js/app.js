@@ -1000,6 +1000,8 @@ async function loadRagBackend() {
         const select = document.getElementById('ragBackendSelect');
         
         if (data && data.backend && select) {
+            console.log("Value: ",select.value)
+            console.log("data: ",data.backend)
             select.value = data.backend;
         }
     } catch (e) {
@@ -1615,6 +1617,6 @@ function toggleSidebar() {
 }
   
 
-  window.onload = loadSettings;
+  //window.onload = loadSettings;
   
 
