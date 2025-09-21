@@ -139,14 +139,14 @@ function formatMessage(content) {
     }
 }
 
-function addMessage(content, isUser = false, typewriter = false) {
+async function addMessage(content, isUser = false, typewriter = false, skipSave = false) {
     const messagesContainer = document.getElementById('chatMessages');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
-    
+
     const avatar = document.createElement('div');
     avatar.className = 'message-avatar';
-    
+
     if (isUser) {
         avatar.textContent = 'U';
     } else {
@@ -156,33 +156,52 @@ function addMessage(content, isUser = false, typewriter = false) {
             </svg>
         `;
     }
-    
+
     const messageContent = document.createElement('div');
     messageContent.className = 'message-content';
-    
+
     const messageText = document.createElement('div');
     messageText.className = 'message-text';
-    
+
     messageContent.appendChild(messageText);
     messageDiv.appendChild(avatar);
     messageDiv.appendChild(messageContent);
     messagesContainer.appendChild(messageDiv);
-    
-    // Scroll to bottom
+
+    // Scroll para o fim
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    
+
     if (typewriter && !isUser) {
-        // Efeito de digitação para respostas do assistente
         currentTypewriterClear = typewriterEffect(messageText, content);
     } else {
-        // Formatar o conteúdo se for do assistente
         if (isUser) {
             messageText.textContent = content;
         } else {
             messageText.innerHTML = formatMessage(content);
         }
     }
+
+    // 🔄 Guardar no backend apenas se não for carregamento histórico
+    if (!skipSave) {
+        try {
+            const res = await fetch(`/conversations/${currentConversationId}/messages`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    role: isUser ? "user" : "assistant",
+                    content: content
+                })
+            });
+            const data = await res.json();
+            if (!data.success) {
+                console.error("Erro ao guardar mensagem:", data.error);
+            }
+        } catch (err) {
+            console.error("Erro de rede ao guardar mensagem:", err);
+        }
+    }
 }
+
 
 function typewriterEffect(element, text, speed = 15) {
     let i = 0;
@@ -294,7 +313,7 @@ async function sendMessage() {
 
     // Create new conversation if none exists
     if (!currentConversationId) {
-        currentConversationId = createNewConversation();
+        currentConversationId = await createNewConversation();
     }
 
     // Adiciona mensagem do usuário
@@ -338,7 +357,7 @@ async function sendMessage() {
         addMessage(data.response, false, true); // true para ativar efeito de digitação
         
         // Save conversation after successful response
-        saveCurrentConversation();
+        //saveCurrentConversation();
     } catch (error) {
         if (error.name === 'AbortError') {
             const cancelMsg = translations.generation_cancelled || 'Geração cancelada pelo utilizador.';
@@ -385,13 +404,13 @@ function handleKeyPress(event) {
     }
 }
 
-// Nova conversa
-function newChat() {
-    // Create a new conversation
-    currentConversationId = createNewConversation();
-    
+async function newChat() {
+    // Criar conversa na BD e esperar pelo UUID
+    currentConversationId = await createNewConversation();
+
     const messagesContainer = document.getElementById('chatMessages');
-    const welcomeMessage = translations.new_chat_welcome || 'Nova conversa iniciada. Como posso ajudá-lo hoje?';
+    const welcomeMessage = 'Nova conversa iniciada. Como posso ajudá-lo hoje?';
+
     messagesContainer.innerHTML = `
         <div class="message assistant">
             <div class="message-avatar">
@@ -400,13 +419,14 @@ function newChat() {
                 </svg>
             </div>
             <div class="message-content">
-                <div class="message-text">
-                    ${welcomeMessage}
-                </div>
+                <div class="message-text">${welcomeMessage}</div>
             </div>
         </div>
     `;
+
+    console.log("✅ currentConversationId resolvido:", currentConversationId);
 }
+
 
 // Limpar histórico
 async function clearHistory() {
@@ -1086,57 +1106,125 @@ document.addEventListener('DOMContentLoaded', function() {
 let conversations = [];
 let currentConversationId = null;
 
-// Load conversations from localStorage
-function loadConversations() {
-    const saved = localStorage.getItem('conversations');
-    if (saved) {
-        conversations = JSON.parse(saved);
-        renderConversations();
+async function loadConversations() {
+    try {
+        const res = await fetch("/conversations");
+        const data = await res.json();
+
+        if (data.success) {
+            // Guardar em memória (não é localStorage, apenas variável global)
+            conversations = data.conversations || [];
+
+            // Renderizar na UI
+            renderConversations(conversations);
+        } else {
+            console.error("❌ Erro a carregar conversas:", data.error);
+        }
+    } catch (err) {
+        console.error("❌ Erro de rede ao carregar conversas:", err);
     }
 }
+
+
+async function loadMessages(conversationId) {
+    try {
+        const res = await fetch(`/conversations/${conversationId}/messages`);
+        const data = await res.json();
+
+        if (data.success) {
+            // Guardar conversa ativa globalmente
+            currentConversationId = conversationId;
+
+            // Limpar chat antes de desenhar
+            const messagesContainer = document.getElementById('chatMessages');
+            messagesContainer.innerHTML = '';
+
+            // Renderizar mensagens desta conversa
+            renderMessages(data.messages);
+        } else {
+            console.error("❌ Erro a carregar mensagens:", data.error);
+        }
+    } catch (err) {
+        console.error("❌ Erro de rede ao carregar mensagens:", err);
+    }
+}
+
+function renderMessages(messages) {
+    const messagesContainer = document.getElementById('chatMessages');
+    messagesContainer.innerHTML = '';
+
+    messages.forEach(msg => {
+        // 👉 skipSave = true para não gravar outra vez no backend
+        addMessage(msg.content, msg.role === "user", false, true);
+    });
+
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
 
 // Save conversations to localStorage
 function saveConversations() {
     localStorage.setItem('conversations', JSON.stringify(conversations));
 }
 
-// Create a new conversation
-function createNewConversation() {
-    const conversationId = Date.now().toString();
-    const conversation = {
-        id: conversationId,
-        title: 'Nova conversa',
-        date: new Date().toLocaleDateString(),
-        messages: []
-    };
-    
-    conversations.unshift(conversation);
-    saveConversations();
-    renderConversations();
-    
-    return conversationId;
+async function createNewConversation(title = "Nova conversa") {
+    try {
+        const res = await fetch("/conversations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            // ✅ recarregar conversas da BD em vez de manipular array local
+            await loadConversations();
+            return data.id;
+        } else {
+            console.error("❌ Erro ao criar conversa:", data.error);
+            return null;
+        }
+    } catch (err) {
+        console.error("❌ Erro de rede ao criar conversa:", err);
+        return null;
+    }
 }
 
+
+
 // Render conversations list
-function renderConversations() {
+function renderConversations(conversations) {
     const conversationsList = document.getElementById('conversationsList');
     if (!conversationsList) return;
-    
-    conversationsList.innerHTML = conversations.map(conversation => `
-        <div class="conversation-item ${conversation.id === currentConversationId ? 'active' : ''}" 
-             onclick="loadConversation('${conversation.id}')">
-            <div class="conversation-info">
-                <div class="conversation-title">${conversation.title}</div>
-                <div class="conversation-date">${conversation.date}</div>
+
+    conversationsList.innerHTML = conversations.map(conversation => {
+        const title = conversation.title && conversation.title.trim() !== ""
+            ? conversation.title
+            : "Nova conversa";
+
+        const date = conversation.updated_at
+            ? new Date(conversation.updated_at).toLocaleString()
+            : "";
+
+        return `
+            <div class="conversation-item ${conversation.id === currentConversationId ? 'active' : ''}" 
+                 onclick="loadMessages('${conversation.id}')">
+                <div class="conversation-info">
+                    <div class="conversation-title">${title}</div>
+                    <div class="conversation-date">${date}</div>
+                </div>
+                <button class="conversation-delete" onclick="deleteConversation('${conversation.id}', event)">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" 
+                              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
             </div>
-            <button class="conversation-delete" onclick="deleteConversation('${conversation.id}', event)">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </button>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
+
+
 
 // Load a specific conversation
 function loadConversation(conversationId) {
@@ -1158,37 +1246,49 @@ function loadConversation(conversationId) {
     renderConversations();
 }
 
-// Delete a conversation
-function deleteConversation(conversationId, event) {
+// Apagar conversa na BD
+async function deleteConversation(conversationId, event) {
     event.stopPropagation();
-    
+
     if (confirm('Tem certeza que deseja apagar esta conversa?')) {
-        conversations = conversations.filter(c => c.id !== conversationId);
-        
-        if (currentConversationId === conversationId) {
-            currentConversationId = null;
-            // Clear messages
-            const messagesContainer = document.getElementById('chatMessages');
-            messagesContainer.innerHTML = `
-                <div class="message assistant">
-                    <div class="message-avatar">
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/>
-                        </svg>
-                    </div>
-                    <div class="message-content">
-                        <div class="message-text" id="welcomeMessage">
-                            Olá! Sou o seu assistente MCP. Conecte-se ao servidor para começar a fazer perguntas.
+        try {
+            const res = await fetch(`/conversations/${conversationId}`, {
+                method: "DELETE"
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                // Se a conversa apagada era a atual, limpar o chat
+                if (currentConversationId === conversationId) {
+                    currentConversationId = null;
+                    const messagesContainer = document.getElementById('chatMessages');
+                    messagesContainer.innerHTML = `
+                        <div class="message assistant">
+                            <div class="message-avatar">
+                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/>
+                                </svg>
+                            </div>
+                            <div class="message-content">
+                                <div class="message-text" id="welcomeMessage">
+                                    Olá! Sou o seu assistente MCP. Conecte-se ao servidor para começar a fazer perguntas.
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-            `;
+                    `;
+                }
+
+                // Recarregar lista de conversas a partir da BD
+                loadConversations();
+            } else {
+                console.error("Erro ao apagar conversa:", data.error);
+            }
+        } catch (err) {
+            console.error("Erro de rede ao apagar conversa:", err);
         }
-        
-        saveConversations();
-        renderConversations();
     }
 }
+
 
 // Save current conversation
 function saveCurrentConversation() {
@@ -1507,7 +1607,7 @@ async function loadSettings() {
     } catch (e) {
       console.error("Erro a carregar settings:", e);
     }
-  }
+}
 
 
 function toggleSidebar() {

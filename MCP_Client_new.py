@@ -21,6 +21,7 @@ from enum import Enum
 import sqlite3
 from openai import OpenAI
 import requests
+from psycopg2.extras import RealDictCursor
 
 # PostgreSQL Logging System
 from postgres_logger import PostgresLogger, OperationType
@@ -971,9 +972,9 @@ ARGS: {"topic": "Redes de Computadores", "num_questions": 3, "difficulty": "easy
                     if session["role"] == "Professor":
                        return  ROLE_PERMISSIONS["Professor"]
                     elif session["role"] == "Admin":
-                        return 
-                    else:
                         return ROLE_PERMISSIONS["Admin"]
+                    else:
+                        return ROLE_PERMISSIONS["Aluno"]
 
                 # Mapa de permissões
                 
@@ -1668,6 +1669,138 @@ def whoami():
         "username": session['username'],
         "role": session['role']
     })
+
+# ========================
+# Conversas
+# ========================
+
+@app.route("/conversations", methods=["GET"])
+def get_conversations():
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT id, title, model_used, created_at, updated_at, is_archived
+                    FROM conversations
+                    WHERE is_archived = FALSE
+                    ORDER BY updated_at DESC
+                """)
+                rows = cur.fetchall()
+                return jsonify({"success": True, "conversations": rows})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/conversations", methods=["POST"])
+def create_conversation():
+    """Cria nova conversa"""
+    try:
+        data = request.json
+        title = data.get("title", "Nova conversa")
+        model_used = data.get("model_used", "default")
+
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO conversations (title, model_used) VALUES (%s, %s) RETURNING id",
+                    (title, model_used)
+                )
+                conv_id = cur.fetchone()[0]
+                conn.commit()
+
+        return jsonify({"success": True, "id": conv_id})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/conversations/<uuid:conv_id>", methods=["DELETE"])
+def delete_conversation(conv_id):
+    """Apaga uma conversa"""
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM conversations WHERE id = %s", (str(conv_id),))
+                conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ========================
+# Mensagens
+# ========================
+
+@app.route("/conversations/<uuid:conv_id>/messages", methods=["GET"])
+def get_messages(conv_id):
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT id, role, content, tokens_used, created_at
+                    FROM conversation_messages
+                    WHERE conversation_id = %s
+                    ORDER BY created_at ASC
+                """, (str(conv_id),))
+                rows = cur.fetchall()
+                return jsonify({"success": True, "messages": rows})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/conversations/<uuid:conv_id>/messages", methods=["POST"])
+def add_message(conv_id):
+    """Adiciona mensagem a uma conversa"""
+    try:
+        data = request.json
+        role = data.get("role")
+        content = data.get("content")
+        tokens_used = data.get("tokens_used")
+
+        if not role or not content:
+            return jsonify({"success": False, "error": "role e content são obrigatórios"}), 400
+
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO conversation_messages (conversation_id, role, content, tokens_used)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id
+                """, (str(conv_id), role, content, tokens_used))
+                msg_id = cur.fetchone()[0]
+
+                # Atualizar updated_at da conversa
+                cur.execute("UPDATE conversations SET updated_at = NOW() WHERE id = %s", (str(conv_id),))
+                conn.commit()
+
+        return jsonify({"success": True, "id": msg_id})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/conversations/<uuid:conv_id>", methods=["PUT"])
+def update_conversation(conv_id):
+    try:
+        data = request.json
+        title = data.get("title")
+
+        if not title:
+            return jsonify({"success": False, "error": "title é obrigatório"}), 400
+
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE conversations SET title = %s, updated_at = NOW() WHERE id = %s",
+                    (title, str(conv_id))
+                )
+                conn.commit()
+
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/model", methods=["GET"])
+def get_model():
+    # devolve o modelo atual configurado no servidor
+    return jsonify({"success": True, "model": "gpt-4o-mini"})  
 
 
 
