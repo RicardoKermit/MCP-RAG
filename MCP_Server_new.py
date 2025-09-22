@@ -1,6 +1,7 @@
 from mcp.server.fastmcp import FastMCP
 from langchain.chains import RetrievalQA
 from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders.parsers import RapidOCRBlobParser
 from langchain.text_splitter import RecursiveCharacterTextSplitter, CharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAI
 from langchain.prompts import PromptTemplate
@@ -126,7 +127,11 @@ if RAG_BACKEND == "qdrant":
     all_texts = []
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=200)
     for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
-        loader = PyPDFLoader(str(pdf_file))
+        loader = PyPDFLoader(
+            file_path=str(pdf_file),
+            extract_images=True,
+            images_parser=RapidOCRBlobParser(),  # OCR para ler texto dentro das imagens
+        )
         data = loader.load()
         texts = text_splitter.split_documents(data)
         all_texts.extend(texts)
@@ -146,10 +151,15 @@ else:
     if os.path.exists(CHROMA_DIR) and os.path.isdir(CHROMA_DIR) and len(os.listdir(CHROMA_DIR)) > 0:
         docsearch = Chroma(persist_directory=CHROMA_DIR, embedding_function=embeddings)
     else:
+        print("ENTROU RAG")
         all_texts = []
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=200)
         for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
-            loader = PyPDFLoader(str(pdf_file))
+            loader = PyPDFLoader(
+            file_path=str(pdf_file),
+            extract_images=True,
+            images_parser=RapidOCRBlobParser(),  # OCR para ler texto dentro das imagens
+        )
             data = loader.load()
             texts = text_splitter.split_documents(data)
             all_texts.extend(texts)
@@ -411,7 +421,11 @@ def add_new_pdfs() -> str:
             for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
                 file_path = str(pdf_file.resolve())
                 if file_path not in existing_ids:
-                    loader = PyPDFLoader(file_path)
+                    loader = PyPDFLoader(
+                                        file_path=file_path,
+                                        extract_images=True,
+                                        images_parser=RapidOCRBlobParser(),  # OCR para ler texto dentro das imagens
+                            )
                     data = loader.load()
                     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
                     texts = text_splitter.split_documents(data)
@@ -431,7 +445,11 @@ def add_new_pdfs() -> str:
             for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
                 file_path = str(pdf_file.resolve())
                 if file_path not in existing_sources:
-                    loader = PyPDFLoader(file_path)
+                    loader = PyPDFLoader(
+                                        file_path=file_path,
+                                        extract_images=True,
+                                        images_parser=RapidOCRBlobParser(),  # OCR para ler texto dentro das imagens
+                            )
                     data = loader.load()
                     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
                     texts = text_splitter.split_documents(data)
@@ -497,7 +515,11 @@ def download_and_add_pdf(file_url: str) -> str:
         pdf_path = Path(PDF_FOLDER) / filename
         with open(pdf_path, "wb") as f:
             f.write(response.content)
-        loader = PyPDFLoader(str(pdf_path))
+        loader = PyPDFLoader(
+                            file_path=pdf_path,
+                            extract_images=True,
+                            images_parser=RapidOCRBlobParser(),  # OCR para ler texto dentro das imagens
+                            )
         data = loader.load()
         text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         texts = text_splitter.split_documents(data)
