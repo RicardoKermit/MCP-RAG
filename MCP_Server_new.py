@@ -344,7 +344,13 @@ def get_rag_backend() -> dict:
     Do not use it to answer knowledge questions.
     """
     #return {"backend": RAG_BACKEND, "options": ["qdrant", "chroma"], "chroma_dir": CHROMA_DIR, "qdrant_collection": QDRANT_COLLECTION_NAME}
-    return RAG_BACKEND
+    #return RAG_BACKEND
+    return {
+        "backend": RAG_BACKEND,
+        "options": ["qdrant", "chroma"],
+        "chroma_dir": CHROMA_DIR,
+        "qdrant_collection": QDRANT_COLLECTION_NAME
+    }
 
 @mcp.tool()
 def retrieve(prompt: str) -> str:

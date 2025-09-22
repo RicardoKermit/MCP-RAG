@@ -1429,12 +1429,38 @@ def set_model():
 
 @app.route('/rag-backend', methods=['GET'])
 def get_rag_backend_route():
-    """Retorna o backend RAG atual (qdrant/chroma)."""
+    """Retorna o backend RAG atual (qdrant/chroma) em JSON limpo."""
     if not session.get('authenticated'):
         return jsonify({'error': 'Not authenticated'}), 401
-    result = mcp_client.get_rag_backend()
-    print("RAGBACK: ",result)
-    return jsonify(result)
+
+    raw = mcp_client.get_rag_backend()
+    print("RAW RAGBACK:", raw)
+
+    backend_data = None
+
+    if isinstance(raw, dict) and "backend" in raw:
+        backend_data = raw
+
+    elif isinstance(raw, dict) and "data" in raw and isinstance(raw["data"], str):
+        data_str = raw["data"]
+
+        try:
+            start = data_str.find("text='") + len("text='")
+            end = data_str.find("}', annotations=") + 1  # inclui a chaveta final
+            if start > -1 and end > -1:
+                json_str = data_str[start:end]
+
+                # remover escapes de barras
+                json_str = json_str.encode("utf-8").decode("unicode_escape")
+
+                backend_data = json.loads(json_str)
+        except Exception as e:
+            print("❌ Erro a parsear JSON do backend:", e)
+
+    if not backend_data:
+        return jsonify({'success': False, 'error': 'Invalid response', 'raw': raw}), 500
+
+    return jsonify({'success': True, **backend_data})
 
 @app.route('/set-rag-backend', methods=['POST'])
 def set_rag_backend_route():
