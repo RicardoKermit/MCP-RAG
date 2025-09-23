@@ -105,8 +105,8 @@ MOODLE_URL=os.getenv("MOODLE_URL")
 MOODLE_TOKEN=os.getenv("MOODLE_TOKEN")
 
 # Pastas
-PDF_FOLDER = "pdfs_test"
-
+#PDF_FOLDER = "pdfs_test"
+PDF_FOLDER = os.getenv("PDF_FOLDER")
 # MCP
 mcp = FastMCP(name="RAG_pdf_Mul_RemoteQdrant")
 
@@ -259,6 +259,10 @@ def update_model(new_model_name: str) -> bool:
         print(f"Erro ao atualizar modelo: {e}")
         return False
 
+# =====================================================
+# Tools de rag
+# =====================================================
+
 @mcp.tool()
 def set_model(model_name: str) -> str:
     """
@@ -351,63 +355,6 @@ def get_rag_backend() -> dict:
         "chroma_dir": CHROMA_DIR,
         "qdrant_collection": QDRANT_COLLECTION_NAME
     }
-
-@mcp.tool()
-def retrieve(prompt: str) -> str:
-    """
-    Retrieves information directly from the knowledge base (indexed PDFs).
-    ALWAYS use this tool whenever the user asks a question about the content of the PDFs.
-    Arguments:
-      - prompt: the user’s question.
-    """
-    start_time = time.time()
-    try:
-        # Log da operação (ficheiro/console)
-        logger.info(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Starting")
-        
-        result = qa.invoke({"query": prompt})
-        response = result.get("result", "Não foi possível obter uma resposta.")
-        
-        # Calcular duração
-        duration = time.time() - start_time
-        duration_ms = int(duration * 1000)
-        
-        # Log de sucesso (ficheiro/console)
-        logger.info(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Success | Duration: {duration:.2f}s")
-        # Log em Postgres
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.RAG_QUERY,
-                details={"operation": "retrieve", "topic": prompt[:50], "duration_ms": duration_ms, "model": current_model_name},
-                status="success",
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.RAG_QUERY.value, True, duration_ms)
-        except Exception:
-            pass
-        
-        return response
-    except Exception as e:
-        duration = time.time() - start_time
-        duration_ms = int(duration * 1000)
-        error_msg = str(e)
-        
-        # Log de erro (ficheiro/console)
-        logger.error(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Error: {error_msg} | Duration: {duration:.2f}s")
-        # Log em Postgres
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.RAG_QUERY,
-                details={"operation": "retrieve", "topic": prompt[:50]},
-                status="error",
-                error_message=error_msg,
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.RAG_QUERY.value, False, duration_ms)
-        except Exception:
-            pass
-        
-        return f"Erro ao processar a pergunta: {error_msg}"
 
 
 @mcp.tool()
@@ -742,11 +689,72 @@ def clear_rag() -> str:
             pass
         return f"Erro ao apagar vectorstore: {e}"
 
+# =====================================================
+# Tools de pesquisa nos documentos
+# =====================================================
+
+@mcp.tool()
+def retrieve(prompt: str) -> str:
+    """
+    Retrieves information directly from the knowledge base (indexed PDFs).
+    ALWAYS use this tool whenever the user asks a question about the content of the PDFs.
+    Arguments:
+      - prompt: the user’s question.
+    """
+    start_time = time.time()
+    try:
+        # Log da operação (ficheiro/console)
+        logger.info(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Starting")
+        
+        result = qa.invoke({"query": prompt})
+        response = result.get("result", "Não foi possível obter uma resposta.")
+        
+        # Calcular duração
+        duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
+        
+        # Log de sucesso (ficheiro/console)
+        logger.info(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Success | Duration: {duration:.2f}s")
+        # Log em Postgres
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.RAG_QUERY,
+                details={"operation": "retrieve", "topic": prompt[:50], "duration_ms": duration_ms, "model": current_model_name},
+                status="success",
+                duration_ms=duration_ms
+            )
+            postgres_logger.update_operation_stats(OperationType.RAG_QUERY.value, True, duration_ms)
+        except Exception:
+            pass
+        
+        return response
+    except Exception as e:
+        duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
+        error_msg = str(e)
+        
+        # Log de erro (ficheiro/console)
+        logger.error(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Error: {error_msg} | Duration: {duration:.2f}s")
+        # Log em Postgres
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.RAG_QUERY,
+                details={"operation": "retrieve", "topic": prompt[:50]},
+                status="error",
+                error_message=error_msg,
+                duration_ms=duration_ms
+            )
+            postgres_logger.update_operation_stats(OperationType.RAG_QUERY.value, False, duration_ms)
+        except Exception:
+            pass
+        
+        return f"Erro ao processar a pergunta: {error_msg}"
+
 @mcp.tool()
 def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty: str = "mixed") -> dict:
     """
     Generates a quiz based on a specific topic.
-    ALWAYS use this tool whenever the user asks for questions, quizzes, true/false, or multiple-choice exercises, not mock tests.
+    ALWAYS use this tool whenever the user asks for questions, quizzes, true/false, or multiple-choice exercises, not mock tests or exams.
     Arguments:
       - topic: the subject of the quiz.
       - num_questions: number of questions to generate.
@@ -772,7 +780,13 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         - Difficulty {difficulty}: adjusts question complexity
         """
         
-        quiz_content = retrieve(difficulty_prompt)
+        #quiz_content = retrieve(difficulty_prompt)
+
+        res = qa.invoke({"query": difficulty_prompt})
+        if isinstance(res, dict):
+            quiz_content = res.get("result", "")
+        else:
+            quiz_content = str(res)
         
         # Calcular duração
         duration = time.time() - start_time
@@ -872,7 +886,13 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
         """
 
         # Chamada à função retrieve (podes trocar por chamada direta ao modelo se preferires)
-        dev_content = retrieve(dev_prompt)
+        #dev_content = retrieve(dev_prompt)
+
+        res = qa.invoke({"query": dev_prompt})
+        if isinstance(res, dict):
+            dev_content = res.get("result", "")
+        else:
+            dev_content = str(res)
 
         # Calcular duração
         duration = time.time() - start_time
@@ -987,7 +1007,13 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
         """
 
         # Invocar retriever com RAG
-        plan_content = retrieve(plan_prompt)
+        #plan_content = retrieve(plan_prompt)
+
+        res = qa.invoke({"query": plan_prompt})
+        if isinstance(res, dict):
+            plan_content = res.get("result", "")
+        else:
+            plan_content = str(res)
 
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
@@ -1089,7 +1115,13 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
         """
 
         # 2. Invocar RAG retriever
-        summary_content = retrieve(summary_prompt)
+        #summary_content = retrieve(summary_prompt)
+
+        res = qa.invoke({"query": summary_prompt})
+        if isinstance(res, dict):
+            summary_content = res.get("result", "")
+        else:
+            summary_content = str(res)
 
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
@@ -1301,7 +1333,12 @@ def generate_test(topic: str, num_questions: int = 10) -> dict:
         Expected answer: ...
         """
 
-        test_content = retrieve(test_prompt)
+        #test_content = retrieve(test_prompt)
+        res = qa.invoke({"query": test_prompt})
+        if isinstance(res, dict):
+            test_content = res.get("result", "")
+        else:
+            test_content = str(res)
 
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
@@ -1316,6 +1353,7 @@ def generate_test(topic: str, num_questions: int = 10) -> dict:
                     error_message="Sem conteúdo relevante",
                     duration_ms=duration_ms
                 )
+                postgres_logger.update_operation_stats(OperationType.TEST_GENERATION.value, False, duration_ms)
             except Exception:
                 pass
             return {
@@ -1331,6 +1369,7 @@ def generate_test(topic: str, num_questions: int = 10) -> dict:
                 status="success",
                 duration_ms=duration_ms
             )
+            postgres_logger.update_operation_stats(OperationType.TEST_GENERATION.value, False, duration_ms)
         except Exception:
             pass
 
@@ -1355,6 +1394,7 @@ def generate_test(topic: str, num_questions: int = 10) -> dict:
                 error_message=error_msg,
                 duration_ms=duration_ms
             )
+            postgres_logger.update_operation_stats(OperationType.TEST_GENERATION.value, False, duration_ms)
         except Exception:
             pass
 
@@ -1362,7 +1402,6 @@ def generate_test(topic: str, num_questions: int = 10) -> dict:
             "success": False,
             "message": f"Erro ao gerar teste: {error_msg}"
         }
-
 
 @mcp.tool()
 def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio: str = "16:9") -> dict:

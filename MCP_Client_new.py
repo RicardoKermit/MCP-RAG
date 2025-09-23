@@ -884,50 +884,49 @@ class MCPGeminiClient:
             }
 
             few_shot_examples = """
-Exemplo 1:
-Pergunta: Quem escreveu Os Lusíadas?
-TOOL: retrieve
-ARGS: {"prompt": "Os Lusíadas autor"}
+                                Example 1:
+                                Question: Who wrote The Lusiads?
+                                TOOL: retrieve
+                                ARGS: {"prompt": "The Lusiads author"}
 
-Exemplo 2:
-Pergunta: Quais são as regras do Monopoly?
-TOOL: retrieve
-ARGS: {"prompt": "Regras do jogo Monopoly"}
+                                Example 2:
+                                Question: What are the rules of Monopoly?
+                                TOOL: retrieve
+                                ARGS: {"prompt": "Monopoly game rules"}
 
-Exemplo 3:
-Pergunta: Qual a importância educativa da LEGO?
-TOOL: retrieve
-ARGS: {"prompt": "Importância educativa da LEGO"}
+                                Example 3:
+                                Question: What is the educational importance of LEGO?
+                                TOOL: retrieve
+                                ARGS: {"prompt": "Educational importance of LEGO"}
 
-Exemplo 4:
-Pergunta: Cria 5 perguntas de dificuldade média sobre Inteligência Artificial.
-TOOL: generate_quiz_with_difficulty
-ARGS: {"topic": "Inteligência Artificial", "num_questions": 5, "difficulty": "medium"}
+                                Example 4:
+                                Question: Create 5 medium-difficulty questions about Artificial Intelligence. TOOL: generate_quiz_with_difficulty
+                                ARGS: {"topic": "Artificial Intelligence", "num_questions": 5, "difficulty": "medium"}
 
-Exemplo 5:
-Pergunta: Faz um questionário de 3 perguntas fáceis sobre redes de computadores.
-TOOL: generate_quiz_with_difficulty
-ARGS: {"topic": "Redes de Computadores", "num_questions": 3, "difficulty": "easy"}
-"""
+                                Example 5:
+                                Question: Create a quiz with 3 easy questions about computer networks.
+                                TOOL: generate_quiz_with_difficulty
+                                ARGS: {"topic": "Computer Networks", "num_questions": 3, "difficulty": "easy"}
+                            """
 
         
             prompt = (
-    f"{conversation_context}\n"
-    f"Ferramentas disponíveis:\n{tool_descriptions}\n"
-    f"{language_instructions.get(self.current_language, language_instructions['pt'])}\n"
-    "IMPORTANTE: Tens SEMPRE de usar uma ferramenta. NUNCA respondas diretamente.\n"
-    "Para qualquer pergunta sobre conteúdo dos PDFs, usa a ferramenta 'retrieve'.\n"
-    "Para a ferramenta 'retrieve', usa sempre 'prompt' como chave do argumento.\n"
-    "Para gerar questionários com validação de dificuldade, usa 'generate_quiz_with_difficulty'.\n"
-    "Para gerar vídeos com IA (Gemini Veo), usa 'generate_video_with_veo'.\n"
-    "Responde SEMPRE no formato:\n"
-    "TOOL: <nome_da_ferramenta>\nARGS: <json_com_argumentos>\n"
-    "Aqui estão alguns exemplos:\n"
-    f"{few_shot_examples}\n"
-    f"---\n"
-    f"Pergunta atual do utilizador: {query}\n"
-    f"Tipo de utilizador: {usertype}\n"
-)
+                        f"{conversation_context}\n"
+                        f"Available tools:\n{tool_descriptions}\n"
+                        f"{language_instructions.get(self.current_language, language_instructions['pt'])}\n"
+                        "IMPORTANT: You must ALWAYS use a tool. NEVER answer directly.\n"
+                        "For any question about PDF content, use the 'retrieve' tool.\n"
+                        "For the 'retrieve' tool, always use 'prompt' as the argument key.\n"
+                        "To generate quizzes with difficulty validation, use 'generate_quiz_with_difficulty'.\n"
+                        "To generate videos with AI (Gemini Veo), use 'generate_video_with_veo'.\n"
+                        "ALWAYS answer in the format:\n"
+                        "TOOL: <tool_name>\nARGS: <json_com_arguments>\n"
+                        "Here are some examples:\n"
+                        f"{few_shot_examples}\n"
+                        f"---\n"
+                        f"Current user question: {query}\n"
+                        f"User type: {usertype}\n"
+                    )
         
             # --- PRIMEIRA GERAÇÃO ---
             if self.current_provider == "gemini":
