@@ -48,6 +48,7 @@ class OperationType(Enum):
     STUDY_PLAN_GENERATION="study_plan"
     FLASHCARD_GENERATION="flashcard_generation"
     TEST_GENERATION="test_generation"
+    OPEN_QUESTION="open_question"
 
 
 class PostgresLogger:

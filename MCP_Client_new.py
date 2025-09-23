@@ -1164,7 +1164,7 @@ def login():
             with conn.cursor() as cur:
                 cur.execute("SELECT id, role FROM users WHERE username = %s", (username,))
                 row = cur.fetchone()
-
+                
                 if row:
                     return str(row[0]), row[1]  # id, role
 
@@ -1348,7 +1348,7 @@ def query():
         duration = time.time() - start_time
         
         # Log de sucesso
-        log_rag_operation("query", query_text[:50], True, duration)
+        log_rag_operation("query", query_text[:50], True, duration, None,session.get("user_id"))
         
         return jsonify({'response': response})
     except Exception as e:

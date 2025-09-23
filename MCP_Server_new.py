@@ -706,8 +706,17 @@ def retrieve(prompt: str) -> str:
         # Log da operação (ficheiro/console)
         logger.info(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Starting")
         
+        #result = qa.invoke({"query": prompt})
+        #response = result.get("result", "Não foi possível obter uma resposta.")
+
+        #test_content = retrieve(test_prompt)
         result = qa.invoke({"query": prompt})
-        response = result.get("result", "Não foi possível obter uma resposta.")
+        if isinstance(result, dict):
+            test_content = result.get("result", "")
+        else:
+            test_content = str(result)
+
+        
         
         # Calcular duração
         duration = time.time() - start_time
@@ -721,7 +730,7 @@ def retrieve(prompt: str) -> str:
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.RAG_QUERY.VALUE,
-                details={"operation": "retrieve", "topic": "OUTRO RAGBACKEND", "duration_ms": duration_ms, "model": "current_model_name"},
+                details={"operation": "retrieve", "topic": prompt[:50], "duration_ms": duration_ms, "model": current_model_name},
                 status="success",
                 duration_ms=duration_ms,
             )
@@ -740,7 +749,7 @@ def retrieve(prompt: str) -> str:
         # Log em Postgres
         try:
             postgres_logger.log_operation(
-                operation_type=OperationType.RAG_QUERY,
+                operation_type=OperationType.RAG_QUERY.value,
                 details={"operation": "retrieve", "topic": prompt[:50],"model": current_model_name},
                 status="error",
                 error_message=error_msg,
@@ -801,7 +810,7 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
             # Log em Postgres (sem conteúdo relevante)
             try:
                 postgres_logger.log_operation(
-                    operation_type=OperationType.QUIZ_GENERATION,
+                    operation_type=OperationType.QUIZ_GENERATION.value,
                     details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty,"model": current_model_name},
                     status="error",
                     error_message="Sem conteúdo relevante",
@@ -819,7 +828,7 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         logger.info(f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Success | Duration: {duration:.2f}s")
         try:
             postgres_logger.log_operation(
-                operation_type=OperationType.QUIZ_GENERATION,
+                operation_type=OperationType.QUIZ_GENERATION.value,
                 details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty, "duration_ms": duration_ms,"model": current_model_name},
                 status="success",
                 duration_ms=duration_ms
@@ -904,13 +913,13 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
             logger.warning(f"DEV_QUESTIONS | Topic: {topic} | No content found | Duration: {duration:.2f}s")
             try:
                 postgres_logger.log_operation(
-                    operation_type=OperationType.QUIZ_GENERATION,  # podes criar um novo tipo se quiseres (DEV_QUESTIONS)
+                    operation_type=OperationType.OPEN_QUESTION.value,  # podes criar um novo tipo se quiseres (DEV_QUESTIONS)
                     details={"topic": topic, "num_questions": num_questions, "language": language,"model": current_model_name},
                     status="error",
                     error_message="No relevant content",
                     duration_ms=duration_ms
                 )
-                postgres_logger.update_operation_stats(OperationType.QUIZ_GENERATION.value, False, duration_ms)
+                postgres_logger.update_operation_stats(OperationType.OPEN_QUESTION.value, False, duration_ms)
             except Exception:
                 pass
             return {
@@ -921,12 +930,12 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
         logger.info(f"DEV_QUESTIONS | Topic: {topic} | Questions: {num_questions} | Success | Duration: {duration:.2f}s")
         try:
             postgres_logger.log_operation(
-                operation_type=OperationType.QUIZ_GENERATION,
+                operation_type=OperationType.OPEN_QUESTION.value,
                 details={"topic": topic, "num_questions": num_questions, "language": language, "duration_ms": duration_ms,"model": current_model_name},
                 status="success",
                 duration_ms=duration_ms
             )
-            postgres_logger.update_operation_stats(OperationType.QUIZ_GENERATION.value, True, duration_ms)
+            postgres_logger.update_operation_stats(OperationType.OPEN_QUESTION.value, True, duration_ms)
         except Exception:
             pass
 
@@ -946,13 +955,13 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
         logger.error(f"DEV_QUESTIONS | Topic: {topic} | Error: {error_msg} | Duration: {duration:.2f}s")
         try:
             postgres_logger.log_operation(
-                operation_type=OperationType.QUIZ_GENERATION,
+                operation_type=OperationType.OPEN_QUESTION.value,
                 details={"topic": topic, "num_questions": num_questions, "language": language,"model": current_model_name},
                 status="error",
                 error_message=error_msg,
                 duration_ms=duration_ms
             )
-            postgres_logger.update_operation_stats(OperationType.QUIZ_GENERATION.value, False, duration_ms)
+            postgres_logger.update_operation_stats(OperationType.OPEN_QUESTION.value, False, duration_ms)
         except Exception:
             pass
 
@@ -1024,7 +1033,7 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
             logger.warning(f"STUDY_PLAN | Student: {student_id} | No content found | Duration: {duration:.2f}s")
             try:
                 postgres_logger.log_operation(
-                    operation_type=OperationType.STUDY_PLAN_GENERATION,
+                    operation_type=OperationType.STUDY_PLAN_GENERATION.value,
                     details={"student_id": student_id, "goals": goals, "weeks": weeks,"model": current_model_name},
                     status="error",
                     error_message="Sem conteúdo relevante",
@@ -1042,7 +1051,7 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
         logger.info(f"STUDY_PLAN | Student: {student_id} | Success | Duration: {duration:.2f}s")
         try:
             postgres_logger.log_operation(
-                operation_type=OperationType.STUDY_PLAN_GENERATION,
+                operation_type=OperationType.STUDY_PLAN_GENERATION.value,
                 details={
                     "student_id": student_id,
                     "goals": goals,
@@ -1075,7 +1084,7 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
         logger.error(f"STUDY_PLAN | Student: {student_id} | Error: {error_msg} | Duration: {duration:.2f}s")
         try:
             postgres_logger.log_operation(
-                operation_type=OperationType.STUDY_PLAN_GENERATION,
+                operation_type=OperationType.STUDY_PLAN_GENERATION.value,
                 details={"student_id": student_id, "goals": goals, "weeks": weeks,"model": current_model_name},
                 status="error",
                 error_message=error_msg,
@@ -1133,7 +1142,7 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
             logger.warning(f"LESSON_SUMMARY | Topic: {topic} | No content found | Duration: {duration:.2f}s")
             try:
                 postgres_logger.log_operation(
-                    operation_type=OperationType.SUMMARY_GENERATION,
+                    operation_type=OperationType.SUMMARY_GENERATION.value,
                     details={"topic": topic, "detail_level": detail_level,"model": current_model_name},
                     status="error",
                     error_message="Sem conteúdo relevante",
@@ -1151,7 +1160,7 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
         logger.info(f"LESSON_SUMMARY | Topic: {topic} | Success | Duration: {duration:.2f}s")
         try:
             postgres_logger.log_operation(
-                operation_type=OperationType.SUMMARY_GENERATION,
+                operation_type=OperationType.SUMMARY_GENERATION.value,
                 details={"topic": topic, "detail_level": detail_level, "duration_ms": duration_ms,"model": current_model_name},
                 status="success",
                 duration_ms=duration_ms
@@ -1236,7 +1245,7 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
             logger.warning(f"FLASHCARD_GENERATION | Topic: {topic} | No content found | Duration: {duration:.2f}s")
             try:
                 postgres_logger.log_operation(
-                    operation_type=OperationType.FLASHCARD_GENERATION,
+                    operation_type=OperationType.FLASHCARD_GENERATION.value,
                     details={"topic": topic, "num_cards": num_cards,"model": current_model_name},
                     status="error",
                     error_message="Sem conteúdo relevante",
@@ -1253,7 +1262,7 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
         logger.info(f"FLASHCARD_GENERATION | Topic: {topic} | Success | Duration: {duration:.2f}s")
         try:
             postgres_logger.log_operation(
-                operation_type=OperationType.FLASHCARD_GENERATION,
+                operation_type=OperationType.FLASHCARD_GENERATION.value,
                 details={"topic": topic, "num_cards": num_cards, "duration_ms": duration_ms,"model": current_model_name},
                 status="success",
                 duration_ms=duration_ms
@@ -1276,7 +1285,7 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
         logger.error(f"FLASHCARD_GENERATION | Topic: {topic} | Error: {error_msg} | Duration: {duration:.2f}s")
         try:
             postgres_logger.log_operation(
-                operation_type=OperationType.FLASHCARD_GENERATION,
+                operation_type=OperationType.FLASHCARD_GENERATION.value,
                 details={"topic": topic, "num_cards": num_cards,"model": current_model_name},
                 status="error",
                 error_message=error_msg,
