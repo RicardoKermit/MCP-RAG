@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard Estatísticas</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; margin: 20px; background: #f8f9fa; }
+    h1 { text-align: center; }
+    h2 { margin-top: 40px; color: #333; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .metric { font-size: 1.6rem; font-weight: bold; margin-bottom: 5px; }
+    .label { font-size: 0.9rem; color: #666; }
+    canvas { max-height: 300px; }
+  </style>
+</head>
+<body>
+  <h1>📊 Dashboard de Estatísticas</h1>
+
+    <!-- Métricas Técnicas -->
+    <h2>Infraestrutura & Performance</h2>
+    <div class="grid">
+        <div class="card"><div class="metric" id="totalOps">0</div><div class="label">Operações (7 dias)</div></div>
+        <div class="card"><div class="metric" id="successOps">0</div><div class="label">Sucessos</div></div>
+        <div class="card"><div class="metric" id="errorOps">0</div><div class="label">Erros</div></div>
+    </div>
+    <div class="grid">
+        <div class="card"><canvas id="opsPerTypeChart"></canvas></div>
+    </div>
+
+    <!-- Métricas Educacionais -->
+    <h2>Impacto Educacional</h2>
+        <div class="grid">
+        <div class="card"><canvas id="eduTrendsChart"></canvas></div>
+    </div>
+
+    <!-- Métricas de Performance -->
+    <h2>Performance das Operações</h2>
+        <div class="grid">
+        <div class="card"><canvas id="performanceChart"></canvas></div>
+    </div>
+
+    <h2>📟 Recursos do Sistema</h2>
+        <div class="grid">
+            <div class="card"><div class="metric" id="diskUsage">-</div><div class="label">Uso de Disco (%)</div></div>
+            <div class="card"><div class="metric" id="diskFree">-</div><div class="label">Espaço Livre (GB)</div></div>
+            <div class="card"><div class="metric" id="memTotal">-</div><div class="label">Memória Total (MB)</div></div>
+        </div>
+
+    <h2>📑 Modelos mais usados (24h)</h2>
+    <div class="grid">
+        <div class="card"><canvas id="modelsChart"></canvas></div>
+        <div class="card">
+        <div class="metric" id="systemOps">0</div>
+        <div class="label">Operações de Sistema (sem modelo)</div>
+        </div>
+    </div>
+        
+
+
+  <script>
+    // ------- Técnicas -------
+    async function loadTechnicalStats() {
+      const resp = await fetch("/stats/technical");
+      const { data } = await resp.json();
+
+      document.getElementById("totalOps").textContent = data.total;
+      document.getElementById("successOps").textContent = data.success;
+      document.getElementById("errorOps").textContent = data.errors;
+
+      const labels = data.per_type.map(d => d.operation_type);
+      const values = data.per_type.map(d => d.total);
+
+      new Chart(document.getElementById('opsPerTypeChart'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Total de Operações',
+            data: values,
+            backgroundColor: '#36b9cc'
+          }]
+        },
+        options: { plugins: { title: { display: true, text: 'Operações por Tipo (7 dias)' } } }
+      });
+    }
+
+    // ------- Educacionais -------
+    async function loadEducationalStats() {
+      const resp = await fetch("/stats/educational");
+      const { data } = await resp.json();
+
+      const grouped = {};
+      data.forEach(row => {
+        if (!grouped[row.operation_type]) grouped[row.operation_type] = {};
+        grouped[row.operation_type][row.date] = row.total;
+      });
+
+      const dates = [...new Set(data.map(r => r.date))].sort();
+      const datasets = Object.keys(grouped).map(type => ({
+        label: type,
+        data: dates.map(d => grouped[type][d] || 0),
+        fill: false,
+        borderWidth: 2
+      }));
+
+      new Chart(document.getElementById('eduTrendsChart'), {
+        type: 'line',
+        data: { labels: dates, datasets },
+        options: { plugins: { title: { display: true, text: 'Tendência Educacional (14 dias)' } } }
+      });
+    }
+
+    // ------- Performance -------
+    async function loadPerformanceStats() {
+      const resp = await fetch("/stats/performance");
+      const { data } = await resp.json();
+
+      const labels = data.map(d => d.operation_type);
+      const avgValues = data.map(d => d.avg_duration);
+      const minValues = data.map(d => d.min_duration);
+      const maxValues = data.map(d => d.max_duration);
+
+      new Chart(document.getElementById('performanceChart'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'Média (ms)', data: avgValues, backgroundColor: '#f6c23e' },
+            { label: 'Mínimo (ms)', data: minValues, backgroundColor: '#1cc88a' },
+            { label: 'Máximo (ms)', data: maxValues, backgroundColor: '#e74a3b' }
+          ]
+        },
+        options: { plugins: { title: { display: true, text: 'Performance por Operação (14 dias)' } } }
+      });
+    }
+
+    async function loadSystemStats() {
+        const resp = await fetch("/stats/system");
+        const { snapshot, disk_usage, memory } = await resp.json();
+
+        // --- Snapshot (cards) ---
+        snapshot.forEach(m => {
+        if (m.metric_name === "disk_usage_percent") {
+            document.getElementById("diskUsage").textContent = m.metric_value + (m.metric_unit || "%");
+        }
+        if (m.metric_name === "disk_free_gb") {
+            document.getElementById("diskFree").textContent = m.metric_value.toFixed(1) + " GB";
+        }
+        if (m.metric_name === "memory_total_mb") {
+            document.getElementById("memTotal").textContent = m.metric_value.toFixed(0) + " MB";
+        }
+    });
+
+    // --- Gráfico: evolução uso de disco ---
+    new Chart(document.getElementById('diskUsageChart'), {
+        type: 'line',
+        data: {
+        labels: disk_usage.map(d => d.date),
+        datasets: [{
+            label: 'Uso de Disco (%)',
+            data: disk_usage.map(d => d.value),
+            borderColor: '#e74a3b',
+            fill: false
+        }]
+        },
+        options: { plugins: { title: { display: true, text: 'Evolução do Uso de Disco (30 dias)' } } }
+    });
+
+    // --- Gráfico: evolução memória ---
+    new Chart(document.getElementById('memoryChart'), {
+        type: 'line',
+        data: {
+        labels: memory.map(d => d.date),
+        datasets: [{
+            label: 'Memória Total (MB)',
+            data: memory.map(d => d.value),
+            borderColor: '#36b9cc',
+            fill: false
+        }]
+        },
+        options: { plugins: { title: { display: true, text: 'Evolução da Memória Total' } } }
+    });
+    }
+
+    async function loadModelsStats() {
+  const resp = await fetch("/stats/models");
+  const { models, system } = await resp.json();
+
+  const labels = models.map(d => d.model);
+  const values = models.map(d => d.total);
+
+  // Atualiza card de operações de sistema
+  document.getElementById("systemOps").textContent = system;
+
+  new Chart(document.getElementById('modelsChart'), {
+    type: 'pie',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: ['#4e73df', '#1cc88a', '#f6c23e', '#e74a3b']
+      }]
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: 'Modelos mais usados (24h)' },
+        datalabels: {
+          color: '#fff',
+          formatter: (value, context) => {
+            const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+            const percent = ((value / total) * 100).toFixed(1) + '%';
+            return `${value} (${percent})`;
+          }
+        }
+      }
+    },
+    plugins: [ChartDataLabels]
+  });
+}
+
+    loadTechnicalStats();
+    loadEducationalStats();
+    loadPerformanceStats();
+    loadSystemStats();
+    loadModelsStats()
+  </script>
+</body>
+</html>

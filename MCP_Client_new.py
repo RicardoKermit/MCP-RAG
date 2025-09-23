@@ -1868,6 +1868,215 @@ def get_model():
     # devolve o modelo atual configurado no servidor
     return jsonify({"success": True, "model": "gpt-4o-mini"})  
 
+# ========================
+# Estatísticas
+# ========================
+
+@app.route('/stats/technical')
+def stats_technical():
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                # Totais globais
+                cur.execute("""
+                    SELECT SUM(total_count) AS total,
+                           SUM(success_count) AS success,
+                           SUM(error_count) AS errors
+                    FROM operation_stats
+                    WHERE date > CURRENT_DATE - INTERVAL '7 days'
+                """)
+                total_ops = cur.fetchone()
+
+                # Por tipo
+                cur.execute("""
+                    SELECT operation_type,
+                           SUM(total_count) AS total,
+                           SUM(success_count) AS success,
+                           SUM(error_count) AS errors,
+                           ROUND(AVG(avg_duration_ms)::numeric,2) AS avg_duration
+                    FROM operation_stats
+                    WHERE date > CURRENT_DATE - INTERVAL '7 days'
+                    GROUP BY operation_type
+                    ORDER BY total DESC
+                """)
+                per_type = [
+                    {
+                        "operation_type": r[0],
+                        "total": r[1],
+                        "success": r[2],
+                        "errors": r[3],
+                        "avg_duration": float(r[4]) if r[4] is not None else None
+                    }
+                    for r in cur.fetchall()
+                ]
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "total": total_ops[0],
+                "success": total_ops[1],
+                "errors": total_ops[2],
+                "per_type": per_type
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/stats/educational')
+def stats_educational():
+    """Métricas educacionais (últimos 14 dias)."""
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT date, operation_type, SUM(total_count) AS total
+                    FROM operation_stats
+                    WHERE date > CURRENT_DATE - INTERVAL '14 days'
+                      AND operation_type IN ('quiz_generation', 'study_plan', 'rag_query')
+                    GROUP BY date, operation_type
+                    ORDER BY date
+                """)
+                rows = cur.fetchall()
+
+        data = [
+            {"date": str(r[0]), "operation_type": r[1], "total": r[2]}
+            for r in rows
+        ]
+
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/stats/performance')
+def stats_performance():
+    """Métricas de performance (durations) por tipo de operação."""
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT operation_type,
+                           ROUND(AVG(avg_duration_ms)::numeric,2) AS avg_duration,
+                           MIN(min_duration_ms) AS min_duration,
+                           MAX(max_duration_ms) AS max_duration
+                    FROM operation_stats
+                    WHERE date > CURRENT_DATE - INTERVAL '14 days'
+                    GROUP BY operation_type
+                    ORDER BY avg_duration DESC
+                """)
+                rows = cur.fetchall()
+
+        data = [
+            {
+                "operation_type": r[0],
+                "avg_duration": float(r[1]) if r[1] is not None else None,
+                "min_duration": r[2],
+                "max_duration": r[3]
+            }
+            for r in rows
+        ]
+
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/stats/system')
+def stats_system():
+    """Últimas métricas do sistema + evolução (30 dias)."""
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                # Último snapshot de cada métrica
+                cur.execute("""
+                    SELECT DISTINCT ON (metric_name)
+                           metric_name, metric_value, metric_unit, date
+                    FROM performance_stats
+                    ORDER BY metric_name, created_at DESC
+                """)
+                snapshot_rows = cur.fetchall()
+
+                # Evolução do uso de disco (30 dias)
+                cur.execute("""
+                    SELECT date, metric_value
+                    FROM performance_stats
+                    WHERE metric_name = 'disk_usage_percent'
+                      AND date > CURRENT_DATE - INTERVAL '30 days'
+                    ORDER BY date
+                """)
+                disk_usage_rows = cur.fetchall()
+
+                # Evolução da memória total
+                cur.execute("""
+                    SELECT date, metric_value
+                    FROM performance_stats
+                    WHERE metric_name = 'memory_total_mb'
+                    ORDER BY date
+                """)
+                memory_rows = cur.fetchall()
+
+        snapshot = [
+            {
+                "metric_name": r[0],
+                "metric_value": float(r[1]),
+                "metric_unit": r[2] or "",
+                "date": str(r[3])
+            }
+            for r in snapshot_rows
+        ]
+
+        disk_usage = [{"date": str(r[0]), "value": float(r[1])} for r in disk_usage_rows]
+        memory = [{"date": str(r[0]), "value": float(r[1])} for r in memory_rows]
+
+        return jsonify({
+            "success": True,
+            "snapshot": snapshot,
+            "disk_usage": disk_usage,
+            "memory": memory
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/stats/models')
+def stats_models():
+    """Modelos mais usados nas últimas 24h + operações sem modelo (em separado)."""
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT COALESCE(operation_details->>'model', 'sem_modelo') AS modelo,
+                           COUNT(*) AS total
+                    FROM operation_logs
+                    WHERE created_at > NOW() - INTERVAL '24 hours'
+                    GROUP BY modelo
+                    ORDER BY total DESC
+                """)
+                rows = cur.fetchall()
+
+        models_data = []
+        system_count = 0
+        for r in rows:
+            if r[0] == "sem_modelo":
+                system_count = r[1]  # separa operações do sistema
+            else:
+                models_data.append({"model": r[0], "total": r[1]})
+
+        return jsonify({"success": True, "models": models_data, "system": system_count})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/stats/statistics-page-new')
+def statistics_page_new():
+    """Renderiza a página de estatísticas"""
+    # Check if user is authenticated
+    if not session.get('authenticated'):
+        return redirect('/login')
+
+    # Apenas Professores ou Admin podem aceder às estatísticas
+    if session["role"] not in ["Professor", "Admin"]:
+        return render_template('simple.html')
+
+    return render_template('statistics2.html')
 
 
 if __name__ == '__main__':

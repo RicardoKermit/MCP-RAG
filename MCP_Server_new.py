@@ -35,7 +35,7 @@ from langchain_openai import ChatOpenAI
 import requests  # para chamar o Ollama via API HTTP
 import re
 import json
-
+from psycopg2.extras import Json
 
 
 # PostgreSQL Logging System
@@ -715,13 +715,15 @@ def retrieve(prompt: str) -> str:
         
         # Log de sucesso (ficheiro/console)
         logger.info(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Success | Duration: {duration:.2f}s")
+        
+                
         # Log em Postgres
         try:
             postgres_logger.log_operation(
-                operation_type=OperationType.RAG_QUERY,
-                details={"operation": "retrieve", "topic": prompt[:50], "duration_ms": duration_ms, "model": current_model_name},
+                operation_type=OperationType.RAG_QUERY.VALUE,
+                details={"operation": "retrieve", "topic": "OUTRO RAGBACKEND", "duration_ms": duration_ms, "model": "current_model_name"},
                 status="success",
-                duration_ms=duration_ms
+                duration_ms=duration_ms,
             )
             postgres_logger.update_operation_stats(OperationType.RAG_QUERY.value, True, duration_ms)
         except Exception:
@@ -739,7 +741,7 @@ def retrieve(prompt: str) -> str:
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.RAG_QUERY,
-                details={"operation": "retrieve", "topic": prompt[:50]},
+                details={"operation": "retrieve", "topic": prompt[:50],"model": current_model_name},
                 status="error",
                 error_message=error_msg,
                 duration_ms=duration_ms
@@ -800,7 +802,7 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
             try:
                 postgres_logger.log_operation(
                     operation_type=OperationType.QUIZ_GENERATION,
-                    details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty},
+                    details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty,"model": current_model_name},
                     status="error",
                     error_message="Sem conteúdo relevante",
                     duration_ms=duration_ms
@@ -818,7 +820,7 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.QUIZ_GENERATION,
-                details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty, "duration_ms": duration_ms},
+                details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty, "duration_ms": duration_ms,"model": current_model_name},
                 status="success",
                 duration_ms=duration_ms
             )
@@ -844,7 +846,7 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.QUIZ_GENERATION,
-                details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty},
+                details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty,"model": current_model_name},
                 status="error",
                 error_message=error_msg,
                 duration_ms=duration_ms
@@ -903,7 +905,7 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
             try:
                 postgres_logger.log_operation(
                     operation_type=OperationType.QUIZ_GENERATION,  # podes criar um novo tipo se quiseres (DEV_QUESTIONS)
-                    details={"topic": topic, "num_questions": num_questions, "language": language},
+                    details={"topic": topic, "num_questions": num_questions, "language": language,"model": current_model_name},
                     status="error",
                     error_message="No relevant content",
                     duration_ms=duration_ms
@@ -920,7 +922,7 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.QUIZ_GENERATION,
-                details={"topic": topic, "num_questions": num_questions, "language": language, "duration_ms": duration_ms},
+                details={"topic": topic, "num_questions": num_questions, "language": language, "duration_ms": duration_ms,"model": current_model_name},
                 status="success",
                 duration_ms=duration_ms
             )
@@ -945,7 +947,7 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.QUIZ_GENERATION,
-                details={"topic": topic, "num_questions": num_questions, "language": language},
+                details={"topic": topic, "num_questions": num_questions, "language": language,"model": current_model_name},
                 status="error",
                 error_message=error_msg,
                 duration_ms=duration_ms
@@ -1023,7 +1025,7 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
             try:
                 postgres_logger.log_operation(
                     operation_type=OperationType.STUDY_PLAN_GENERATION,
-                    details={"student_id": student_id, "goals": goals, "weeks": weeks},
+                    details={"student_id": student_id, "goals": goals, "weeks": weeks,"model": current_model_name},
                     status="error",
                     error_message="Sem conteúdo relevante",
                     duration_ms=duration_ms
@@ -1047,7 +1049,8 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
                     "weaknesses": weaknesses,
                     "hours_per_week": hours_per_week,
                     "weeks": weeks,
-                    "duration_ms": duration_ms
+                    "duration_ms": duration_ms,
+                    "model": current_model_name
                 },
                 status="success",
                 duration_ms=duration_ms
@@ -1073,7 +1076,7 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.STUDY_PLAN_GENERATION,
-                details={"student_id": student_id, "goals": goals, "weeks": weeks},
+                details={"student_id": student_id, "goals": goals, "weeks": weeks,"model": current_model_name},
                 status="error",
                 error_message=error_msg,
                 duration_ms=duration_ms
@@ -1131,7 +1134,7 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
             try:
                 postgres_logger.log_operation(
                     operation_type=OperationType.SUMMARY_GENERATION,
-                    details={"topic": topic, "detail_level": detail_level},
+                    details={"topic": topic, "detail_level": detail_level,"model": current_model_name},
                     status="error",
                     error_message="Sem conteúdo relevante",
                     duration_ms=duration_ms
@@ -1149,7 +1152,7 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.SUMMARY_GENERATION,
-                details={"topic": topic, "detail_level": detail_level, "duration_ms": duration_ms},
+                details={"topic": topic, "detail_level": detail_level, "duration_ms": duration_ms,"model": current_model_name},
                 status="success",
                 duration_ms=duration_ms
             )
@@ -1174,7 +1177,7 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.SUMMARY_GENERATION,
-                details={"topic": topic, "detail_level": detail_level},
+                details={"topic": topic, "detail_level": detail_level,"model": current_model_name},
                 status="error",
                 error_message=error_msg,
                 duration_ms=duration_ms
@@ -1234,7 +1237,7 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
             try:
                 postgres_logger.log_operation(
                     operation_type=OperationType.FLASHCARD_GENERATION,
-                    details={"topic": topic, "num_cards": num_cards},
+                    details={"topic": topic, "num_cards": num_cards,"model": current_model_name},
                     status="error",
                     error_message="Sem conteúdo relevante",
                     duration_ms=duration_ms
@@ -1251,7 +1254,7 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.FLASHCARD_GENERATION,
-                details={"topic": topic, "num_cards": num_cards, "duration_ms": duration_ms},
+                details={"topic": topic, "num_cards": num_cards, "duration_ms": duration_ms,"model": current_model_name},
                 status="success",
                 duration_ms=duration_ms
             )
@@ -1274,7 +1277,7 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.FLASHCARD_GENERATION,
-                details={"topic": topic, "num_cards": num_cards},
+                details={"topic": topic, "num_cards": num_cards,"model": current_model_name},
                 status="error",
                 error_message=error_msg,
                 duration_ms=duration_ms
@@ -1348,7 +1351,7 @@ def generate_test(topic: str, num_questions: int = 10) -> dict:
             try:
                 postgres_logger.log_operation(
                     operation_type=OperationType.TEST_GENERATION,
-                    details={"topic": topic, "num_questions": num_questions},
+                    details={"topic": topic, "num_questions": num_questions,"model": current_model_name},
                     status="error",
                     error_message="Sem conteúdo relevante",
                     duration_ms=duration_ms
@@ -1365,7 +1368,7 @@ def generate_test(topic: str, num_questions: int = 10) -> dict:
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.TEST_GENERATION,
-                details={"topic": topic, "num_questions": num_questions, "duration_ms": duration_ms},
+                details={"topic": topic, "num_questions": num_questions, "duration_ms": duration_ms,"model": current_model_name},
                 status="success",
                 duration_ms=duration_ms
             )
@@ -1389,7 +1392,7 @@ def generate_test(topic: str, num_questions: int = 10) -> dict:
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.TEST_GENERATION,
-                details={"topic": topic, "num_questions": num_questions},
+                details={"topic": topic, "num_questions": num_questions,"model": current_model_name},
                 status="error",
                 error_message=error_msg,
                 duration_ms=duration_ms
@@ -1425,7 +1428,7 @@ def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio
             try:
                 postgres_logger.log_operation(
                     operation_type=OperationType.VIDEO_GENERATION,
-                    details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio},
+                    details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio,"model": current_model_name},
                     status="error",
                     error_message="API key não configurada"
                 )
@@ -1487,7 +1490,7 @@ def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio
             try:
                 postgres_logger.log_operation(
                     operation_type=OperationType.VIDEO_GENERATION,
-                    details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio},
+                    details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio,"model": current_model_name},
                     status="error",
                     error_message="Resultado vazio do Gemini Veo"
                 )
@@ -1504,7 +1507,7 @@ def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio
             try:
                 postgres_logger.log_operation(
                     operation_type=OperationType.VIDEO_GENERATION,
-                    details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio},
+                    details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio,"model": current_model_name},
                     status="error",
                     error_message="Nenhum vídeo gerado"
                 )
@@ -1530,7 +1533,7 @@ def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio
             duration_ms = int((time.time() - start_time) * 1000)
             postgres_logger.log_operation(
                 operation_type=OperationType.VIDEO_GENERATION,
-                details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio, "video_path": video_filename, "generation_duration_ms": duration_ms},
+                details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio, "video_path": video_filename, "generation_duration_ms": duration_ms,"model": current_model_name},
                 status="success",
                 duration_ms=duration_ms
             )
@@ -1553,7 +1556,7 @@ def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.VIDEO_GENERATION,
-                details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio},
+                details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio,"model": current_model_name},
                 status="error",
                 error_message=error_msg
             )
