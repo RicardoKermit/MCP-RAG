@@ -76,14 +76,18 @@ def setup_logging():
 # Inicializar logger
 logger = setup_logging()
 
-# Inicializar sistema de logs PostgreSQL
-postgres_logger = PostgresLogger({
-    'host': 'localhost',
-    'port': 5432,
-    'database': 'rag_system',
-    'user': 'rag_user',
-    'password': 'rag_password_secure_2024'
-})
+
+
+# --- ADD: Postgres logger init ---
+db_config = {
+    "host": os.getenv("PG_HOST", "localhost"),
+    "port": int(os.getenv("PG_PORT", "5432")),
+    "database": os.getenv("PG_DATABASE", "rag_system"),
+    "user": os.getenv("PG_USER", "rag_user"),
+    "password": os.getenv("PG_PASSWORD", "rag_password_secure_2024"),
+}
+
+postgres_logger = PostgresLogger(db_config)
 
 # Load .env
 load_dotenv()

@@ -483,14 +483,6 @@ class LogAnalyzer:
 
 log_analyzer: LogAnalyzer = LogAnalyzer() 
 
-# Instância global do sistema de logs PostgreSQL
-postgres_logger = PostgresLogger({
-    'host': 'localhost',
-    'port': 5432,
-    'database': 'rag_system',
-    'user': 'rag_user',
-    'password': 'rag_password_secure_2024'
-})
 
 
 def log_rag_operation(operation: str, topic: str, success: bool, duration: float | None = None, error: str | None = None, user_id: str | None = None):
