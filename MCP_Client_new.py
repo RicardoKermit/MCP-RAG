@@ -1226,6 +1226,12 @@ def login():
                             session['user_id'] = user_id  # 🔑 agora guardamos o ID
                             session['role'] = role
 
+                            user_file = Path("current_user.txt")
+
+                            # depois de obter user_id
+                            with open(user_file, "w") as f:
+                                f.write(user_id)
+
                             # Log opcional
                             postgres_logger.log_operation(
                                 operation_type="user_login",
@@ -1348,7 +1354,7 @@ def query():
         duration = time.time() - start_time
         
         # Log de sucesso
-        log_rag_operation("query", query_text[:50], True, duration, None,session.get("user_id"))
+        #log_rag_operation("query", query_text[:50], True, duration, None,session.get("user_id"))
         
         return jsonify({'response': response})
     except Exception as e:

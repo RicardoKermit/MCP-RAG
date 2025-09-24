@@ -37,6 +37,8 @@ import re
 import json
 from psycopg2.extras import Json
 
+from pathlib import Path
+
 
 # PostgreSQL Logging System
 from postgres_logger import PostgresLogger, OperationType
@@ -185,6 +187,13 @@ qa = RetrievalQA.from_chain_type(
     retriever=retriever,
     chain_type_kwargs={"prompt": custom_prompt}
 )
+
+def get_user_id_from_file() -> str | None:
+    """Lê o user_id guardado em ficheiro"""
+    user_file = Path("current_user.txt")
+    if user_file.exists():
+        return user_file.read_text().strip() or None
+    return None
 
 def _reinitialize_vectorstore(new_backend: str) -> str:
     """Reinicializa docsearch, retriever e qa com o backend indicado."""
@@ -712,44 +721,46 @@ def retrieve(prompt: str) -> str:
         #test_content = retrieve(test_prompt)
         result = qa.invoke({"query": prompt})
         if isinstance(result, dict):
-            test_content = result.get("result", "")
+            response = result.get("result", "")
         else:
-            test_content = str(result)
+            response = str(result)
 
-        
-        
         # Calcular duração
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
         
+        
+        
+        user_id = get_user_id_from_file()
+
+
         # Log de sucesso (ficheiro/console)
         logger.info(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Success | Duration: {duration:.2f}s")
-        
-                
-        # Log em Postgres
         try:
             postgres_logger.log_operation(
-                operation_type=OperationType.RAG_QUERY.VALUE,
-                details={"operation": "retrieve", "topic": prompt[:50], "duration_ms": duration_ms, "model": current_model_name},
+                operation_type=OperationType.RAG_QUERY.value,
+                user_id=user_id,
+                details={"topic": prompt[:50], "duration_ms": duration_ms,"model": current_model_name},
                 status="success",
-                duration_ms=duration_ms,
+                duration_ms=duration_ms
             )
             postgres_logger.update_operation_stats(OperationType.RAG_QUERY.value, True, duration_ms)
         except Exception:
             pass
         
         return response
+        
     except Exception as e:
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
         error_msg = str(e)
         
-        # Log de erro (ficheiro/console)
-        logger.error(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Error: {error_msg} | Duration: {duration:.2f}s")
-        # Log em Postgres
+        # Log de erro
+        logger.error(f"QUIZ_GENERATION | Topic: {prompt} | Questions: {num_questions} | Difficulty: {difficulty} | Error: {error_msg} | Duration: {duration:.2f}s")
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.RAG_QUERY.value,
+                user_id=user_id,
                 details={"operation": "retrieve", "topic": prompt[:50],"model": current_model_name},
                 status="error",
                 error_message=error_msg,
@@ -803,7 +814,7 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
 
-        
+        user_id = get_user_id_from_file()
         
         if not quiz_content or "não foi possível" in quiz_content.lower():
             logger.warning(f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | No content found | Duration: {duration:.2f}s")
@@ -811,6 +822,7 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
             try:
                 postgres_logger.log_operation(
                     operation_type=OperationType.QUIZ_GENERATION.value,
+                    user_id=user_id,
                     details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty,"model": current_model_name},
                     status="error",
                     error_message="Sem conteúdo relevante",
@@ -829,6 +841,7 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.QUIZ_GENERATION.value,
+                user_id=user_id,
                 details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty, "duration_ms": duration_ms,"model": current_model_name},
                 status="success",
                 duration_ms=duration_ms
@@ -855,6 +868,7 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.QUIZ_GENERATION,
+                user_id=user_id,
                 details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty,"model": current_model_name},
                 status="error",
                 error_message=error_msg,
@@ -909,11 +923,14 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
 
+        user_id = get_user_id_from_file()
+
         if not dev_content or "não foi possível" in dev_content.lower():
             logger.warning(f"DEV_QUESTIONS | Topic: {topic} | No content found | Duration: {duration:.2f}s")
             try:
                 postgres_logger.log_operation(
                     operation_type=OperationType.OPEN_QUESTION.value,  # podes criar um novo tipo se quiseres (DEV_QUESTIONS)
+                    user_id=user_id,
                     details={"topic": topic, "num_questions": num_questions, "language": language,"model": current_model_name},
                     status="error",
                     error_message="No relevant content",
@@ -931,6 +948,7 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.OPEN_QUESTION.value,
+                user_id=user_id,
                 details={"topic": topic, "num_questions": num_questions, "language": language, "duration_ms": duration_ms,"model": current_model_name},
                 status="success",
                 duration_ms=duration_ms
@@ -956,6 +974,7 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.OPEN_QUESTION.value,
+                user_id=user_id,
                 details={"topic": topic, "num_questions": num_questions, "language": language,"model": current_model_name},
                 status="error",
                 error_message=error_msg,
@@ -1029,11 +1048,14 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
 
+        user_id = get_user_id_from_file()
+
         if not plan_content or "sem conteúdo relevante" in plan_content.lower():
             logger.warning(f"STUDY_PLAN | Student: {student_id} | No content found | Duration: {duration:.2f}s")
             try:
                 postgres_logger.log_operation(
                     operation_type=OperationType.STUDY_PLAN_GENERATION.value,
+                    user_id=user_id,
                     details={"student_id": student_id, "goals": goals, "weeks": weeks,"model": current_model_name},
                     status="error",
                     error_message="Sem conteúdo relevante",
@@ -1052,6 +1074,7 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.STUDY_PLAN_GENERATION.value,
+                user_id=user_id,
                 details={
                     "student_id": student_id,
                     "goals": goals,
@@ -1085,6 +1108,7 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.STUDY_PLAN_GENERATION.value,
+                user_id=user_id,
                 details={"student_id": student_id, "goals": goals, "weeks": weeks,"model": current_model_name},
                 status="error",
                 error_message=error_msg,
@@ -1138,11 +1162,14 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
 
+        user_id = get_user_id_from_file()
+
         if not summary_content or "sem conteúdo relevante" in summary_content.lower():
             logger.warning(f"LESSON_SUMMARY | Topic: {topic} | No content found | Duration: {duration:.2f}s")
             try:
                 postgres_logger.log_operation(
                     operation_type=OperationType.SUMMARY_GENERATION.value,
+                    user_id=user_id,
                     details={"topic": topic, "detail_level": detail_level,"model": current_model_name},
                     status="error",
                     error_message="Sem conteúdo relevante",
@@ -1161,6 +1188,7 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.SUMMARY_GENERATION.value,
+                user_id=user_id,
                 details={"topic": topic, "detail_level": detail_level, "duration_ms": duration_ms,"model": current_model_name},
                 status="success",
                 duration_ms=duration_ms
@@ -1186,6 +1214,7 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.SUMMARY_GENERATION,
+                user_id=user_id,
                 details={"topic": topic, "detail_level": detail_level,"model": current_model_name},
                 status="error",
                 error_message=error_msg,
@@ -1241,16 +1270,20 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
 
+        user_id = get_user_id_from_file()
+
         if not flashcards_text or "não foi possível" in flashcards_text.lower():
             logger.warning(f"FLASHCARD_GENERATION | Topic: {topic} | No content found | Duration: {duration:.2f}s")
             try:
                 postgres_logger.log_operation(
                     operation_type=OperationType.FLASHCARD_GENERATION.value,
+                    user_id=user_id,
                     details={"topic": topic, "num_cards": num_cards,"model": current_model_name},
                     status="error",
                     error_message="Sem conteúdo relevante",
                     duration_ms=duration_ms
                 )
+                postgres_logger.update_operation_stats(OperationType.FLASHCARD_GENERATION.value, False, duration_ms)
             except Exception:
                 pass
             return {
@@ -1263,10 +1296,12 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.FLASHCARD_GENERATION.value,
+                user_id=user_id,
                 details={"topic": topic, "num_cards": num_cards, "duration_ms": duration_ms,"model": current_model_name},
                 status="success",
                 duration_ms=duration_ms
             )
+            postgres_logger.update_operation_stats(OperationType.FLASHCARD_GENERATION.value, True, duration_ms)
         except Exception:
             pass
 
@@ -1286,11 +1321,13 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.FLASHCARD_GENERATION.value,
+                user_id=user_id,
                 details={"topic": topic, "num_cards": num_cards,"model": current_model_name},
                 status="error",
                 error_message=error_msg,
                 duration_ms=duration_ms
             )
+            postgres_logger.update_operation_stats(OperationType.FLASHCARD_GENERATION.value, False, duration_ms)
         except Exception:
             pass
 
@@ -1355,11 +1392,14 @@ def generate_test(topic: str, num_questions: int = 10) -> dict:
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
 
+        user_id = get_user_id_from_file()
+
         if not test_content or "não foi possível" in test_content.lower():
             logger.warning(f"TEST_GENERATION | Topic: {topic} | No content found | Duration: {duration:.2f}s")
             try:
                 postgres_logger.log_operation(
                     operation_type=OperationType.TEST_GENERATION,
+                    user_id=user_id,
                     details={"topic": topic, "num_questions": num_questions,"model": current_model_name},
                     status="error",
                     error_message="Sem conteúdo relevante",
@@ -1377,6 +1417,7 @@ def generate_test(topic: str, num_questions: int = 10) -> dict:
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.TEST_GENERATION,
+                user_id=user_id,
                 details={"topic": topic, "num_questions": num_questions, "duration_ms": duration_ms,"model": current_model_name},
                 status="success",
                 duration_ms=duration_ms
@@ -1401,6 +1442,7 @@ def generate_test(topic: str, num_questions: int = 10) -> dict:
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.TEST_GENERATION,
+                user_id=user_id,
                 details={"topic": topic, "num_questions": num_questions,"model": current_model_name},
                 status="error",
                 error_message=error_msg,
