@@ -1938,7 +1938,7 @@ def stats_educational():
                     SELECT date, operation_type, SUM(total_count) AS total
                     FROM operation_stats
                     WHERE date > CURRENT_DATE - INTERVAL '14 days'
-                      AND operation_type IN ('quiz_generation', 'study_plan', 'rag_query')
+                      AND operation_type IN ('quiz_generation', 'rag_query','open_question','flashcard_generation','study_plan','summary_generation','test_generation')
                     GROUP BY date, operation_type
                     ORDER BY date
                 """)
@@ -1952,7 +1952,6 @@ def stats_educational():
         return jsonify({"success": True, "data": data})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
-
 
 @app.route('/stats/performance')
 def stats_performance():
@@ -2070,7 +2069,6 @@ def stats_models():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
-
 @app.route('/stats/statistics-page-new')
 def statistics_page_new():
     """Renderiza a página de estatísticas"""
@@ -2083,6 +2081,143 @@ def statistics_page_new():
         return render_template('simple.html')
 
     return render_template('statistics2.html')
+
+# 1. Ranking de utilizadores mais ativos
+@app.route('/stats/top-users')
+def stats_top_users():
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT l.user_id, u.username, COUNT(*) AS total
+                    FROM operation_logs l
+                    JOIN users u ON l.user_id = u.id
+                    WHERE l.created_at > NOW() - INTERVAL '7 days'
+                    GROUP BY l.user_id, u.username
+                    ORDER BY total DESC
+                    LIMIT 10
+                """)
+                rows = cur.fetchall()
+
+        data = [{"user_id": r[0], "username": r[1], "total": r[2]} for r in rows]
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+# 2. Distribuição por role
+@app.route('/stats/roles')
+def stats_roles():
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT u.role, COUNT(*) AS total
+                    FROM operation_logs l
+                    JOIN users u ON l.user_id = u.id
+                    WHERE l.created_at > NOW() - INTERVAL '7 days'
+                    GROUP BY u.role
+                """)
+                rows = cur.fetchall()
+
+        data = [{"role": r[0], "total": r[1]} for r in rows]
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/stats/errors-by-role')
+def stats_errors_by_role():
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT u.role,
+                           COUNT(*) FILTER (WHERE l.status = 'success') AS success,
+                           COUNT(*) FILTER (WHERE l.status = 'error')   AS errors,
+                           COUNT(*) AS total
+                    FROM operation_logs l
+                    JOIN users u ON l.user_id = u.id
+                    WHERE l.created_at > NOW() - INTERVAL '7 days'
+                    GROUP BY u.role
+                """)
+                rows = cur.fetchall()
+
+        data = [
+            {
+                "role": r[0],
+                "success": r[1],
+                "errors": r[2],
+                "total": r[3],
+                "error_rate": round((r[2] / r[3]) * 100, 2) if r[3] > 0 else 0
+            }
+            for r in rows
+        ]
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/stats/errors')
+def stats_errors_by_model():
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT l.operation_details->>'model' AS modelo,
+                           COUNT(*) FILTER (WHERE l.status = 'success') AS success,
+                           COUNT(*) FILTER (WHERE l.status = 'error')   AS errors,
+                           COUNT(*) AS total
+                    FROM operation_logs l
+                    WHERE l.created_at > NOW() - INTERVAL '7 days'
+                      AND l.operation_details->>'model' IS NOT NULL
+                    GROUP BY modelo
+                    ORDER BY total DESC
+                """)
+                rows = cur.fetchall()
+
+        data = [
+            {
+                "model": r[0],
+                "success": r[1],
+                "errors": r[2],
+                "total": r[3],
+                "error_rate": round((r[2] / r[3]) * 100, 2) if r[3] > 0 else 0
+            }
+            for r in rows
+        ]
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/stats/latency-by-model')
+def stats_latency_by_model():
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT l.operation_details->>'model' AS modelo,
+                           ROUND(AVG(l.duration_ms), 2) AS avg_latency,
+                           MIN(l.duration_ms) AS min_latency,
+                           MAX(l.duration_ms) AS max_latency
+                    FROM operation_logs l
+                    WHERE l.created_at > NOW() - INTERVAL '7 days'
+                      AND l.operation_details->>'model' IS NOT NULL
+                      AND l.duration_ms IS NOT NULL
+                    GROUP BY modelo
+                    ORDER BY avg_latency ASC
+                """)
+                rows = cur.fetchall()
+
+        data = [
+            {
+                "model": r[0],
+                "avg_latency": float(r[1]),
+                "min_latency": r[2],
+                "max_latency": r[3]
+            }
+            for r in rows
+        ]
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 
 if __name__ == '__main__':

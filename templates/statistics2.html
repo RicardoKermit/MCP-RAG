@@ -37,6 +37,12 @@
         <div class="card"><div class="metric" id="successOps">0</div><div class="label">Sucessos</div></div>
         <div class="card"><div class="metric" id="errorOps">0</div><div class="label">Erros</div></div>
     </div>
+    <h2>📟 Recursos do Sistema</h2>
+        <div class="grid">
+            <div class="card"><div class="metric" id="diskUsage">-</div><div class="label">Uso de Disco (%)</div></div>
+            <div class="card"><div class="metric" id="diskFree">-</div><div class="label">Espaço Livre (GB)</div></div>
+            <div class="card"><div class="metric" id="memTotal">-</div><div class="label">Memória Total (MB)</div></div>
+        </div>
     <div class="grid">
         <div class="card"><canvas id="opsPerTypeChart"></canvas></div>
     </div>
@@ -53,13 +59,6 @@
         <div class="card"><canvas id="performanceChart"></canvas></div>
     </div>
 
-    <h2>📟 Recursos do Sistema</h2>
-        <div class="grid">
-            <div class="card"><div class="metric" id="diskUsage">-</div><div class="label">Uso de Disco (%)</div></div>
-            <div class="card"><div class="metric" id="diskFree">-</div><div class="label">Espaço Livre (GB)</div></div>
-            <div class="card"><div class="metric" id="memTotal">-</div><div class="label">Memória Total (MB)</div></div>
-        </div>
-
     <h2>📑 Modelos mais usados (24h)</h2>
     <div class="grid">
         <div class="card"><canvas id="modelsChart"></canvas></div>
@@ -68,7 +67,37 @@
         <div class="label">Operações de Sistema (sem modelo)</div>
     </div>
     </div>
-        
+
+    <!-- Ranking de Utilizadores -->
+    <h2>👤 Top Utilizadores (7 dias)</h2>
+    <div class="grid">
+    <div class="card"><canvas id="topUsersChart"></canvas></div>
+    </div>
+
+    <!-- Distribuição por Role -->
+    <h2>📚 Distribuição por Role (7 dias)</h2>
+    <div class="grid">
+        <div class="card"><canvas id="rolesChart"></canvas></div>
+    </div>
+
+    <!-- Taxa de Erros por Role -->
+    <h2>⚠️ Taxa de Erros por Role (7 dias)</h2>
+    <div class="grid">
+        <div class="card"><canvas id="errorsByRoleChart"></canvas></div>
+    </div>
+
+    <!-- Taxa de Erros por Modelo -->
+    <h2>🤖 Taxa de Erros por Modelo (7 dias)</h2>
+    <div class="grid">
+        <div class="card"><canvas id="errorsByModelChart"></canvas></div>
+    </div>
+
+    <!-- Latência Média por Modelo -->
+    <h2>⏱️ Latência Média por Modelo (7 dias)</h2>
+    <div class="grid">
+        <div class="card"><canvas id="latencyByModelChart"></canvas></div>
+    </div>
+
 
 
   <script>
@@ -197,30 +226,30 @@
     }
 
     async function loadModelsStats() {
-  const resp = await fetch("/stats/models");
-  const { models, system } = await resp.json();
+        const resp = await fetch("/stats/models");
+        const { models, system } = await resp.json();
 
-  const labels = models.map(d => d.model);
-  const values = models.map(d => d.total);
+        const labels = models.map(d => d.model);
+        const values = models.map(d => d.total);
 
-  // Atualiza card de operações de sistema
-  document.getElementById("systemOps").textContent = system;
+        // Atualiza card de operações de sistema
+        document.getElementById("systemOps").textContent = system;
 
-  new Chart(document.getElementById('modelsChart'), {
-    type: 'pie',
-    data: {
-      labels: labels,
-      datasets: [{
-        data: values,
-        backgroundColor: ['#4e73df', '#1cc88a', '#f6c23e', '#e74a3b']
-      }]
-    },
-    options: {
-      plugins: {
-        title: { display: true, text: 'Modelos mais usados (24h)' },
-        datalabels: {
-          color: '#fff',
-          formatter: (value, context) => {
+        new Chart(document.getElementById('modelsChart'), {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: ['#4e73df', '#1cc88a', '#f6c23e', '#e74a3b']
+                }]
+            },
+            options: {
+                plugins: {
+                title: { display: true, text: 'Modelos mais usados (24h)' },
+                datalabels: {
+                color: '#fff',
+            formatter: (value, context) => {
             const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
             const percent = ((value / total) * 100).toFixed(1) + '%';
             return `${value} (${percent})`;
@@ -229,9 +258,162 @@
       }
     },
     plugins: [ChartDataLabels]
+    });
+    }
+
+// ------- Ranking de Utilizadores -------
+async function loadTopUsers() {
+  const resp = await fetch("/stats/top-users");
+  const { data } = await resp.json();
+
+  const labels = data.map(d => d.username);
+  const values = data.map(d => d.total);
+
+  new Chart(document.getElementById('topUsersChart'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Operações (7 dias)',
+        data: values,
+        backgroundColor: '#4e73df'
+      }]
+    },
+    options: { plugins: { title: { display: true, text: 'Top 10 Utilizadores Ativos' } } }
   });
 }
 
+// ------- Distribuição por Role -------
+async function loadRoles() {
+  const resp = await fetch("/stats/roles");
+  const { data } = await resp.json();
+
+  const labels = data.map(d => d.role);
+  const values = data.map(d => d.total);
+
+  new Chart(document.getElementById('rolesChart'), {
+    type: 'pie',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: ['#1cc88a','#36b9cc','#f6c23e','#e74a3b']
+      }]
+    },
+    options: { plugins: { title: { display: true, text: 'Distribuição por Role' } } }
+  });
+}
+
+// ------- Taxa de Erros por Role -------
+async function loadErrorsByRole() {
+  const resp = await fetch("/stats/errors-by-role");
+  const { data } = await resp.json();
+
+  const labels = data.map(d => d.role);
+  const values = data.map(d => d.error_rate);
+
+  new Chart(document.getElementById('errorsByRoleChart'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Taxa de Erro (%)',
+        data: values,
+        backgroundColor: '#e74a3b'
+      }]
+    },
+    options: {
+      plugins: { 
+        title: { display: true, text: 'Taxa de Erros por Role (últimos 7 dias)' } 
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: function(value) { return value + "%" }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ------- Taxa de Erros por Modelo -------
+async function loadErrorsByModel() {
+  const resp = await fetch("/stats/errors");
+  const { data } = await resp.json();
+
+  const labels = data.map(d => d.model);
+  const values = data.map(d => d.error_rate);
+
+  new Chart(document.getElementById('errorsByModelChart'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Taxa de Erro (%)',
+        data: values,
+        backgroundColor: '#f6c23e'
+      }]
+    },
+    options: {
+      plugins: { 
+        title: { display: true, text: 'Taxa de Erros por Modelo (últimos 7 dias)' } 
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: function(value) { return value + "%" }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ------- Latência por Modelo (Radar) -------
+async function loadLatencyByModel() {
+  const resp = await fetch("/stats/latency-by-model");
+  const { data } = await resp.json();
+
+  const labels = data.map(d => d.model);
+  const avgValues = data.map(d => d.avg_latency);
+
+  new Chart(document.getElementById('latencyByModelChart'), {
+    type: 'radar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Latência Média (ms)',
+        data: avgValues,
+        fill: true,
+        backgroundColor: 'rgba(78, 115, 223, 0.2)',
+        borderColor: 'rgba(78, 115, 223, 1)',
+        pointBackgroundColor: 'rgba(78, 115, 223, 1)'
+      }]
+    },
+    options: {
+      scales: {
+        r: {
+          beginAtZero: true,
+          ticks: {
+            callback: function(value) { return value + " ms"; }
+          }
+        }
+      },
+      plugins: {
+        title: { display: true, text: 'Comparação de Latência Média por Modelo' }
+      }
+    }
+  });
+}
+
+    loadLatencyByModel();
+    loadErrorsByModel();
+    loadErrorsByRole();
+    loadTopUsers();
+    loadRoles();
     loadTechnicalStats();
     loadEducationalStats();
     loadPerformanceStats();
