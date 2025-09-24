@@ -776,6 +776,44 @@ def retrieve(prompt: str) -> str:
         
         return f"Erro ao processar a pergunta: {error_msg}"
 
+
+def convert_to_gift(quiz_text: str, topic: str) -> str:
+    gift_lines = []
+    q_num = 0
+
+    # Divide pelo marcador "Pergunta"
+    blocks = re.split(r"(?=Pergunta\s+\d+:)", quiz_text, flags=re.IGNORECASE)
+
+    for block in blocks:
+        lines = [l.strip() for l in block.strip().split("\n") if l.strip()]
+        if not lines:
+            continue
+
+        q_num += 1
+        # texto da pergunta (tudo antes das opções)
+        qtext = lines[0].split(":", 1)[-1].strip()
+
+        # procurar a resposta correta
+        correct_line = next((l for l in lines if l.lower().startswith("answer")), None)
+        correct_letter = correct_line.split(":")[1].strip().lower() if correct_line else None
+
+        gift_lines.append(f"::{topic}_Q{q_num}:: {qtext} {{")
+
+        # processar as opções
+        for l in lines[1:]:
+            if re.match(r"[a-d]\)", l.strip().lower()):  # opções a) b) c) d)
+                letter, text = l.split(")", 1)
+                letter = letter.strip().lower()
+                text = text.strip()
+                if correct_letter == letter:
+                    gift_lines.append(f"    ={text}")
+                else:
+                    gift_lines.append(f"    ~{text}")
+        gift_lines.append("}\n")
+
+    return "\n".join(gift_lines)
+
+
 @mcp.tool()
 def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty: str = "mixed") -> dict:
     """
@@ -794,17 +832,22 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         
         # 1. Buscar conteúdo sobre o tópico
         difficulty_prompt = f"""
-        Generates {num_questions} questions about {topic} with difficulty {difficulty}.
+            Gera {num_questions} perguntas sobre {topic} com dificuldade {difficulty}.
+            Formato obrigatório (sem introduções nem explicações):
 
-        IMPORTANT:
-        - Uses only information from available PDFs
-        - Generates ONLY the requested question type (multiple choice OR true/false)
-        - For multiple choice: each question must have 4 options (a, b, c, d)
-        - For true/false: each question must have 2 options (a) True, b) False)
-        - Always indicates the correct answer
-        - Format: Question + options + "Answer: X"
-        - Difficulty {difficulty}: adjusts question complexity
-        """
+            Pergunta 1: <texto da pergunta>
+            a) <opção A>
+            b) <opção B>
+            c) <opção C>
+            d) <opção D>
+            Answer: <letra correta>
+
+            - Apenas este formato, nada mais.
+            - Perguntas de escolha múltipla: 4 opções (a–d).
+            - Perguntas verdadeiro/falso: usar apenas "a) Verdadeiro" e "b) Falso".
+            """
+
+
         
         #quiz_content = retrieve(difficulty_prompt)
 
@@ -813,6 +856,11 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
             quiz_content = res.get("result", "")
         else:
             quiz_content = str(res)
+
+        # 👉 daqui para baixo entra a exportação em GIFT
+        gift_content = convert_to_gift(quiz_content, topic)
+
+        
         
         # Calcular duração
         duration = time.time() - start_time
@@ -854,13 +902,23 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
         except Exception:
             pass
         
+        filename = f"quiz_{topic.replace(' ', '_')}.gift"
+        filepath = os.path.join("exports", filename)
+        os.makedirs("exports", exist_ok=True)
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(gift_content)
+
+        download_url = f"/download-quiz/{filename}"
+
         return {
             "success": True,
             "quiz": quiz_content,
+            "download_url": download_url,
             "message": f"Questionário gerado com sucesso sobre {topic}",
             "topic": topic,
             "difficulty": difficulty
         }
+
         
     except Exception as e:
         duration = time.time() - start_time

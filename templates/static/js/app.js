@@ -1615,7 +1615,41 @@ async function loadSettings() {
 function toggleSidebar() {
     document.getElementById("sidebar").classList.toggle("collapsed");
 }
-  
+
+function addAssistantMessage(text, downloadUrl = null) {
+  const chatMessages = document.getElementById("chatMessages");
+
+  const msgDiv = document.createElement("div");
+  msgDiv.className = "message assistant";
+
+  const contentDiv = document.createElement("div");
+  contentDiv.className = "message-content";
+
+  const msgText = document.createElement("div");
+  msgText.className = "message-text";
+  msgText.innerText = text;
+
+  contentDiv.appendChild(msgText);
+
+  // 👉 Se houver link de download, adiciona ao chat
+  if (downloadUrl) {
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.innerText = "⬇️ Descarregar Quiz em GIFT";
+    link.style.display = "block";
+    link.style.marginTop = "8px";
+    link.setAttribute("download", "");
+
+    contentDiv.appendChild(link);
+  }
+
+  msgDiv.appendChild(contentDiv);
+  chatMessages.appendChild(msgDiv);
+
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+
 
   //window.onload = loadSettings;
   

@@ -2212,5 +2212,20 @@ def stats_latency_by_model():
         return jsonify({"success": False, "error": str(e)})
 
 
+from flask import send_file
+import os
+
+@app.route('/download-quiz/<filename>')
+def download_quiz(filename):
+    """Permite descarregar quizzes gerados em formato .gift"""
+    try:
+        filepath = os.path.join("exports", filename)
+        if os.path.exists(filepath):
+            return send_file(filepath, as_attachment=True)
+        return jsonify({"error": "Ficheiro não encontrado"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000) 
