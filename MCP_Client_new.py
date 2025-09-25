@@ -483,7 +483,26 @@ class LogAnalyzer:
 
 log_analyzer: LogAnalyzer = LogAnalyzer() 
 
-
+def map_tool_to_operation(tool_name: str) -> OperationType:
+    """Map a tool name to the corresponding OperationType enum."""
+    if tool_name == "retrieve":
+        return OperationType.RAG_QUERY
+    elif tool_name == "generate_quiz_with_difficulty":
+        return OperationType.QUIZ_GENERATION
+    elif tool_name == "generate_video_with_veo":
+        return OperationType.VIDEO_GENERATION
+    elif tool_name == "study_plan_generator":
+        return OperationType.STUDY_PLAN_GENERATION
+    elif tool_name == "interactive_flashcards":
+        return OperationType.FLASHCARD_GENERATION
+    elif tool_name == "generate_test":
+        return OperationType.TEST_GENERATION
+    elif tool_name == "generate_dev_questions":
+        return OperationType.OPEN_QUESTION
+    elif tool_name == "generate_lesson_summary":
+        return OperationType.SUMMARY_GENERATION
+    else:
+        return OperationType.API_CALL  # fallback
 
 def log_rag_operation(operation: str, topic: str, success: bool, duration: float | None = None, error: str | None = None, user_id: str | None = None):
     duration_ms = int(duration * 1000) if duration else None
@@ -1006,16 +1025,32 @@ class MCPGeminiClient:
 
                 result = await self.session.call_tool(tool_name, tool_args)
 
-                if hasattr(result.content, 'text'):
-                    raw_response = result.content.text
-                elif hasattr(result.content, '__iter__'):
-                    content_list = list(result.content)
-                    if content_list:
-                        raw_response = content_list[0].text if hasattr(content_list[0], 'text') else str(content_list[0])
+                print("Results: ", result)
+                
+                raw_response = ""
+                details = {}
+
+                try:
+                    # Caso o server tenha devolvido JSON válido dentro do TextContent
+                    if hasattr(result, 'content') and result.content:
+                        # pode ser lista de TextContent
+                        content_list = list(result.content)
+                        if content_list and hasattr(content_list[0], 'text'):
+                            parsed = json.loads(content_list[0].text)
+                            raw_response = parsed.get("response", "")
+                            details = parsed.get("details", {})
+                        else:
+                            raw_response = str(result.content)
                     else:
-                        raw_response = str(result.content)
-                else:
-                    raw_response = str(result.content)
+                        raw_response = str(result)
+
+                except Exception as e:
+                    print("⚠️ Falha ao parsear resposta JSON:", e)
+                    raw_response = str(result)
+                    details = {}
+
+                print("DETAILS: ",details)
+
 
                 print(f"📄 Resposta bruta da ferramenta: {raw_response}...")
 
@@ -1086,7 +1121,7 @@ class MCPGeminiClient:
 
                 print(f"✅ Resposta final: {final_response[:100]}...")
                 self.conversation_history.append({"role": "assistant", "content": final_response})
-                return final_response
+                return final_response, tool_name, details
 
             else:
                 print(f"⚠️ Resposta não contém TOOL: {text}")
@@ -1315,48 +1350,61 @@ def connect():
 
 @app.route('/query', methods=['POST'])
 def query():
-    # Check if user is authenticated
     if not session.get('authenticated'):
         return jsonify({'error': 'Not authenticated'}), 401
-    
+
     start_time = time.time()
+    query_text = None
+    tool = None
+    details = {}
+
     try:
         data = request.get_json()
         query_text = data.get('query', '')
-        current_language = data.get('language', 'pt')  # Default to Portuguese
-        
-        # Log da interação do utilizador
-        log_user_interaction("query", {
-            "query_length": len(query_text),
-            "language": current_language,
-            "query_preview": query_text[:100]
-        })
-        
+        current_language = data.get('language', 'pt')
+
         if not query_text:
-            log_system_error("query", "Query vazia")
-            error_msg = TRANSLATIONS.get(current_language, TRANSLATIONS['pt'])['please_provide_question']
-            return jsonify({'response': error_msg})
-        
-        # Set the current language for this query
+            return jsonify({'response': '⚠️ Pergunta vazia.'})
+
         mcp_client.set_language(current_language)
-        
-        response = run_async(mcp_client.process_query(query_text))
-        
-        # Calcular duração
-        duration = time.time() - start_time
-        
-        # Log de sucesso
-        #log_rag_operation("query", query_text[:50], True, duration, None,session.get("user_id"))
-        
+
+        response, tool, details = run_async(mcp_client.process_query(query_text))
+
+        print("📦 DETAILS RECEBIDOS:", details)
+        print("TOOL: ",tool)
+       
+
+        duration_ms = int((time.time() - start_time) * 1000)
+        op_type = map_tool_to_operation(tool)
+
+        postgres_logger.log_operation(
+            operation_type=op_type,
+            user_id=session.get("user_id"),
+            details=details,
+            status="success",
+            duration_ms=duration_ms
+        )
+        postgres_logger.update_operation_stats(op_type.value, True, duration_ms)
+
         return jsonify({'response': response})
+
     except Exception as e:
-        duration = time.time() - start_time
+        duration_ms = int((time.time() - start_time) * 1000)
         error_msg = str(e)
-        log_system_error("query", error_msg, {
-            "query": query_text,
-            "duration": duration
-        })
+        op_type = map_tool_to_operation(tool if tool else "unknown")
+
+        postgres_logger.log_operation(
+            operation_type=op_type,
+            user_id=session.get("user_id"),
+            details=details if details else {"query": query_text[:50] if query_text else ""},
+            status="error",
+            error_message=error_msg,
+            duration_ms=duration_ms
+        )
+        postgres_logger.update_operation_stats(op_type.value, False, duration_ms)
+
         return jsonify({'response': f'Erro ao processar a pergunta: {error_msg}'})
+
 
 @app.route('/clear-history', methods=['POST'])
 def clear_history():

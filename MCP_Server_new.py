@@ -272,6 +272,42 @@ def update_model(new_model_name: str) -> bool:
         print(f"Erro ao atualizar modelo: {e}")
         return False
 
+def convert_to_gift(quiz_text: str, topic: str) -> str:
+    gift_lines = []
+    q_num = 0
+
+    # Divide pelo marcador "Pergunta"
+    blocks = re.split(r"(?=Pergunta\s+\d+:)", quiz_text, flags=re.IGNORECASE)
+
+    for block in blocks:
+        lines = [l.strip() for l in block.strip().split("\n") if l.strip()]
+        if not lines:
+            continue
+
+        q_num += 1
+        # texto da pergunta (tudo antes das opções)
+        qtext = lines[0].split(":", 1)[-1].strip()
+
+        # procurar a resposta correta
+        correct_line = next((l for l in lines if l.lower().startswith("answer")), None)
+        correct_letter = correct_line.split(":")[1].strip().lower() if correct_line else None
+
+        gift_lines.append(f"::{topic}_Q{q_num}:: {qtext} {{")
+
+        # processar as opções
+        for l in lines[1:]:
+            if re.match(r"[a-d]\)", l.strip().lower()):  # opções a) b) c) d)
+                letter, text = l.split(")", 1)
+                letter = letter.strip().lower()
+                text = text.strip()
+                if correct_letter == letter:
+                    gift_lines.append(f"    ={text}")
+                else:
+                    gift_lines.append(f"    ~{text}")
+        gift_lines.append("}\n")
+
+    return "\n".join(gift_lines)
+
 # =====================================================
 # Tools de rag
 # =====================================================
@@ -707,112 +743,45 @@ def clear_rag() -> str:
 # =====================================================
 
 @mcp.tool()
-def retrieve(prompt: str) -> str:
+def retrieve(prompt: str) -> dict:
     """
     Retrieves information directly from the knowledge base (indexed PDFs).
     ALWAYS use this tool whenever the user asks a question about the content of the PDFs.
     Arguments:
       - prompt: the user’s question.
     """
+    # Log da operação (ficheiro/console)
+    logger.info(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Starting")
     start_time = time.time()
     try:
-        # Log da operação (ficheiro/console)
-        logger.info(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Starting")
-        
-        #result = qa.invoke({"query": prompt})
-        #response = result.get("result", "Não foi possível obter uma resposta.")
+        res = qa.invoke({"query": prompt})
+        raw_response = res["result"] if isinstance(res, dict) else str(res)
 
-        #test_content = retrieve(test_prompt)
-        result = qa.invoke({"query": prompt})
-        if isinstance(result, dict):
-            response = result.get("result", "")
-        else:
-            response = str(result)
-
-        # Calcular duração
-        duration = time.time() - start_time
-        duration_ms = int(duration * 1000)
-        
-        
-        
-        user_id = get_user_id_from_file()
-
+        duration_ms = int((time.time() - start_time) * 1000)
 
         # Log de sucesso (ficheiro/console)
-        logger.info(f"RAG_RETRIEVE | Prompt: {prompt[:50]}... | Success | Duration: {duration:.2f}s")
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.RAG_QUERY.value,
-                user_id=user_id,
-                details={"topic": prompt[:50], "duration_ms": duration_ms,"model": current_model_name},
-                status="success",
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.RAG_QUERY.value, True, duration_ms)
-        except Exception:
-            pass
-        
-        return response
-        
+        logger.info(f"RAG_RETRIEVE | Prompt: {prompt}... | Success | Duration: {duration_ms:.2f}s")
+        return {
+            "success": True,
+            "response": raw_response,
+            "details":{
+                "topic": prompt[:50],
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
+        }
+
     except Exception as e:
-        duration = time.time() - start_time
-        duration_ms = int(duration * 1000)
-        error_msg = str(e)
-        
         # Log de erro
-        logger.error(f"QUIZ_GENERATION | Topic: {prompt} | Questions: {num_questions} | Difficulty: {difficulty} | Error: {error_msg} | Duration: {duration:.2f}s")
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.RAG_QUERY.value,
-                user_id=user_id,
-                details={"operation": "retrieve", "topic": prompt[:50],"model": current_model_name},
-                status="error",
-                error_message=error_msg,
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.RAG_QUERY.value, False, duration_ms)
-        except Exception:
-            pass
-        
-        return f"Erro ao processar a pergunta: {error_msg}"
-
-
-def convert_to_gift(quiz_text: str, topic: str) -> str:
-    gift_lines = []
-    q_num = 0
-
-    # Divide pelo marcador "Pergunta"
-    blocks = re.split(r"(?=Pergunta\s+\d+:)", quiz_text, flags=re.IGNORECASE)
-
-    for block in blocks:
-        lines = [l.strip() for l in block.strip().split("\n") if l.strip()]
-        if not lines:
-            continue
-
-        q_num += 1
-        # texto da pergunta (tudo antes das opções)
-        qtext = lines[0].split(":", 1)[-1].strip()
-
-        # procurar a resposta correta
-        correct_line = next((l for l in lines if l.lower().startswith("answer")), None)
-        correct_letter = correct_line.split(":")[1].strip().lower() if correct_line else None
-
-        gift_lines.append(f"::{topic}_Q{q_num}:: {qtext} {{")
-
-        # processar as opções
-        for l in lines[1:]:
-            if re.match(r"[a-d]\)", l.strip().lower()):  # opções a) b) c) d)
-                letter, text = l.split(")", 1)
-                letter = letter.strip().lower()
-                text = text.strip()
-                if correct_letter == letter:
-                    gift_lines.append(f"    ={text}")
-                else:
-                    gift_lines.append(f"    ~{text}")
-        gift_lines.append("}\n")
-
-    return "\n".join(gift_lines)
-
+        logger.error(f"RAG_RETRIEVE | Prompt: {prompt} | Error | Error: {e} | Duration: {duration_ms:.2f}s")
+        return {
+            "success": False,
+            "error": str(e),
+            "details":{
+                "topic": prompt[:50],
+                "model": current_model_name
+            }
+        }
 
 @mcp.tool()
 def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty: str = "mixed") -> dict:
