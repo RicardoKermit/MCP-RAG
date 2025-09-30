@@ -2274,6 +2274,31 @@ def download_quiz(filename):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# vai buscar a pasta definida no .env ou usa "pdfs" por defeito
+PDF_FOLDER = os.getenv("PDF_FOLDER", "pdfs")
+
+@app.route('/upload-temp', methods=['POST'])
+def upload_temp():
+    if not session.get('authenticated'):
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': 'Nenhum ficheiro enviado'}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'Nome de ficheiro inválido'}), 400
+
+    os.makedirs(PDF_FOLDER, exist_ok=True)
+    save_path = os.path.join(PDF_FOLDER, file.filename)
+    file.save(save_path)
+
+    return jsonify({
+        "success": True,
+        "filename": file.filename,
+        "message": f"📎 PDF '{file.filename}' carregado. Escreve 'adicionar PDFs' para indexar ao RAG."
+    })
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000) 

@@ -999,10 +999,10 @@ async function loadRagBackend() {
         const data = await response.json();
         const select = document.getElementById('ragBackendSelect');
         
-        if (data && data.backend && select) {
+        if (data && data.response && select) {
             console.log("Value: ",select.value)
-            console.log("data: ",data.backend)
-            select.value = data.backend;
+            console.log("data: ",data.response)
+            select.value = data.response;
         }
     } catch (e) {
         console.log('Erro ao carregar backend RAG:', e);
@@ -1335,7 +1335,7 @@ function toggleMobileMenu() {
 
 // Open statistics page
 function openStatistics() {
-    window.open('/statistics-page', '_blank');
+    window.open('/stats/statistics-page-new', '_blank');
 }
 
 // Open statistics page
@@ -1604,7 +1604,7 @@ async function loadSettings() {
       const ragResp = await fetch("/rag-backend"); // <-- usa o endpoint que já tens
       const ragData = await ragResp.json();
       if (ragData.success) {
-        document.getElementById("ragBackendSelect").value = ragData.backend;
+        document.getElementById("ragBackendSelect").value = ragData.response;
       }
     } catch (e) {
       console.error("Erro a carregar settings:", e);
@@ -1649,7 +1649,62 @@ function addAssistantMessage(text, downloadUrl = null) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+document.getElementById("pdfUpload").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+        const resp = await fetch("/upload-temp", {
+            method: "POST",
+            body: formData
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            // Mostra ícone de PDF no chat
+            addMessage(`📎 PDF carregado: ${data.filename}\n${data.message}`, false);
+        } else {
+            addMessage("❌ Erro ao carregar PDF: " + (data.error || "desconhecido"), false);
+        }
+    } catch (err) {
+        addMessage("❌ Erro de rede ao carregar PDF", false);
+    }
+});
+
+const fileInput = document.getElementById("fileInput");
+const filePreview = document.getElementById("filePreview");
+let selectedFiles = [];
+
+fileInput.addEventListener("change", (e) => {
+  for (let file of e.target.files) {
+    if (file.type === "application/pdf") {
+      selectedFiles.push(file);
+      renderFileChips();
+    }
+  }
+  fileInput.value = ""; // reset para permitir re-selecionar
+});
+
+function renderFileChips() {
+  filePreview.innerHTML = "";
+  selectedFiles.forEach((file, index) => {
+    const chip = document.createElement("div");
+    chip.classList.add("file-chip");
+    chip.innerHTML = `
+      <span>📄 ${file.name}</span>
+      <button onclick="removeFile(${index})">❌</button>
+    `;
+    filePreview.appendChild(chip);
+  });
+}
+
+function removeFile(index) {
+  selectedFiles.splice(index, 1);
+  renderFileChips();
+}
 
   //window.onload = loadSettings;
   

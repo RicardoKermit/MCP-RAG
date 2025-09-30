@@ -1772,4 +1772,23 @@ button {
     color: #374151;
 }
 
+.upload-btn {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #36b9cc;
+    color: white;
+    font-size: 20px;
+    text-align: center;
+    line-height: 32px;
+    cursor: pointer;
+    margin-right: 8px;
+}
+.upload-btn:hover {
+    background-color: #2a9ca5;
+}
+
+
+
 

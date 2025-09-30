@@ -313,47 +313,35 @@ def convert_to_gift(quiz_text: str, topic: str) -> str:
 # =====================================================
 
 @mcp.tool()
-def set_model(model_name: str) -> str:
+def set_model(model_name: str) -> dict:
     """
     Changes the current LLM model used by the server.
     Normally this tool should NOT be called by the assistant directly.
-    Arguments:
-      - model_name: the identifier of the model (e.g., "gemini-2.5-pro", "gpt-4o-mini").
     """
     if update_model(model_name):
-        # Log em Postgres (sucesso)
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.API_CALL,
-                details={"tool": "set_model", "model_name": model_name},
-                status="success"
-            )
-        except Exception:
-            pass
-        return f"Modelo alterado para {ALL_MODELS[model_name]['name']}"
+        return {
+            "success": True,
+            "response": f"Modelo alterado para {ALL_MODELS[model_name]['name']}",
+            "details": {"tool": "set_model", "model_name": model_name}
+        }
     else:
-        # Log em Postgres (erro)
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.API_CALL,
-                details={"tool": "set_model", "error": "invalid_model", "model_name": model_name},
-                status="error",
-                error_message="invalid model"
-            )
-        except Exception:
-            pass
-        return f"Erro: Modelo '{model_name}' não é válido"
+        return {
+            "success": False,
+            "response": f"Erro: Modelo '{model_name}' não é válido",
+            "details": {"tool": "set_model", "model_name": model_name, "error": "invalid_model"}
+        }
 
 @mcp.tool()
 def get_current_model() -> dict:
     """
     Returns information about the current model in use and the list of available models.
-    Use only when explicitly asked about the active model or supported models.
     """
     return {
-        "current_model": current_model_name,
+        "success": True,
+        "response": current_model_name,
         "current_model_info": ALL_MODELS[current_model_name],
-        "available_models": ALL_MODELS
+        "available_models": ALL_MODELS,
+        "details": {"tool": "get_current_model", "model": current_model_name}
     }
 
 @mcp.tool()
@@ -362,32 +350,27 @@ def set_rag_backend(backend: str) -> dict:
     Switches the active RAG backend (e.g., "chroma", "faiss", "weaviate").
     ONLY use this tool if the user explicitly asks to change the knowledge base backend.
     Arguments:
-      - backend_name: the backend identifier.
+      - backend: the backend identifier.
     """
     try:
         new_backend = _reinitialize_vectorstore(backend)
-        # Log em Postgres (sucesso)
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.SYSTEM_MAINTENANCE,
-                details={"tool": "set_rag_backend", "backend": new_backend},
-                status="success"
-            )
-        except Exception:
-            pass
-        return {"success": True, "backend": new_backend}
+        return {
+            "success": True,
+            "response": new_backend,
+            "details": {
+                "tool": "set_rag_backend",
+                "backend": new_backend
+            }
+        }
     except Exception as e:
-        # Log em Postgres (erro)
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.SYSTEM_MAINTENANCE,
-                details={"tool": "set_rag_backend", "backend": backend},
-                status="error",
-                error_message=str(e)
-            )
-        except Exception:
-            pass
-        return {"success": False, "error": str(e)}
+        return {
+            "success": False,
+            "response": str(e),
+            "details": {
+                "tool": "set_rag_backend",
+                "backend": backend
+            }
+        }
 
 @mcp.tool()
 def get_rag_backend() -> dict:
@@ -396,18 +379,20 @@ def get_rag_backend() -> dict:
     ONLY use this tool if the user explicitly asks which backend is currently being used.
     Do not use it to answer knowledge questions.
     """
-    #return {"backend": RAG_BACKEND, "options": ["qdrant", "chroma"], "chroma_dir": CHROMA_DIR, "qdrant_collection": QDRANT_COLLECTION_NAME}
-    #return RAG_BACKEND
     return {
-        "backend": RAG_BACKEND,
+        "success": True,
+        "response": RAG_BACKEND,
         "options": ["qdrant", "chroma"],
         "chroma_dir": CHROMA_DIR,
-        "qdrant_collection": QDRANT_COLLECTION_NAME
+        "qdrant_collection": QDRANT_COLLECTION_NAME,
+        "details": {
+            "tool": "get_rag_backend",
+            "backend": RAG_BACKEND
+        }
     }
 
-
 @mcp.tool()
-def add_new_pdfs() -> str:
+def add_new_pdfs() -> dict:
     """
     Adds new PDF documents to the knowledge base (RAG).
     ONLY use this tool when the user explicitly provides new files to be added.
@@ -415,6 +400,7 @@ def add_new_pdfs() -> str:
     """
     new_files_added = False
     added_count = 0
+    start_time = time.time()
 
     try:
         if RAG_BACKEND == "qdrant":
@@ -424,20 +410,20 @@ def add_new_pdfs() -> str:
                 file_path = str(pdf_file.resolve())
                 if file_path not in existing_ids:
                     loader = PyPDFLoader(
-                                        file_path=file_path,
-                                        extract_images=True,
-                                        images_parser=RapidOCRBlobParser(),  # OCR para ler texto dentro das imagens
-                            )
+                        file_path=file_path,
+                        extract_images=True,
+                        images_parser=RapidOCRBlobParser(),  # OCR para ler texto dentro das imagens
+                    )
                     data = loader.load()
                     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
                     texts = text_splitter.split_documents(data)
                     docsearch.add_documents(texts)
                     new_files_added = True
                     added_count += 1
-        else:
-            # Chroma: ler metadados existentes
+
+        else:  # Chroma
             existing_metadatas = docsearch.get(include=["metadatas"]).get("metadatas", [])
-            existing_sources = set()
+            existing_sources = {meta.get("source") for meta_list in existing_metadatas for meta in meta_list if isinstance(meta, dict)}
             for meta_list in existing_metadatas:
                 for meta in meta_list:
                     if isinstance(meta, dict):
@@ -448,10 +434,10 @@ def add_new_pdfs() -> str:
                 file_path = str(pdf_file.resolve())
                 if file_path not in existing_sources:
                     loader = PyPDFLoader(
-                                        file_path=file_path,
-                                        extract_images=True,
-                                        images_parser=RapidOCRBlobParser(),  # OCR para ler texto dentro das imagens
-                            )
+                        file_path=file_path,
+                        extract_images=True,
+                        images_parser=RapidOCRBlobParser(),
+                    )
                     data = loader.load()
                     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
                     texts = text_splitter.split_documents(data)
@@ -465,91 +451,74 @@ def add_new_pdfs() -> str:
                     pass
 
         msg = "PDFs adicionados." if new_files_added else "Nenhum PDF novo para adicionar."
+        success = True
+
     except Exception as e:
         msg = f"Erro ao adicionar PDFs: {e}"
-    # Log em Postgres (resumo da operação)
-    try:
-        postgres_logger.log_operation(
-            operation_type=OperationType.FILE_UPLOAD,
-            details={"operation": "add_new_pdfs", "added_count": added_count},
-            status="success"
-        )
-    except Exception:
-        pass
-    return msg
+        success = False
 
+    duration = time.time() - start_time
+    duration_ms = int(duration * 1000)
+
+    return {
+        "success": success,
+        "response": msg,
+        "details": {
+            "tool": "add_new_pdfs",
+            "added_count": added_count,
+            "duration_ms": duration_ms,
+            "backend": RAG_BACKEND
+        }
+    }
+
+#### Remove ####
 @mcp.tool()
-def download_and_add_pdf(file_url: str) -> str:
+def download_and_add_pdf(file_url: str) -> dict:
     """
-    Downloads a PDF from the given URL and adds it to the knowledge base (RAG).
-    ALWAYS use this tool when the user provides a valid file URL and explicitly asks to add that PDF.
-    Arguments:
-      - file_url: direct link to the PDF file to be downloaded and indexed.
+    Downloads a PDF from URL and adds it to the KB.
     """
+    start_time = time.time()
+    user_id = get_user_id_from_file()
+    filename, status, error_message = None, "success", None
     try:
         url_path = file_url.lower().split("?")[0]
         if not url_path.endswith(".pdf"):
-            # Log erro em Postgres
-            try:
-                postgres_logger.log_operation(
-                    operation_type=OperationType.FILE_DOWNLOAD,
-                    details={"operation": "download_and_add_pdf", "file_url": file_url},
-                    status="error",
-                    error_message="URL não é PDF"
-                )
-            except Exception:
-                pass
-            return "URL não é PDF."
+            raise ValueError("URL não é PDF")
+
         response = requests.get(file_url)
-        if response.status_code != 200:
-            # Log erro em Postgres
-            try:
-                postgres_logger.log_operation(
-                    operation_type=OperationType.FILE_DOWNLOAD,
-                    details={"operation": "download_and_add_pdf", "file_url": file_url, "http_status": response.status_code},
-                    status="error",
-                    error_message=f"HTTP {response.status_code}"
-                )
-            except Exception:
-                pass
-            return f"Erro HTTP {response.status_code}"
+        response.raise_for_status()
+
         filename = url_path.split("/")[-1]
         pdf_path = Path(PDF_FOLDER) / filename
-        with open(pdf_path, "wb") as f:
-            f.write(response.content)
-        loader = PyPDFLoader(
-                            file_path=pdf_path,
-                            extract_images=True,
-                            images_parser=RapidOCRBlobParser(),  # OCR para ler texto dentro das imagens
-                            )
-        data = loader.load()
-        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-        texts = text_splitter.split_documents(data)
-        docsearch.add_documents(texts)
-        # Log sucesso em Postgres
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.FILE_UPLOAD,
-                details={"operation": "download_and_add_pdf", "filename": filename},
-                status="success"
-            )
-        except Exception:
-            pass
-        return f"'{filename}' adicionado com sucesso."
-    except Exception as e:
-        # Log erro em Postgres
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.FILE_DOWNLOAD,
-                details={"operation": "download_and_add_pdf", "file_url": file_url},
-                status="error",
-                error_message=str(e)
-            )
-        except Exception:
-            pass
-        return f"Erro: {e}"
+        with open(pdf_path, "wb") as f: f.write(response.content)
 
-@mcp.tool()
+        loader = PyPDFLoader(file_path=pdf_path, extract_images=True, images_parser=RapidOCRBlobParser())
+        data = loader.load()
+        texts = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100).split_documents(data)
+        docsearch.add_documents(texts)
+
+        msg = f"'{filename}' adicionado com sucesso."
+    except Exception as e:
+        status = "error"
+        error_message = str(e)
+        msg = f"Erro ao adicionar PDF: {e}"
+
+    duration_ms = int((time.time() - start_time) * 1000)
+    try:
+        postgres_logger.log_operation(
+            operation_type=OperationType.FILE_UPLOAD.value,
+            user_id=user_id,
+            details={"operation": "download_and_add_pdf", "file_url": file_url, "filename": filename},
+            status=status,
+            error_message=error_message,
+            duration_ms=duration_ms
+        )
+        postgres_logger.update_operation_stats(OperationType.FILE_UPLOAD.value, status=="success", duration_ms)
+    except Exception: pass
+
+    return {"success": status=="success", "message": msg, "filename": filename}
+
+#@mcp.tool()
 def get_courses_by_field(field: str, value: str) -> dict:
     """
     Retrieves courses that match a given field and value.
@@ -606,7 +575,7 @@ def download_pdfs_from_course(course_fullname: str) -> dict:
         # Log erro em Postgres
         try:
             postgres_logger.log_operation(
-                operation_type=OperationType.API_CALL,
+                operation_type=OperationType.FILE_DOWNLOAD,
                 details={"tool": "download_pdfs_from_course", "course": course_fullname},
                 status="error",
                 error_message=f"Erro: {courses_resp['error']}"
@@ -620,7 +589,7 @@ def download_pdfs_from_course(course_fullname: str) -> dict:
         # Log erro em Postgres
         try:
             postgres_logger.log_operation(
-                operation_type=OperationType.API_CALL,
+                operation_type=OperationType.FILE_DOWNLOAD,
                 details={"tool": "download_pdfs_from_course", "course": course_fullname},
                 status="error",
                 error_message="Curso não encontrado"
@@ -643,7 +612,7 @@ def download_pdfs_from_course(course_fullname: str) -> dict:
         # Log erro em Postgres
         try:
             postgres_logger.log_operation(
-                operation_type=OperationType.API_CALL,
+                operation_type=OperationType.FILE_DOWNLOAD,
                 details={"tool": "download_pdfs_from_course", "course": course_fullname},
                 status="error",
                 error_message=f"Erro ao obter conteúdo: {str(e)}"
@@ -693,11 +662,14 @@ def download_pdfs_from_course(course_fullname: str) -> dict:
     except Exception:
         pass
     return {
-        "course": course_fullname,
-        "pdfs_downloaded": downloaded,
-        "pdfs_skipped": skipped,
-        "pdfs_failed": failed,
-        "rag_result": rag_result
+        "success": True,
+        "details":{
+            "pdfs_downloaded": downloaded,
+            "pdfs_skipped": skipped,
+            "pdfs_failed": failed,
+            "course": course_fullname,
+        },
+        "response": rag_result
     }
 
 @mcp.tool()
@@ -792,14 +764,13 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
       - topic: the subject of the quiz.
       - num_questions: number of questions to generate.
       - difficulty: difficulty level ("easy", "medium", "hard", or "mixed").
-      - question_type: type of question ("multiple_choice" or "true_false").
     """
     start_time = time.time()
     try:
-        # Log da operação
+        # Log inicial
         logger.info(f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Starting")
-        
-        # 1. Buscar conteúdo sobre o tópico
+
+        # Prompt para gerar o quiz
         difficulty_prompt = f"""
             Gera {num_questions} perguntas sobre {topic} com dificuldade {difficulty}.
             Formato obrigatório (sem introduções nem explicações):
@@ -814,63 +785,20 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
             - Apenas este formato, nada mais.
             - Perguntas de escolha múltipla: 4 opções (a–d).
             - Perguntas verdadeiro/falso: usar apenas "a) Verdadeiro" e "b) Falso".
-            """
+        """
 
-
-        
-        #quiz_content = retrieve(difficulty_prompt)
-
+        # Invocar modelo
         res = qa.invoke({"query": difficulty_prompt})
-        if isinstance(res, dict):
-            quiz_content = res.get("result", "")
-        else:
-            quiz_content = str(res)
+        quiz_content = res.get("result", "") if isinstance(res, dict) else str(res)
 
-        # 👉 daqui para baixo entra a exportação em GIFT
+        # Converter para formato GIFT
         gift_content = convert_to_gift(quiz_content, topic)
 
-        
-        
         # Calcular duração
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
 
-        user_id = get_user_id_from_file()
-        
-        if not quiz_content or "não foi possível" in quiz_content.lower():
-            logger.warning(f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | No content found | Duration: {duration:.2f}s")
-            # Log em Postgres (sem conteúdo relevante)
-            try:
-                postgres_logger.log_operation(
-                    operation_type=OperationType.QUIZ_GENERATION.value,
-                    user_id=user_id,
-                    details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty,"model": current_model_name},
-                    status="error",
-                    error_message="Sem conteúdo relevante",
-                    duration_ms=duration_ms
-                )
-                postgres_logger.update_operation_stats(OperationType.QUIZ_GENERATION.value, False, duration_ms)
-            except Exception:
-                pass
-            return {
-                "success": False,
-                "message": f"Não foi possível encontrar conteúdo relevante sobre '{topic}'"
-            }
-        
-        # Log de sucesso
-        logger.info(f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Success | Duration: {duration:.2f}s")
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.QUIZ_GENERATION.value,
-                user_id=user_id,
-                details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty, "duration_ms": duration_ms,"model": current_model_name},
-                status="success",
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.QUIZ_GENERATION.value, True, duration_ms)
-        except Exception:
-            pass
-        
+        # Guardar em ficheiro
         filename = f"quiz_{topic.replace(' ', '_')}.gift"
         filepath = os.path.join("exports", filename)
         os.makedirs("exports", exist_ok=True)
@@ -879,39 +807,63 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
 
         download_url = f"/download-quiz/{filename}"
 
+        # Se não há conteúdo válido
+        if not quiz_content or "não foi possível" in quiz_content.lower():
+            logger.warning(
+                f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | No content found | Duration: {duration:.2f}s"
+            )
+            return {
+                "success": False,
+                "message": f"Não foi possível encontrar conteúdo relevante sobre '{topic}'",
+                "details": {
+                    "topic": topic,
+                    "num_questions": num_questions,
+                    "difficulty": difficulty,
+                    "duration_ms": duration_ms,
+                    "model": current_model_name
+                }
+            }
+
+        # Log de sucesso
+        logger.info(
+            f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Success | Duration: {duration:.2f}s"
+        )
+
         return {
             "success": True,
-            "quiz": quiz_content,
+            "response": quiz_content,
             "download_url": download_url,
             "message": f"Questionário gerado com sucesso sobre {topic}",
             "topic": topic,
-            "difficulty": difficulty
+            "difficulty": difficulty,
+            "details": {
+                "topic": topic,
+                "num_questions": num_questions,
+                "difficulty": difficulty,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
         }
 
-        
     except Exception as e:
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
         error_msg = str(e)
-        
-        # Log de erro
-        logger.error(f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Error: {error_msg} | Duration: {duration:.2f}s")
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.QUIZ_GENERATION,
-                user_id=user_id,
-                details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty,"model": current_model_name},
-                status="error",
-                error_message=error_msg,
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.QUIZ_GENERATION.value, False, duration_ms)
-        except Exception:
-            pass
-        
+
+        logger.error(
+            f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Error: {error_msg} | Duration: {duration:.2f}s"
+        )
+
         return {
             "success": False,
-            "message": f"Erro ao gerar questionário: {error_msg}"
+            "message": f"Erro ao gerar questionário: {error_msg}",
+            "details": {
+                "topic": topic,
+                "num_questions": num_questions,
+                "difficulty": difficulty,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
         }
 
 @mcp.tool()
@@ -921,13 +873,15 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
     ALWAYS use this tool when the user asks for questions that should include both the question and the answer.
 
     Arguments:
-      - topic: the  subject (e.g., "Scala", "Python", "Docker").
+      - topic: the subject (e.g., "Scala", "Python", "Docker").
       - num_questions: number of questions to generate (default: 3).
       - language: language of the output ("en" for English, "pt" for Portuguese).
     """
     start_time = time.time()
     try:
-        logger.info(f"DEV_QUESTIONS | Topic: {topic} | Questions: {num_questions} | Language: {language} | Starting")
+        logger.info(
+            f"DEV_QUESTIONS | Topic: {topic} | Questions: {num_questions} | Language: {language} | Starting"
+        )
 
         # Prompt para o LLM
         dev_prompt = f"""
@@ -941,59 +895,49 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
         Language of the output: {language}.
         """
 
-        # Chamada à função retrieve (podes trocar por chamada direta ao modelo se preferires)
-        #dev_content = retrieve(dev_prompt)
-
+        # Chamada ao modelo
         res = qa.invoke({"query": dev_prompt})
-        if isinstance(res, dict):
-            dev_content = res.get("result", "")
-        else:
-            dev_content = str(res)
+        dev_content = res.get("result", "") if isinstance(res, dict) else str(res)
 
         # Calcular duração
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
 
-        user_id = get_user_id_from_file()
-
+        # Se não há conteúdo válido
         if not dev_content or "não foi possível" in dev_content.lower():
-            logger.warning(f"DEV_QUESTIONS | Topic: {topic} | No content found | Duration: {duration:.2f}s")
-            try:
-                postgres_logger.log_operation(
-                    operation_type=OperationType.OPEN_QUESTION.value,  # podes criar um novo tipo se quiseres (DEV_QUESTIONS)
-                    user_id=user_id,
-                    details={"topic": topic, "num_questions": num_questions, "language": language,"model": current_model_name},
-                    status="error",
-                    error_message="No relevant content",
-                    duration_ms=duration_ms
-                )
-                postgres_logger.update_operation_stats(OperationType.OPEN_QUESTION.value, False, duration_ms)
-            except Exception:
-                pass
+            logger.warning(
+                f"DEV_QUESTIONS | Topic: {topic} | No content found | Duration: {duration:.2f}s"
+            )
             return {
                 "success": False,
-                "message": f"No relevant content found about '{topic}'"
+                "message": f"No relevant content found about '{topic}'",
+                "details": {
+                    "topic": topic,
+                    "num_questions": num_questions,
+                    "language": language,
+                    "duration_ms": duration_ms,
+                    "model": current_model_name
+                }
             }
 
-        logger.info(f"DEV_QUESTIONS | Topic: {topic} | Questions: {num_questions} | Success | Duration: {duration:.2f}s")
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.OPEN_QUESTION.value,
-                user_id=user_id,
-                details={"topic": topic, "num_questions": num_questions, "language": language, "duration_ms": duration_ms,"model": current_model_name},
-                status="success",
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.OPEN_QUESTION.value, True, duration_ms)
-        except Exception:
-            pass
+        # Log de sucesso
+        logger.info(
+            f"DEV_QUESTIONS | Topic: {topic} | Questions: {num_questions} | Success | Duration: {duration:.2f}s"
+        )
 
         return {
             "success": True,
-            "questions": dev_content,
+            "response": dev_content,
             "message": f"Development questions successfully generated about {topic}",
             "topic": topic,
-            "language": language
+            "language": language,
+            "details": {
+                "topic": topic,
+                "num_questions": num_questions,
+                "language": language,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
         }
 
     except Exception as e:
@@ -1001,23 +945,20 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
         duration_ms = int(duration * 1000)
         error_msg = str(e)
 
-        logger.error(f"DEV_QUESTIONS | Topic: {topic} | Error: {error_msg} | Duration: {duration:.2f}s")
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.OPEN_QUESTION.value,
-                user_id=user_id,
-                details={"topic": topic, "num_questions": num_questions, "language": language,"model": current_model_name},
-                status="error",
-                error_message=error_msg,
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.OPEN_QUESTION.value, False, duration_ms)
-        except Exception:
-            pass
+        logger.error(
+            f"DEV_QUESTIONS | Topic: {topic} | Error: {error_msg} | Duration: {duration:.2f}s"
+        )
 
         return {
             "success": False,
-            "message": f"Error while generating development questions: {error_msg}"
+            "message": f"Error while generating development questions: {error_msg}",
+            "details": {
+                "topic": topic,
+                "num_questions": num_questions,
+                "language": language,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
         }
 
 @mcp.tool()
@@ -1068,45 +1009,22 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
         """
 
         # Invocar retriever com RAG
-        #plan_content = retrieve(plan_prompt)
-
         res = qa.invoke({"query": plan_prompt})
-        if isinstance(res, dict):
-            plan_content = res.get("result", "")
-        else:
-            plan_content = str(res)
+        plan_content = res.get("result", "") if isinstance(res, dict) else str(res)
 
+        # Calcular duração
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
 
-        user_id = get_user_id_from_file()
-
+        # Se não há conteúdo válido
         if not plan_content or "sem conteúdo relevante" in plan_content.lower():
-            logger.warning(f"STUDY_PLAN | Student: {student_id} | No content found | Duration: {duration:.2f}s")
-            try:
-                postgres_logger.log_operation(
-                    operation_type=OperationType.STUDY_PLAN_GENERATION.value,
-                    user_id=user_id,
-                    details={"student_id": student_id, "goals": goals, "weeks": weeks,"model": current_model_name},
-                    status="error",
-                    error_message="Sem conteúdo relevante",
-                    duration_ms=duration_ms
-                )
-                postgres_logger.update_operation_stats(OperationType.STUDY_PLAN_GENERATION.value, False, duration_ms)
-            except Exception:
-                pass
+            logger.warning(
+                f"STUDY_PLAN | Student: {student_id} | No content found | Duration: {duration:.2f}s"
+            )
             return {
                 "success": False,
-                "message": f"Não foi possível gerar um plano de estudos para '{student_id}'"
-            }
-
-        # Log de sucesso
-        logger.info(f"STUDY_PLAN | Student: {student_id} | Success | Duration: {duration:.2f}s")
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.STUDY_PLAN_GENERATION.value,
-                user_id=user_id,
-                details={
+                "message": f"Não foi possível gerar um plano de estudos para '{student_id}'",
+                "details": {
                     "student_id": student_id,
                     "goals": goals,
                     "weaknesses": weaknesses,
@@ -1114,20 +1032,29 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
                     "weeks": weeks,
                     "duration_ms": duration_ms,
                     "model": current_model_name
-                },
-                status="success",
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.STUDY_PLAN_GENERATION.value, True, duration_ms)
-        except Exception:
-            pass
+                }
+            }
+
+        # Log de sucesso
+        logger.info(
+            f"STUDY_PLAN | Student: {student_id} | Success | Duration: {duration:.2f}s"
+        )
 
         return {
             "success": True,
-            "plan": plan_content,
+            "response": plan_content,
             "message": f"Plano de estudos gerado com sucesso para {student_id}",
             "student_id": student_id,
-            "weeks": weeks
+            "weeks": weeks,
+            "details": {
+                "student_id": student_id,
+                "goals": goals,
+                "weaknesses": weaknesses,
+                "hours_per_week": hours_per_week,
+                "weeks": weeks,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
         }
 
     except Exception as e:
@@ -1135,23 +1062,22 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
         duration_ms = int(duration * 1000)
         error_msg = str(e)
 
-        logger.error(f"STUDY_PLAN | Student: {student_id} | Error: {error_msg} | Duration: {duration:.2f}s")
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.STUDY_PLAN_GENERATION.value,
-                user_id=user_id,
-                details={"student_id": student_id, "goals": goals, "weeks": weeks,"model": current_model_name},
-                status="error",
-                error_message=error_msg,
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.STUDY_PLAN_GENERATION.value, False, duration_ms)
-        except Exception:
-            pass
+        logger.error(
+            f"STUDY_PLAN | Student: {student_id} | Error: {error_msg} | Duration: {duration:.2f}s"
+        )
 
         return {
             "success": False,
-            "message": f"Erro ao gerar plano de estudos: {error_msg}"
+            "message": f"Erro ao gerar plano de estudos: {error_msg}",
+            "details": {
+                "student_id": student_id,
+                "goals": goals,
+                "weaknesses": weaknesses,
+                "hours_per_week": hours_per_week,
+                "weeks": weeks,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
         }
 
 @mcp.tool()
@@ -1168,7 +1094,7 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
     try:
         logger.info(f"LESSON_SUMMARY | Topic: {topic} | Detail: {detail_level} | Starting")
 
-        # 1. Construção do prompt
+        # Construção do prompt
         summary_prompt = f"""
         Generate a {detail_level} summary about the topic: {topic}.
 
@@ -1181,59 +1107,46 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
         - For 'brief', keep the text concise (max 3 paragraphs)
         """
 
-        # 2. Invocar RAG retriever
-        #summary_content = retrieve(summary_prompt)
-
+        # Invocar RAG retriever
         res = qa.invoke({"query": summary_prompt})
-        if isinstance(res, dict):
-            summary_content = res.get("result", "")
-        else:
-            summary_content = str(res)
+        summary_content = res.get("result", "") if isinstance(res, dict) else str(res)
 
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
 
-        user_id = get_user_id_from_file()
-
+        # Caso não haja conteúdo válido
         if not summary_content or "sem conteúdo relevante" in summary_content.lower():
-            logger.warning(f"LESSON_SUMMARY | Topic: {topic} | No content found | Duration: {duration:.2f}s")
-            try:
-                postgres_logger.log_operation(
-                    operation_type=OperationType.SUMMARY_GENERATION.value,
-                    user_id=user_id,
-                    details={"topic": topic, "detail_level": detail_level,"model": current_model_name},
-                    status="error",
-                    error_message="Sem conteúdo relevante",
-                    duration_ms=duration_ms
-                )
-                postgres_logger.update_operation_stats(OperationType.SUMMARY_GENERATION.value, False, duration_ms)
-            except Exception:
-                pass
+            logger.warning(
+                f"LESSON_SUMMARY | Topic: {topic} | No content found | Duration: {duration:.2f}s"
+            )
             return {
                 "success": False,
-                "message": f"Não foi possível encontrar conteúdo relevante sobre '{topic}'"
+                "message": f"Não foi possível encontrar conteúdo relevante sobre '{topic}'",
+                "details": {
+                    "topic": topic,
+                    "detail_level": detail_level,
+                    "duration_ms": duration_ms,
+                    "model": current_model_name
+                }
             }
 
         # Log de sucesso
-        logger.info(f"LESSON_SUMMARY | Topic: {topic} | Success | Duration: {duration:.2f}s")
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.SUMMARY_GENERATION.value,
-                user_id=user_id,
-                details={"topic": topic, "detail_level": detail_level, "duration_ms": duration_ms,"model": current_model_name},
-                status="success",
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.SUMMARY_GENERATION.value, True, duration_ms)
-        except Exception:
-            pass
+        logger.info(
+            f"LESSON_SUMMARY | Topic: {topic} | Success | Duration: {duration:.2f}s"
+        )
 
         return {
             "success": True,
-            "summary": summary_content,
+            "response": summary_content,
             "message": f"Resumo gerado com sucesso sobre {topic}",
             "topic": topic,
-            "detail_level": detail_level
+            "detail_level": detail_level,
+            "details": {
+                "topic": topic,
+                "detail_level": detail_level,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
         }
 
     except Exception as e:
@@ -1241,23 +1154,19 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
         duration_ms = int(duration * 1000)
         error_msg = str(e)
 
-        logger.error(f"LESSON_SUMMARY | Topic: {topic} | Error: {error_msg} | Duration: {duration:.2f}s")
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.SUMMARY_GENERATION,
-                user_id=user_id,
-                details={"topic": topic, "detail_level": detail_level,"model": current_model_name},
-                status="error",
-                error_message=error_msg,
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.SUMMARY_GENERATION.value, False, duration_ms)
-        except Exception:
-            pass
+        logger.error(
+            f"LESSON_SUMMARY | Topic: {topic} | Error: {error_msg} | Duration: {duration:.2f}s"
+        )
 
         return {
             "success": False,
-            "message": f"Erro ao gerar resumo: {error_msg}"
+            "message": f"Erro ao gerar resumo: {error_msg}",
+            "details": {
+                "topic": topic,
+                "detail_level": detail_level,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
         }
 
 @mcp.tool()
@@ -1274,7 +1183,7 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
     try:
         logger.info(f"FLASHCARD_GENERATION | Topic: {topic} | Cards: {num_cards} | Starting")
 
-        # Prompt para gerar flashcards em texto
+        # Prompt para gerar flashcards
         flashcard_prompt = f"""
         Generate {num_cards} flashcards about {topic}.
 
@@ -1290,57 +1199,44 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
         - Do not return JSON or any extra commentary.
         """
 
-        # Invocar o modelo (podes usar retrieve ou qa.invoke → ambos devolvem texto)
-        #flashcards_text = retrieve(flashcard_prompt)
         res = qa.invoke({"query": flashcard_prompt})
-        if isinstance(res, dict):
-            flashcards_text = res.get("result", "")
-        else:
-            flashcards_text = str(res)
+        flashcards_text = res.get("result", "") if isinstance(res, dict) else str(res)
 
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
 
-        user_id = get_user_id_from_file()
-
+        # Se não há conteúdo válido
         if not flashcards_text or "não foi possível" in flashcards_text.lower():
-            logger.warning(f"FLASHCARD_GENERATION | Topic: {topic} | No content found | Duration: {duration:.2f}s")
-            try:
-                postgres_logger.log_operation(
-                    operation_type=OperationType.FLASHCARD_GENERATION.value,
-                    user_id=user_id,
-                    details={"topic": topic, "num_cards": num_cards,"model": current_model_name},
-                    status="error",
-                    error_message="Sem conteúdo relevante",
-                    duration_ms=duration_ms
-                )
-                postgres_logger.update_operation_stats(OperationType.FLASHCARD_GENERATION.value, False, duration_ms)
-            except Exception:
-                pass
+            logger.warning(
+                f"FLASHCARD_GENERATION | Topic: {topic} | No content found | Duration: {duration:.2f}s"
+            )
             return {
                 "success": False,
-                "message": f"Não foi possível gerar flashcards sobre '{topic}'"
+                "message": f"Não foi possível gerar flashcards sobre '{topic}'",
+                "details": {
+                    "topic": topic,
+                    "num_cards": num_cards,
+                    "duration_ms": duration_ms,
+                    "model": current_model_name
+                }
             }
 
         # Log de sucesso
-        logger.info(f"FLASHCARD_GENERATION | Topic: {topic} | Success | Duration: {duration:.2f}s")
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.FLASHCARD_GENERATION.value,
-                user_id=user_id,
-                details={"topic": topic, "num_cards": num_cards, "duration_ms": duration_ms,"model": current_model_name},
-                status="success",
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.FLASHCARD_GENERATION.value, True, duration_ms)
-        except Exception:
-            pass
+        logger.info(
+            f"FLASHCARD_GENERATION | Topic: {topic} | Success | Duration: {duration:.2f}s"
+        )
 
         return {
             "success": True,
-            "flashcards": flashcards_text,
+            "response": flashcards_text,
             "message": f"Flashcards gerados com sucesso sobre {topic}",
-            "topic": topic
+            "topic": topic,
+            "details": {
+                "topic": topic,
+                "num_cards": num_cards,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
         }
 
     except Exception as e:
@@ -1348,23 +1244,19 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
         duration_ms = int(duration * 1000)
         error_msg = str(e)
 
-        logger.error(f"FLASHCARD_GENERATION | Topic: {topic} | Error: {error_msg} | Duration: {duration:.2f}s")
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.FLASHCARD_GENERATION.value,
-                user_id=user_id,
-                details={"topic": topic, "num_cards": num_cards,"model": current_model_name},
-                status="error",
-                error_message=error_msg,
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.FLASHCARD_GENERATION.value, False, duration_ms)
-        except Exception:
-            pass
+        logger.error(
+            f"FLASHCARD_GENERATION | Topic: {topic} | Error: {error_msg} | Duration: {duration:.2f}s"
+        )
 
         return {
             "success": False,
-            "message": f"Erro ao gerar flashcards: {error_msg}"
+            "message": f"Erro ao gerar flashcards: {error_msg}",
+            "details": {
+                "topic": topic,
+                "num_cards": num_cards,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
         }
 
 @mcp.tool()
@@ -1413,55 +1305,44 @@ def generate_test(topic: str, num_questions: int = 10) -> dict:
         Expected answer: ...
         """
 
-        #test_content = retrieve(test_prompt)
         res = qa.invoke({"query": test_prompt})
-        if isinstance(res, dict):
-            test_content = res.get("result", "")
-        else:
-            test_content = str(res)
+        test_content = res.get("result", "") if isinstance(res, dict) else str(res)
 
         duration = time.time() - start_time
         duration_ms = int(duration * 1000)
 
-        user_id = get_user_id_from_file()
-
+        # Caso não haja conteúdo válido
         if not test_content or "não foi possível" in test_content.lower():
-            logger.warning(f"TEST_GENERATION | Topic: {topic} | No content found | Duration: {duration:.2f}s")
-            try:
-                postgres_logger.log_operation(
-                    operation_type=OperationType.TEST_GENERATION,
-                    user_id=user_id,
-                    details={"topic": topic, "num_questions": num_questions,"model": current_model_name},
-                    status="error",
-                    error_message="Sem conteúdo relevante",
-                    duration_ms=duration_ms
-                )
-                postgres_logger.update_operation_stats(OperationType.TEST_GENERATION.value, False, duration_ms)
-            except Exception:
-                pass
+            logger.warning(
+                f"TEST_GENERATION | Topic: {topic} | No content found | Duration: {duration:.2f}s"
+            )
             return {
                 "success": False,
-                "message": f"Não foi possível gerar teste sobre '{topic}'"
+                "message": f"Não foi possível gerar teste sobre '{topic}'",
+                "details": {
+                    "topic": topic,
+                    "num_questions": num_questions,
+                    "duration_ms": duration_ms,
+                    "model": current_model_name
+                }
             }
 
-        logger.info(f"TEST_GENERATION | Topic: {topic} | Questions: {num_questions} | Success | Duration: {duration:.2f}s")
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.TEST_GENERATION,
-                user_id=user_id,
-                details={"topic": topic, "num_questions": num_questions, "duration_ms": duration_ms,"model": current_model_name},
-                status="success",
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.TEST_GENERATION.value, False, duration_ms)
-        except Exception:
-            pass
+        # Log de sucesso
+        logger.info(
+            f"TEST_GENERATION | Topic: {topic} | Questions: {num_questions} | Success | Duration: {duration:.2f}s"
+        )
 
         return {
             "success": True,
-            "test": test_content,
+            "response": test_content,
             "message": f"Teste gerado com sucesso sobre {topic}",
-            "topic": topic
+            "topic": topic,
+            "details": {
+                "topic": topic,
+                "num_questions": num_questions,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
         }
 
     except Exception as e:
@@ -1469,24 +1350,21 @@ def generate_test(topic: str, num_questions: int = 10) -> dict:
         duration_ms = int(duration * 1000)
         error_msg = str(e)
 
-        logger.error(f"TEST_GENERATION | Topic: {topic} | Error: {error_msg} | Duration: {duration:.2f}s")
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.TEST_GENERATION,
-                user_id=user_id,
-                details={"topic": topic, "num_questions": num_questions,"model": current_model_name},
-                status="error",
-                error_message=error_msg,
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.TEST_GENERATION.value, False, duration_ms)
-        except Exception:
-            pass
+        logger.error(
+            f"TEST_GENERATION | Topic: {topic} | Error: {error_msg} | Duration: {duration:.2f}s"
+        )
 
         return {
             "success": False,
-            "message": f"Erro ao gerar teste: {error_msg}"
+            "message": f"Erro ao gerar teste: {error_msg}",
+            "details": {
+                "topic": topic,
+                "num_questions": num_questions,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
         }
+
 
 @mcp.tool()
 def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio: str = "16:9") -> dict:
