@@ -929,7 +929,7 @@ class MCPGeminiClient:
                         "For any question about PDF content, use the 'retrieve' tool.\n"
                         "For the 'retrieve' tool, always use 'prompt' as the argument key.\n"
                         "To generate quizzes with difficulty validation, use 'generate_quiz_with_difficulty'.\n"
-                        "To generate videos with AI (Gemini Veo), use 'generate_video_with_veo'.\n"
+                        "To add the pdfs to the rag, use 'add new_pfds'.\n"
                         "ALWAYS answer in the format:\n"
                         "TOOL: <tool_name>\nARGS: <json_com_arguments>\n"
                         "Here are some examples:\n"
@@ -1039,6 +1039,8 @@ class MCPGeminiClient:
                             parsed = json.loads(content_list[0].text)
                             raw_response = parsed.get("response", "")
                             details = parsed.get("details", {})
+                            download_url =parsed.get("download_url", {})
+                            
                         else:
                             raw_response = str(result.content)
                     else:
@@ -1048,8 +1050,10 @@ class MCPGeminiClient:
                     print("⚠️ Falha ao parsear resposta JSON:", e)
                     raw_response = str(result)
                     details = {}
+                    download_url= None
 
                 print("DETAILS: ",details)
+                print("download_url: ",download_url)
 
 
                 print(f"📄 Resposta bruta da ferramenta: {raw_response}...")
@@ -1121,7 +1125,7 @@ class MCPGeminiClient:
 
                 print(f"✅ Resposta final: {final_response[:100]}...")
                 self.conversation_history.append({"role": "assistant", "content": final_response})
-                return final_response, tool_name, details
+                return final_response, tool_name, details,download_url
 
             else:
                 print(f"⚠️ Resposta não contém TOOL: {text}")
@@ -1253,11 +1257,7 @@ def login():
                             session['user_id'] = user_id  # 🔑 agora guardamos o ID
                             session['role'] = role
 
-                            user_file = Path("current_user.txt")
-
-                            # depois de obter user_id
-                            with open(user_file, "w") as f:
-                                f.write(user_id)
+                            
 
                             # Log opcional
                             postgres_logger.log_operation(
@@ -1368,7 +1368,7 @@ def query():
 
         mcp_client.set_language(current_language)
 
-        response, tool, details = run_async(mcp_client.process_query(query_text))
+        response, tool, details, download_url = run_async(mcp_client.process_query(query_text))
 
         print("📦 DETAILS RECEBIDOS:", details)
         print("TOOL: ",tool)
@@ -1386,7 +1386,7 @@ def query():
         )
         postgres_logger.update_operation_stats(op_type.value, True, duration_ms)
 
-        return jsonify({'response': response})
+        return jsonify({'response': response,'download_url': download_url})
 
     except Exception as e:
         duration_ms = int((time.time() - start_time) * 1000)
@@ -1609,7 +1609,7 @@ def settings_page():
     # Check if user is authenticated
     if not session.get('authenticated'):
         return redirect('/login')
-    if not session["role"] =="Professor":
+    if not session["role"] =="Admin":
         return render_template('simple.html')
     
     return render_template('settings.html')

@@ -238,7 +238,10 @@
                         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </button>
+                {% if session['role'] == 'Admin' %}
                 <button class="dark-mode-toggle" onclick="openSettings()" id="darkModeToggle" title="settings">⚙️</button>
+                {% endif %}
+               
                 <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" id="mobileMenuToggle" title="Menu">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -264,9 +267,14 @@
                 <div class="chat-input-container">
                     <div class="chat-input-wrapper">
                         <div class="input-group">
+                            <!--<label for="pdfUpload" class="upload-btn">+</label>
+                            <input type="file" id="pdfUpload" accept="application/pdf" style="display:none;">-->
+                            
+                            {% if session['role'] != 'Aluno' %}
                             <label for="pdfUpload" class="upload-btn">+</label>
                             <input type="file" id="pdfUpload" accept="application/pdf" style="display:none;">
-                            
+                            {% endif %}
+
                             <textarea 
                                 id="messageInput" 
                                 placeholder="Conecte-se primeiro ao servidor..." 

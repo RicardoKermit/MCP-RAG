@@ -404,19 +404,27 @@ def add_new_pdfs() -> dict:
 
     try:
         if RAG_BACKEND == "qdrant":
-            # Obter fontes já indexadas via busca vazia (limite alto)
-            existing_ids = set([d.metadata.get("source") for d in docsearch.similarity_search("", k=1000)])
+            # Obter fontes já indexadas via busca vazia
+            existing_ids = {d.metadata.get("source") for d in docsearch.similarity_search("", k=1000)}
             for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
                 file_path = str(pdf_file.resolve())
                 if file_path not in existing_ids:
                     loader = PyPDFLoader(
                         file_path=file_path,
                         extract_images=True,
-                        images_parser=RapidOCRBlobParser(),  # OCR para ler texto dentro das imagens
+                        images_parser=RapidOCRBlobParser(),
                     )
                     data = loader.load()
+                    for d in data:
+                        d.metadata["source"] = file_path
+
                     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
                     texts = text_splitter.split_documents(data)
+
+                    # garantir que cada chunk mantém o source
+                    for t in texts:
+                        t.metadata["source"] = file_path
+
                     docsearch.add_documents(texts)
                     new_files_added = True
                     added_count += 1
@@ -424,12 +432,7 @@ def add_new_pdfs() -> dict:
         else:  # Chroma
             existing_metadatas = docsearch.get(include=["metadatas"]).get("metadatas", [])
             existing_sources = {meta.get("source") for meta_list in existing_metadatas for meta in meta_list if isinstance(meta, dict)}
-            for meta_list in existing_metadatas:
-                for meta in meta_list:
-                    if isinstance(meta, dict):
-                        src = meta.get("source")
-                        if src:
-                            existing_sources.add(src)
+
             for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
                 file_path = str(pdf_file.resolve())
                 if file_path not in existing_sources:
@@ -439,16 +442,25 @@ def add_new_pdfs() -> dict:
                         images_parser=RapidOCRBlobParser(),
                     )
                     data = loader.load()
+                    for d in data:
+                        d.metadata["source"] = file_path
+
                     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
                     texts = text_splitter.split_documents(data)
+
+                    # garantir que os chunks guardam o source
+                    for t in texts:
+                        t.metadata["source"] = file_path
+
                     docsearch.add_documents(texts)
                     new_files_added = True
                     added_count += 1
+
             if new_files_added:
                 try:
                     docsearch.persist()
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"⚠️ Erro ao persistir Chroma: {e}")
 
         msg = "PDFs adicionados." if new_files_added else "Nenhum PDF novo para adicionar."
         success = True
@@ -457,8 +469,7 @@ def add_new_pdfs() -> dict:
         msg = f"Erro ao adicionar PDFs: {e}"
         success = False
 
-    duration = time.time() - start_time
-    duration_ms = int(duration * 1000)
+    duration_ms = int((time.time() - start_time) * 1000)
 
     return {
         "success": success,
@@ -467,9 +478,11 @@ def add_new_pdfs() -> dict:
             "tool": "add_new_pdfs",
             "added_count": added_count,
             "duration_ms": duration_ms,
-            "backend": RAG_BACKEND
+            "backend": RAG_BACKEND,
+            "model": current_model_name
         }
     }
+
 
 #### Remove ####
 @mcp.tool()

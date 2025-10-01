@@ -88,3 +88,4 @@ gemini_veo.py
 rag/
 test_roles.py
 /exports
+/rag

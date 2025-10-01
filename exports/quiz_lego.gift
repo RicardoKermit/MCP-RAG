@@ -1,6 +1,34 @@
-::LEGO_Q1:: Qual das seguintes afirmações representa uma das "questões críticas" levantadas no texto sobre o fenómeno LEGO? {
-    ~A diversidade nas minifiguras, apesar de ser um avanço social, diminuiu o interesse dos colecionadores em peças raras.
-    =A expansão para videojogos e filmes, juntamente com a proliferação de conjuntos licenciados e guiados por instruções, questiona a manutenção da criatividade aberta e da função pedagógica original.
-    ~A promessa de sustentabilidade através de bioplásticos já se provou suficiente para a escala de produção global do LEGO.
-    ~A introdução das linhas LEGO Technic e LEGO Space nas décadas de 1970 e 1980 foi o principal fator que impulsionou o LEGO para o colecionismo.
+::LEGO_Q1:: Além do seu papel como brinquedo, o LEGO é reconhecido por qual outra aplicação, conforme o contexto? {
+    ~Exclusivamente como ferramenta de engenharia industrial.
+    =Como meio artístico e arquitetónico, e objeto de investimento para colecionadores.
+    ~Principalmente como material de construção de grande escala.
+    ~Apenas como um passatempo para adultos.
+}
+
+::LEGO_Q2:: Qual é uma das iniciativas da empresa LEGO para se alinhar com preocupações ambientais? {
+    ~Aumentar a produção de peças de metal.
+    =Apostar em plásticos sustentáveis, como os à base de cana-de-açúcar.
+    ~Reduzir o número de peças por conjunto.
+    ~Eliminar completamente o uso de plástico em todos os produtos.
+}
+
+::LEGO_Q3:: No que diz respeito à inclusão, que medida a LEGO tem adotado? {
+    ~Apenas produzir conjuntos para um público específico.
+    ~Focar-se exclusivamente em temas históricos.
+    =Apostar na diversidade das minifiguras.
+    ~Limitar a venda de produtos a certas regiões.
+}
+
+::LEGO_Q4:: A expansão do fenómeno LEGO para áreas como videojogos, filmes e colecionismo levanta a questão de um possível afastamento de qual função original? {
+    ~A sua função de entretenimento puro.
+    =A sua função pedagógica.
+    ~A sua função de marketing.
+    ~A sua função de gerar lucro.
+}
+
+::LEGO_Q5:: Um dos pontos críticos levantados sobre o LEGO na atualidade refere-se à essência da criatividade aberta. Qual é o principal motivo para esta preocupação? {
+    ~A falta de variedade de cores nas peças disponíveis.
+    =O excesso de conjuntos licenciados e altamente guiados por instruções detalhadas.
+    ~A dificuldade em encontrar peças de reposição para conjuntos antigos.
+    ~O aumento do preço dos conjuntos básicos de peças soltas.
 }

@@ -309,11 +309,29 @@ async function sendMessage() {
     const input = document.getElementById('messageInput');
     const message = input.value.trim();
     
+    console.log("message", message);
+    
     if (!message || !isConnected || isGenerating) return;
 
     // Create new conversation if none exists
     if (!currentConversationId) {
-        currentConversationId = await createNewConversation();
+        //currentConversationId = await createNewConversation("message");
+        // --- Início da Modificação ---
+
+        // 1. Define o comprimento máximo para o título
+        let conversationTitle;
+
+        // 2. Cria o título curto a partir da mensagem completa
+        if (message.length > 20) {
+            conversationTitle = message.slice(0, 20) + "...";
+        } else {
+            conversationTitle = message;
+        }
+
+        // 3. Usa o título curto para criar a conversa
+        currentConversationId = await createNewConversation(conversationTitle);
+        
+        // --- Fim da Modificação ---
     }
 
     // Adiciona mensagem do usuário
@@ -340,6 +358,7 @@ async function sendMessage() {
             </svg>
         `;
 
+    let data = null;
     try {
         const response = await fetch('/query', {
             method: 'POST',
@@ -354,7 +373,24 @@ async function sendMessage() {
         });
 
         const data = await response.json();
+        console.log("data", data);
+        // 👉 Se vier um download_url, dispara o download
+        if (data.download_url && typeof data.download_url === "string" && data.download_url.trim() !== "") {
+            const url = window.location.origin + data.download_url; // 👈 constrói o URL completo
+            console.log("Download URL:", url);
+        
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        
+
         addMessage(data.response, false, true); // true para ativar efeito de digitação
+
+        
         
         // Save conversation after successful response
         //saveCurrentConversation();
