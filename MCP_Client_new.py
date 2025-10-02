@@ -592,6 +592,8 @@ def log_user_interaction(action: str, details: dict | None = None, user_id: str 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+MOODLE_TOKEN=os.getenv("MOODLE_TOKEN")
+MOODLE_URL=os.getenv("MOODLE_URL")
 
 if not GEMINI_API_KEY:
     raise ValueError("GOOGLE_API_KEY não definido no .env")
@@ -675,7 +677,7 @@ class MCPGeminiClient:
         self.stdio_cm = None
         self.session_cm = None
         self.is_connected = False
-        self.current_model = "gemini-1.5-flash-8b"  # Changed to the most economical model
+        self.current_model = "gemini-2.5-flash"  # Changed to the most economical model
         self.current_provider = ALL_MODELS[self.current_model]["provider"]
         self.current_language = "pt"  # Idioma padrão (Português)
         self.conversation_history = []  # Histórico da conversa
@@ -824,7 +826,7 @@ class MCPGeminiClient:
                 if hasattr(model_info.content, 'text'):
                     import json
                     server_model_data = json.loads(model_info.content.text)
-                    server_model = server_model_data.get("current_model", "gemini-1.5-flash")
+                    server_model = server_model_data.get(self.current_model, "gemini-2.5-flash")
                     if server_model != self.current_model:
                         print(f"🔄 Sincronizando modelo do servidor: {server_model}")
                         self.current_model = server_model
@@ -834,7 +836,7 @@ class MCPGeminiClient:
                         if hasattr(content, 'text'):
                             import json
                             server_model_data = json.loads(content.text)
-                            server_model = server_model_data.get("current_model", "gemini-1.5-flash")
+                            server_model = server_model_data.get(self.current_model, "gemini-2.5-flash")
                             if server_model != self.current_model:
                                 print(f"🔄 Sincronizando modelo do servidor: {server_model}")
                                 self.current_model = server_model
@@ -868,7 +870,10 @@ class MCPGeminiClient:
         try: 
             
             usertype=os.getenv(session["role"])
+            
             print(usertype)
+            
+            
 
             print(f"🤔 Processando pergunta: {query}")
             print(f"🤖 Usando modelo: {self.current_model} (provider={self.current_provider})")
@@ -930,6 +935,7 @@ class MCPGeminiClient:
                         "For the 'retrieve' tool, always use 'prompt' as the argument key.\n"
                         "To generate quizzes with difficulty validation, use 'generate_quiz_with_difficulty'.\n"
                         "To add the pdfs to the rag, use 'add new_pfds'.\n"
+                        "For analyses use 'analyze_student_queries'. Be as analytical as possible and try to discover patterns in what the student has researched.\n"
                         "ALWAYS answer in the format:\n"
                         "TOOL: <tool_name>\nARGS: <json_com_arguments>\n"
                         "Here are some examples:\n"
@@ -1189,7 +1195,7 @@ def login():
             return "Aluno"
         return "Aluno"
 
-    def get_or_create_user(username: str, email: str = None, full_name: str = None):
+    def get_or_create_user(username: str, email: str = None, full_name: str = None,moodle_id: int = None):
         """Verifica se o user existe, senão cria com role atribuído automaticamente."""
         with postgres_logger.get_connection() as conn:
             with conn.cursor() as cur:
@@ -1203,11 +1209,11 @@ def login():
                 role = get_role_from_username(username)
                 cur.execute(
                     """
-                    INSERT INTO users (username, email, full_name, role)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO users (username, email, courses, role,moodle_user_id)
+                    VALUES (%s, %s, %s, %s,%s)
                     RETURNING id
                     """,
-                    (username, email, full_name, role)
+                     (username, email, full_name, role,moodle_id)
                 )
                 new_id = cur.fetchone()[0]
                 conn.commit()
@@ -1239,11 +1245,47 @@ def login():
                 'password': password,
                 'service': 'moodle_mobile_app'
             }
+
+            params2 = {
+                "wstoken": MOODLE_TOKEN,
+                "wsfunction": "core_user_get_users",
+                "moodlewsrestformat": "json",
+                "criteria[0][key]": "email",
+                "criteria[0][value]": username
+            }
+
+           
+            print("params2----> ", params2)
+            
             
             with httpx.Client() as client:
                 response = client.get(auth_url, params=params)
+                response2 = client.get(MOODLE_URL, params=params2)
+                dados = response2.json()
+                print("response2----> ", dados)
+                print("\n\ndados['users'][0]['id']----> ", dados['users'][0]['id'])
                 
                 if response.status_code == 200:
+
+
+                    user_id = dados['users'][0]['id']
+                    params3 = {
+                        "wstoken": MOODLE_TOKEN,
+                        "wsfunction": "core_enrol_get_users_courses",
+                        "moodlewsrestformat": "json",
+                        "userid": dados['users'][0]['id'],
+                    }
+                    response3 = client.get(MOODLE_URL, params=params3)
+                    dados2 = response3.json()
+                    print("response3----> ", dados2)
+                    
+                    # extrair só os nomes completos
+                    fullnames = [c['fullname'] for c in dados2]
+
+                    print("fullnames----> ", fullnames)
+                    
+                    
+                    
                     try:
                         auth_data = response.json()
                         if 'token' in auth_data and auth_data['token']:
@@ -1253,11 +1295,13 @@ def login():
                             session['moodle_token'] = auth_data['token']
 
                             # Criar ou obter utilizador na BD
-                            user_id, role = get_or_create_user(username, email=username)
+                            user_id, role = get_or_create_user(username, email=username,full_name=fullnames,moodle_id=dados['users'][0]['id'])
                             session['user_id'] = user_id  # 🔑 agora guardamos o ID
                             session['role'] = role
+                            session['moodle_id'] = dados['users'][0]['id']
+                            session['courses'] = fullnames
 
-                            
+                            print("session----> ", session)
 
                             # Log opcional
                             postgres_logger.log_operation(
@@ -1709,42 +1753,30 @@ def get_detailed_statistics():
             'error': str(e)
         })
 
-@app.route('/api/statistics/export')
-def export_statistics():
-    """API para exportar estatísticas em formato JSON"""
-    # Check if user is authenticated
-    if not session.get('authenticated'):
-        return jsonify({'error': 'Not authenticated'}), 401
-    
+@app.route("/export-stats")
+def export_stats():
     try:
-        # Obter estatísticas completas
-        stats = log_analyzer.analyze_logs()
-        system_metrics = postgres_logger.get_system_metrics()
-        
-        export_data = {
-            'export_timestamp': datetime.now().isoformat(),
-            'statistics': stats,
-            'system_metrics': system_metrics,
-            'export_info': {
-                'total_log_files': len(list(log_analyzer.logs_dir.glob("*.log"))),
-                'analysis_period': 'All available logs',
-                'generated_by': 'RAG System Statistics'
-            }
-        }
-        
-        # Criar resposta com headers para download
-        response = make_response(json.dumps(export_data, indent=2, ensure_ascii=False))
-        response.headers['Content-Type'] = 'application/json'
-        response.headers['Content-Disposition'] = f'attachment; filename=rag_statistics_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
-        
-        return response
-        
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT operation_type, status, duration_ms, created_at, user_id
+                    FROM operation_log
+                    ORDER BY created_at DESC
+                    LIMIT 1000
+                """)
+                rows = cur.fetchall()
+                colnames = [desc[0] for desc in cur.description]
+
+        # Gerar CSV na memória
+        def generate():
+            yield ",".join(colnames) + "\n"
+            for row in rows:
+                yield ",".join([str(x) for x in row]) + "\n"
+
+        return Response(generate(), mimetype="text/csv",
+                        headers={"Content-Disposition": "attachment;filename=stats.csv"})
     except Exception as e:
-        logger.error(f"Erro ao exportar estatísticas: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        })
+        return jsonify({"success": False, "error": str(e)})
 
 @app.route('/whoami')
 def whoami():
@@ -2259,6 +2291,9 @@ def stats_latency_by_model():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
+# ========================
+# Estatísticas
+# ========================
 
 from flask import send_file
 import os
@@ -2298,6 +2333,7 @@ def upload_temp():
         "filename": file.filename,
         "message": f"📎 PDF '{file.filename}' carregado. Escreve 'adicionar PDFs' para indexar ao RAG."
     })
+
 
 
 if __name__ == '__main__':

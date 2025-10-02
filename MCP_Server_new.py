@@ -174,7 +174,7 @@ else:
 retriever = docsearch.as_retriever(search_kwargs={"k": 5})
 
 # Modelo atual (será alterado dinamicamente)
-current_model_name = "gemini-1.5-flash-8b"  # Changed to the most economical model
+current_model_name = "gemini-2.5-flash"  # Changed to the most economical model
 model = GoogleGenerativeAI(model=current_model_name, temperature=0.4)
 
 custom_prompt = PromptTemplate(
@@ -726,6 +726,42 @@ def clear_rag() -> str:
 # =====================================================
 # Tools de pesquisa nos documentos
 # =====================================================
+
+@mcp.tool()
+def analyze_student_queries() -> dict:
+    """
+    Returns all content ('content' column) from the conversation_messages table.
+    The goal is to provide the raw data for further analysis.
+    """
+    import time
+    start_time = time.time()
+
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT content FROM public.conversation_messages where role='user' ORDER BY created_at Desc;")
+                messages = [row[0] for row in cur.fetchall()]
+
+        duration_ms = int((time.time() - start_time) * 1000)
+        return {
+            "success": True,
+            "response": messages,
+            "count": len(messages),
+            "details": {
+                "tool": "analyze_student_queries",
+                "duration_ms": duration_ms
+            }
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "response": f"Erro na análise: {str(e)}",
+            "details": {
+                "tool": "analyze_student_queries",
+                "duration_ms": int((time.time() - start_time) * 1000)
+            }
+        }
 
 @mcp.tool()
 def retrieve(prompt: str) -> dict:
