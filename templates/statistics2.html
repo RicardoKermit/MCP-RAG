@@ -5,6 +5,8 @@
   <title>Dialogus - Dashboard Estatísticas</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/icon_white.png') }}">
   <style>
     body { font-family: 'Inter', sans-serif; margin: 20px; background: #f8f9fa; }
@@ -30,8 +32,9 @@
 </head>
 <body>
   <h1>📊 Dashboard de Estatísticas</h1>
+  <button onclick="exportDashboard()">⬇️ Exportar Dashboard</button>
 
-    <!-- Métricas Técnicas -->
+      <!-- Métricas Técnicas -->
     <h2>Infraestrutura & Performance</h2>
     <div class="grid">
         <div class="card"><div class="metric" id="totalOps">0</div><div class="label">Operações (7 dias)</div></div>
@@ -409,6 +412,53 @@ async function loadLatencyByModel() {
     }
   });
 }
+
+async function exportDashboard() {
+  const zip = new JSZip();
+
+  // 1. Exportar dados
+  const endpoints = [
+    { url: "/stats/technical", label: "technical" },
+    { url: "/stats/educational", label: "educational" },
+    { url: "/stats/performance", label: "performance" },
+    { url: "/stats/system", label: "system" },
+    { url: "/stats/models", label: "models" },
+    { url: "/stats/top-users", label: "top_users" },
+    { url: "/stats/roles", label: "roles" },
+    { url: "/stats/errors-by-role", label: "errors_by_role" },
+    { url: "/stats/errors", label: "errors_by_model" },
+    { url: "/stats/latency-by-model", label: "latency" }
+  ];
+
+  let allData = {};
+  for (const ep of endpoints) {
+    const res = await fetch(ep.url);
+    const json = await res.json();
+    allData[ep.label] = json;
+  }
+  zip.file("estatisticas.json", JSON.stringify(allData, null, 2));
+
+  // 2. Exportar gráficos como PNG
+  const chartIds = [
+    "opsPerTypeChart", "eduTrendsChart", "performanceChart",
+    "modelsChart", "topUsersChart", "rolesChart",
+    "errorsByRoleChart", "errorsByModelChart", "latencyByModelChart"
+  ];
+
+  chartIds.forEach(id => {
+    const chart = Chart.getChart(id);
+    if (chart) {
+      const base64 = chart.toBase64Image().split(",")[1]; // só os dados
+      zip.file(`${id}.png`, base64, { base64: true });
+    }
+  });
+
+  // 3. Gerar zip para download
+  const blob = await zip.generateAsync({ type: "blob" });
+  saveAs(blob, "dashboard.zip");
+}
+
+
 
     loadLatencyByModel();
     loadErrorsByModel();
