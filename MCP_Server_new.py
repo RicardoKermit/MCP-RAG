@@ -731,6 +731,7 @@ def assign_role(email: str, role: str) -> dict:
       - email: user email to update
       - role: role to assign ("Admin", "Professor", "Aluno")
     """
+    logger.info(f"ASSIGN_ROLE | Starting")
     start_time = time.time()
     allowed_roles = ["Admin", "Professor", "Aluno"]
 
@@ -784,15 +785,6 @@ def assign_role(email: str, role: str) -> dict:
         err_msg = str(e)
         logger.error(f"ASSIGN_ROLE | Error: {err_msg}")
 
-        postgres_logger.log_operation(
-            operation_type=OperationType.SYSTEM_MAINTENANCE.value,
-            user_id=None,
-            details={"tool": "assign_role", "email": email, "role": role},
-            status="error",
-            error_message=err_msg,
-            duration_ms=duration_ms
-        )
-        postgres_logger.update_operation_stats(OperationType.SYSTEM_MAINTENANCE.value, False, duration_ms)
 
         return {
             "success": False,
@@ -875,6 +867,7 @@ def deactivate_user(email: str) -> dict:
     Arguments:
       - email: user email to deactivate
     """
+    logger.info(f"DEACTIVATE_USER | Starting")
     start_time = time.time()
     try:
         with postgres_logger.get_connection() as conn:
@@ -931,11 +924,12 @@ def export_logs() -> dict:
     ONLY for Admin use.
     """
     import zipfile
+    logger.info(f"EXPORT_LOGS | Starting")
     start_time = time.time()
     try:
         log_dir = Path("logs")
         if not log_dir.exists():
-            return {"success": False, "message": "Logs directory not found"}
+            return {"success": False, "response": "Logs directory not found"}
 
         zip_path = Path("exports") / f"logs_export_{int(time.time())}.zip"
         zip_path.parent.mkdir(exist_ok=True)
@@ -958,7 +952,8 @@ def export_logs() -> dict:
             }
         }
     except Exception as e:
-        return {"success": False, "message": f"Erro ao exportar logs: {e}"}
+        logger.error(f"EXPORT_LOGS | Error | Duration: {duration_ms}ms")
+        return {"success": False, "response": f"Erro ao exportar logs: {e}"}
 
 @mcp.tool()
 def system_health_check() -> dict:
@@ -1059,6 +1054,7 @@ def summarize_student_questions(limit: int = 100) -> dict:
     Summarizes recent student questions across the platform.
     Only for Professors. Ignores courses, just looks at messages by role=Aluno.
     """
+    logger.info(f"SUMMARIZE_STUDENT_QUESTIONS | Starting")
     start_time = time.time()
     try:
         with postgres_logger.get_connection() as conn:
@@ -1078,8 +1074,11 @@ def summarize_student_questions(limit: int = 100) -> dict:
         duration_ms = int((time.time() - start_time) * 1000)
 
         if not messages:
+            logger.error(f"SUMMARIZE_STUDENT_QUESTIONS  | Error | Duration: {duration_ms}ms")
             return {"success": False, "response": "Sem mensagens de alunos encontradas."}
 
+
+        logger.info(f"SUMMARIZE_STUDENT_QUESTIONS | Success | Duration: {duration_ms}ms")
         # Retorna já as mensagens para o LLM resumir no client
         return {
             "success": True,
@@ -1092,6 +1091,8 @@ def summarize_student_questions(limit: int = 100) -> dict:
         }
 
     except Exception as e:
+        
+        logger.error(f"SUMMARIZE_STUDENT_QUESTIONS | Error | Error: {e}")
         return {
             "success": False,
             "response": f"Erro: {e}",
@@ -1224,7 +1225,7 @@ def analyze_student_queries() -> dict:
     Returns all content ('content' column) from the conversation_messages table.
     The goal is to provide the raw data for further analysis.
     """
-    import time
+    logger.info(f"ANALYZE_STUDENT_QUERIES | Starting")
     start_time = time.time()
 
     try:
@@ -1234,6 +1235,7 @@ def analyze_student_queries() -> dict:
                 messages = [row[0] for row in cur.fetchall()]
 
         duration_ms = int((time.time() - start_time) * 1000)
+        logger.info(f"ANALYZE_STUDENT_QUERIES | Success | Duration: {duration_ms:.2f}s")
         return {
             "success": True,
             "response": messages,
@@ -1245,6 +1247,7 @@ def analyze_student_queries() -> dict:
         }
 
     except Exception as e:
+        logger.error(f"ANALYZE_STUDENT_QUERIES | Error: {e} | Duration: {duration_ms:.2f}s")
         return {
             "success": False,
             "response": f"Erro na análise: {str(e)}",
@@ -1870,167 +1873,6 @@ def generate_test(topic: str, num_questions: int = 10, with_answers: bool = Fals
                 "with_answers": with_answers,
                 "model": current_model_name
             }
-        }
-
-@mcp.tool()
-def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio: str = "16:9") -> dict:
-    """
-    Generates a video using the Gemini Veo API based on a textual description.
-    ALWAYS use this tool whenever the user asks to create or generate a video.
-    Arguments:
-      - description: a textual description of the video.
-      - style: the style of the video (default: "realistic").
-      - duration: duration of the video in seconds (default: 30).
-    """
-    try:
-        from google import genai
-        from google.genai import types
-        import time
-        
-        # Verificar se a API key está configurada
-        api_key = os.environ.get("GOOGLE_API_KEY")
-        if not api_key:
-            # Log erro em Postgres
-            try:
-                postgres_logger.log_operation(
-                    operation_type=OperationType.VIDEO_GENERATION,
-                    details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio,"model": current_model_name},
-                    status="error",
-                    error_message="API key não configurada"
-                )
-            except Exception:
-                pass
-            return {
-                "success": False,
-                "message": "API key do Gemini não configurada. Configure a variável GEMINI_API_KEY."
-            }
-        
-        # Configurar cliente Gemini
-        client = genai.Client(
-            http_options={"api_version": "v1beta"},
-            api_key=api_key,
-        )
-        
-        # Configuração do vídeo
-        video_config = types.GenerateVideosConfig(
-            person_generation="dont_allow",  # Não permitir pessoas
-            aspect_ratio=aspect_ratio,
-            number_of_videos=1,
-            duration_seconds=duration_seconds,
-        )
-        
-        # Melhorar o prompt para ser mais descritivo
-        enhanced_prompt = f"""
-        Cria um vídeo educativo sobre: {prompt}
-        
-        Requisitos:
-        - Estilo educativo e profissional
-        - Visual limpo e moderno
-        - Incluir elementos visuais relevantes
-        - Texto claro e legível
-        - Cores contrastantes para boa visibilidade
-        - Animação suave e profissional
-        """
-        
-        print(f"Iniciando geracao de video com Gemini Veo...")
-        print(f"Prompt: {enhanced_prompt}")
-        
-        start_time = time.time()
-        # Gerar vídeo
-        operation = client.models.generate_videos(
-            model="veo-2.0-generate-001",
-            prompt=enhanced_prompt,
-            config=video_config,
-        )
-        
-        # Aguardar conclusão
-        print("Aguardando geracao do video...")
-        while not operation.done:
-            print("Video ainda nao foi gerado. Verificando em 10 segundos...")
-            time.sleep(10)
-            operation = client.operations.get(operation)
-        
-        result = operation.result
-        if not result:
-            # Log erro em Postgres
-            try:
-                postgres_logger.log_operation(
-                    operation_type=OperationType.VIDEO_GENERATION,
-                    details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio,"model": current_model_name},
-                    status="error",
-                    error_message="Resultado vazio do Gemini Veo"
-                )
-            except Exception:
-                pass
-            return {
-                "success": False,
-                "message": "Erro durante a geração do vídeo com Gemini Veo"
-            }
-        
-        generated_videos = result.generated_videos
-        if not generated_videos:
-            # Log erro em Postgres
-            try:
-                postgres_logger.log_operation(
-                    operation_type=OperationType.VIDEO_GENERATION,
-                    details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio,"model": current_model_name},
-                    status="error",
-                    error_message="Nenhum vídeo gerado"
-                )
-            except Exception:
-                pass
-            return {
-                "success": False,
-                "message": "Nenhum vídeo foi gerado pelo Gemini Veo"
-            }
-        
-        # Baixar o vídeo gerado
-        generated_video = generated_videos[0]
-        video_filename = f"video_veo_{uuid.uuid4().hex[:8]}.mp4"
-        
-        print(f"Baixando video: {generated_video.video.uri}")
-        client.files.download(file=generated_video.video)
-        generated_video.video.save(video_filename)
-        
-        print(f"Video gerado com sucesso: {video_filename}")
-        
-        # Log sucesso em Postgres
-        try:
-            duration_ms = int((time.time() - start_time) * 1000)
-            postgres_logger.log_operation(
-                operation_type=OperationType.VIDEO_GENERATION,
-                details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio, "video_path": video_filename, "generation_duration_ms": duration_ms,"model": current_model_name},
-                status="success",
-                duration_ms=duration_ms
-            )
-            postgres_logger.update_operation_stats(OperationType.VIDEO_GENERATION.value, True, duration_ms)
-        except Exception:
-            pass
-        
-        return {
-            "success": True,
-            "video_path": video_filename,
-            "message": f"Vídeo gerado com sucesso usando Gemini Veo: {video_filename}",
-            "duration": duration_seconds
-        }
-        
-    except Exception as e:
-        error_msg = str(e)
-        # Remover caracteres especiais que podem causar problemas de codificação
-        error_msg = error_msg.encode('ascii', 'ignore').decode('ascii')
-        # Log erro em Postgres
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.VIDEO_GENERATION,
-                details={"prompt": prompt[:200], "duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio,"model": current_model_name},
-                status="error",
-                error_message=error_msg
-            )
-        except Exception:
-            pass
-        return {
-            "success": False,
-            "message": f"Erro ao gerar video com Gemini Veo: {error_msg}"
         }
 
 if __name__ == "__main__":

@@ -506,8 +506,8 @@ def map_tool_to_operation(tool_name: str) -> OperationType:
         return OperationType.ANALYZE_STUDENT_QUERIES
     elif tool_name == "add_new_pdfs":
         return OperationType.FILE_UPLOAD
-    elif tool_name == "recommend_reading_material":
-        return OperationType.RECOMMEND_READING_MATERIAL
+    elif tool_name == "assign_role" or tool_name == "system_health_check" or tool_name == "list_users":
+        return OperationType.SYSTEM_MAINTENANCE
     else:
         return OperationType.API_CALL  # fallback
 
@@ -532,25 +532,6 @@ def log_rag_operation(operation: str, topic: str, success: bool, duration: float
     # keep existing file/console log
     logger.info(f"RAG_OPERATION | {operation} | Topic: {topic} | Success: {success} | Duration: {duration}s | Error: {error}")
 
-def log_quiz_generation(topic: str, num_questions: int, difficulty: str, success: bool, duration: float | None = None, error: str | None = None, user_id: str | None = None):
-    duration_ms = int(duration * 1000) if duration else None
-    # NEW: write to Postgres
-    try:
-        postgres_logger.log_operation(
-            operation_type=OperationType.QUIZ_GENERATION,
-            user_id=user_id,
-            details={"topic": topic, "num_questions": num_questions, "difficulty": difficulty, "duration_ms": duration_ms, **({"error": error} if error else {})},
-            status="success" if success else "error",
-            error_message=error,
-            duration_ms=duration_ms,
-        )
-        if duration_ms is not None:
-            postgres_logger.update_operation_stats(OperationType.QUIZ_GENERATION.value, success, duration_ms)
-    except Exception as e:
-        logger.warning(f"Postgres log_quiz_generation failed: {e}")
-    # keep existing file/console log
-    logger.info(f"QUIZ_GENERATION | {topic} | {num_questions} | {difficulty} | {success} | {duration}s | {error}")
-  
 
 def log_system_error(operation: str, error: str, context: dict | None = None, user_id: str | None = None):
     # NEW: write to Postgres
@@ -1604,51 +1585,6 @@ def get_languages():
 def test():
     return jsonify({'message': 'API funcionando!'})
 
-@app.route('/generate-quiz', methods=['POST'])
-def generate_quiz():
-    # Check if user is authenticated
-    if not session.get('authenticated'):
-        return jsonify({'error': 'Not authenticated'}), 401
-    
-    start_time = time.time()
-    try:
-        data = request.get_json()
-        topic = data.get('topic', '')
-        question_type = data.get('questionType', 'multiple_choice')
-        num_questions = data.get('numQuestions', 5)
-        difficulty = data.get('difficulty', 'mixed')
-        
-        # Log da tentativa de geração
-        log_user_interaction("generate_quiz", {
-            "topic": topic,
-            "question_type": question_type,
-            "num_questions": num_questions,
-            "difficulty": difficulty
-        })
-        
-        if not topic:
-            log_system_error("generate_quiz", "Tópico vazio")
-            return jsonify({'error': 'Tópico é obrigatório'})
-        
-        # Construir prompt para geração de questionário
-        prompt = f"Gera {num_questions} perguntas de {question_type} sobre {topic} com nível de dificuldade {difficulty}"
-        
-        # Executar no servidor MCP
-        result = run_async(mcp_client.process_query(prompt))
-        
-        # Calcular duração
-        duration = time.time() - start_time
-        
-        # Log de sucesso
-        log_quiz_generation(topic, num_questions, difficulty, True, duration)
-        
-        return jsonify({'success': True, 'result': result})
-        
-    except Exception as e:
-        duration = time.time() - start_time
-        error_msg = str(e)
-        log_quiz_generation(topic, num_questions, difficulty, False, duration, error_msg)
-        return jsonify({'error': f'Erro ao gerar questionário: {error_msg}'})
 
 @app.route('/statistics-page')
 def statistics_page():
