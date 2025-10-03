@@ -36,7 +36,6 @@ class OperationType(Enum):
     """Types of operations that can be logged"""
     RAG_QUERY = "rag_query"
     QUIZ_GENERATION = "quiz_generation"
-    VIDEO_GENERATION = "video_generation"
     USER_LOGIN = "user_login"
     USER_LOGOUT = "user_logout"
     FILE_UPLOAD = "file_upload"

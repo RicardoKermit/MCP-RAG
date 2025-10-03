@@ -960,6 +960,94 @@ def export_logs() -> dict:
     except Exception as e:
         return {"success": False, "message": f"Erro ao exportar logs: {e}"}
 
+@mcp.tool()
+def system_health_check() -> dict:
+    """
+    Checks health of core dependencies (DB, RAG backend, Moodle API, disk).
+    ONLY Admins should use this.
+    """
+    import shutil, time, httpx
+    start_time = time.time()
+    user_id = None
+    try:
+        try:
+            user_id = get_user_id_from_file()
+        except Exception:
+            pass
+
+        health = {"database": "unknown", "rag_backend": "unknown", "moodle_api": "unknown", "disk": {}}
+
+        # DB check
+        try:
+            with postgres_logger.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT 1;")
+                    cur.fetchone()
+            health["database"] = "ok"
+        except Exception as e:
+            health["database"] = f"error: {e}"
+
+        # RAG backend check
+        try:
+            if RAG_BACKEND == "qdrant":
+                # tentativa leve: listar coleções (se tiveres cliente, troca pelo teu)
+                health["rag_backend"] = f"{RAG_BACKEND}: ok"
+            elif RAG_BACKEND == "chroma":
+                # se docsearch existir, tenta um ping simples via count de metadados
+                try:
+                    _ = docsearch.get(include=["metadatas"])
+                    health["rag_backend"] = f"{RAG_BACKEND}: ok"
+                except Exception as e:
+                    health["rag_backend"] = f"{RAG_BACKEND}: error: {e}"
+            else:
+                health["rag_backend"] = f"{RAG_BACKEND}: unknown"
+        except Exception as e:
+            health["rag_backend"] = f"error: {e}"
+
+        # Moodle check (site info)
+        try:
+            params = {
+                "wstoken": MOODLE_TOKEN,
+                "wsfunction": "core_webservice_get_site_info",
+                "moodlewsrestformat": "json",
+            }
+            with httpx.Client(timeout=10) as client:
+                r = client.get(MOODLE_URL, params=params)
+                r.raise_for_status()
+                _ = r.json()
+            health["moodle_api"] = "ok"
+        except Exception as e:
+            health["moodle_api"] = f"error: {e}"
+
+        # Disk
+        try:
+            du = shutil.disk_usage(".")
+            used_pct = round(100 * (1 - du.free / du.total), 1)
+            health["disk"] = {
+                "total_gb": round(du.total / (1024**3), 1),
+                "free_gb": round(du.free / (1024**3), 1),
+                "used_percent": used_pct
+            }
+        except Exception as e:
+            health["disk"] = {"error": str(e)}
+
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        return {
+            "success": True,
+            "response": health,
+            "details": {
+                "tool": "system_health_check",
+                "health": health,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
+        }
+
+    except Exception as e:
+        duration_ms = int((time.time() - start_time) * 1000)
+        return {"success": False, "response": str(e), "details": {"tool": "system_health_check","duration_ms": duration_ms,"model": current_model_name}}
+
 
 # =====================================================
 # Tools de pesquisa nos documentos

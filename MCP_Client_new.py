@@ -550,27 +550,7 @@ def log_quiz_generation(topic: str, num_questions: int, difficulty: str, success
         logger.warning(f"Postgres log_quiz_generation failed: {e}")
     # keep existing file/console log
     logger.info(f"QUIZ_GENERATION | {topic} | {num_questions} | {difficulty} | {success} | {duration}s | {error}")
- 
-
-def log_video_generation(prompt: str, duration: int, aspect_ratio: str, success: bool, generation_duration: float | None = None, error: str | None = None, user_id: str | None = None):
-    gen_ms = int(generation_duration * 1000) if generation_duration else None
-    # NEW: write to Postgres
-    try:
-        postgres_logger.log_operation(
-            operation_type=OperationType.VIDEO_GENERATION,
-            user_id=user_id,
-            details={"prompt": prompt[:200], "video_duration_seconds": duration, "aspect_ratio": aspect_ratio, "generation_duration_ms": gen_ms, **({"error": error} if error else {})},
-            status="success" if success else "error",
-            error_message=error,
-            duration_ms=gen_ms,
-        )
-        if gen_ms is not None:
-            postgres_logger.update_operation_stats(OperationType.VIDEO_GENERATION.value, success, gen_ms)
-    except Exception as e:
-        logger.warning(f"Postgres log_video_generation failed: {e}")
-    # keep existing file/console log
-    logger.info(f"VIDEO_GENERATION | {duration}s | {aspect_ratio} | {success} | {generation_duration}s | {error}")
- 
+  
 
 def log_system_error(operation: str, error: str, context: dict | None = None, user_id: str | None = None):
     # NEW: write to Postgres
