@@ -99,10 +99,6 @@ function showToolsInfo(tools) {
     
     if (tools && tools.length > 0) {
         toolsList.innerHTML = tools.map(tool => `<div class="tool-item">${tool}</div>`).join('');
-        
-        // Mostrar seções de questionários e vídeos com IA
-        showQuizSection();
-        showVideoAISection();
     }
 }
 
@@ -679,18 +675,7 @@ function updateInterfaceLanguage() {
             const serverPath = document.getElementById('serverPath');
             if (serverPath) serverPath.placeholder = translations.server_path_placeholder;
         }
-        if (translations.quiz_topic_placeholder) {
-            const quizTopic = document.getElementById('quizTopic');
-            if (quizTopic) quizTopic.placeholder = translations.quiz_topic_placeholder;
-        }
-        if (translations.quiz_num_questions_placeholder) {
-            const quizNumQuestions = document.getElementById('quizNumQuestions');
-            if (quizNumQuestions) quizNumQuestions.placeholder = translations.quiz_num_questions_placeholder;
-        }
-        if (translations.video_prompt_placeholder) {
-            const videoPrompt = document.getElementById('videoAIPrompt');
-            if (videoPrompt) videoPrompt.placeholder = translations.video_prompt_placeholder;
-        }
+        
         if (translations.connect_first) {
             const messageInput = document.getElementById('messageInput');
             if (messageInput && !isConnected) {
@@ -729,43 +714,10 @@ function updateInterfaceLanguage() {
             const conversationsSection = document.getElementById('conversationsSectionTitle');
             if (conversationsSection) conversationsSection.textContent = translations.conversations;
         }
-        if (translations.quiz_section) {
-            const quizSection = document.querySelector('#quizSection h3');
-            if (quizSection) quizSection.textContent = translations.quiz_section;
-        }
-        if (translations.video_ai_section) {
-            const videoSection = document.querySelector('#videoAISection h3');
-            if (videoSection) videoSection.textContent = translations.video_ai_section;
-        }
+        
         
         // Atualizar descrição do modelo atual
         updateModelDescription();
-
-        
-        // Atualizar opções dos selects
-        updateSelectOptions();
-        
-        // Atualizar botões
-        if (translations.generate_quiz) {
-            const generateQuizBtn = document.getElementById('generateQuizBtn');
-            if (generateQuizBtn) {
-                const currentText = generateQuizBtn.textContent;
-                const newText = currentText.replace(/Gerar Questionário|Generate Quiz/, translations.generate_quiz);
-                if (newText !== currentText) {
-                    generateQuizBtn.textContent = newText;
-                }
-            }
-        }
-        if (translations.generate_video_ai) {
-            const generateVideoBtn = document.getElementById('generateVideoAIBtn');
-            if (generateVideoBtn) {
-                const currentText = generateVideoBtn.textContent;
-                const newText = currentText.replace(/Gerar Vídeo com IA|Generate AI Video/, translations.generate_video_ai);
-                if (newText !== currentText) {
-                    generateVideoBtn.textContent = newText;
-                }
-            }
-        }
         
         // Atualizar footer
         if (translations.mcp_client_interface) {
@@ -782,60 +734,6 @@ function updateInterfaceLanguage() {
     }
 }
 
-function updateSelectOptions() {
-    try {
-        // Atualizar opções do quiz type
-        const quizTypeSelect = document.getElementById('quizType');
-        if (quizTypeSelect && translations.multiple_choice && translations.true_false) {
-            quizTypeSelect.innerHTML = `
-                <option value="multiple_choice">${translations.multiple_choice}</option>
-                <option value="true_false">${translations.true_false}</option>
-            `;
-        }
-        
-        // Atualizar opções do quiz format
-        const quizFormatSelect = document.getElementById('quizFormat');
-        if (quizFormatSelect && translations.markdown && translations.text) {
-            quizFormatSelect.innerHTML = `
-                <option value="markdown">${translations.markdown}</option>
-                <option value="text">${translations.text}</option>
-            `;
-        }
-        
-        // Atualizar opções do quiz difficulty
-        const quizDifficultySelect = document.getElementById('quizDifficulty');
-        if (quizDifficultySelect && translations.mixed && translations.easy && translations.medium && translations.hard) {
-            quizDifficultySelect.innerHTML = `
-                <option value="mixed">${translations.mixed}</option>
-                <option value="easy">${translations.easy}</option>
-                <option value="medium">${translations.medium}</option>
-                <option value="hard">${translations.hard}</option>
-            `;
-        }
-        
-        // Atualizar opções do video duration
-        const videoDurationSelect = document.getElementById('videoAIDuration');
-        if (videoDurationSelect && translations.seconds) {
-            videoDurationSelect.innerHTML = `
-                <option value="5">5 ${translations.seconds}</option>
-                <option value="6">6 ${translations.seconds}</option>
-                <option value="7">7 ${translations.seconds}</option>
-                <option value="8" selected>8 ${translations.seconds}</option>
-            `;
-        }
-        
-        // Atualizar opções do video aspect ratio
-        const videoAspectSelect = document.getElementById('videoAIAspectRatio');
-        if (videoAspectSelect && translations.widescreen && translations.desktop) {
-            videoAspectSelect.innerHTML = `
-                <option value="16:9" selected>${translations.widescreen}</option>
-                <option value="16:10">${translations.desktop}</option>
-            `;
-        }
-    } catch (error) {
-        console.error('Erro ao atualizar opções dos selects:', error);
-    }
-}
 
 function updateModalTranslations() {
     try {
@@ -1380,214 +1278,6 @@ function openSettings() {
     window.location.href="/settings-page"
 }
 
-
-
-// Funções para Vídeos com IA
-function showVideoAISection() {
-    const videoAISection = document.getElementById('videoAISection');
-    if (videoAISection) {
-        videoAISection.style.display = 'block';
-        videoAISection.style.animation = 'slideIn 0.3s ease-out';
-    }
-}
-
-function generateVideoAI() {
-    const prompt = document.getElementById('videoAIPrompt').value.trim();
-    const duration = parseInt(document.getElementById('videoAIDuration').value);
-    const aspectRatio = document.getElementById('videoAIAspectRatio').value;
-    
-    if (!prompt) {
-        alert('Por favor, insira uma descrição detalhada do vídeo.');
-        return;
-    }
-    
-    // Mostrar loading
-    setVideoButtonLoading('generateVideoAIBtn', true);
-    
-    // Construir prompt para geração de vídeo com IA
-    const aiPrompt = `Gera vídeo com IA sobre: ${prompt}. Usa a ferramenta generate_video_with_veo com duração ${duration} segundos e proporção ${aspectRatio}.`;
-    
-    fetch('/query', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            query: aiPrompt,
-            language: 'pt'
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        setVideoButtonLoading('generateVideoAIBtn', false);
-        
-        if (data.response) {
-            addMessage(`🤖 **Vídeo com IA gerado!**\n\n**Descrição:** ${prompt}\n**Duração:** ${duration} segundos\n**Proporção:** ${aspectRatio}\n\n${data.response}`, false, true);
-        } else {
-            addMessage(`❌ **Erro ao gerar vídeo com IA:** ${data.error || 'Erro desconhecido'}`, false, false);
-        }
-    })
-    .catch(error => {
-        setVideoButtonLoading('generateVideoAIBtn', false);
-        console.error('Erro na requisição:', error);
-        addMessage(`❌ **Erro de conexão:** ${error.message}`, false, false);
-    })
-    .catch(error => {
-        setVideoButtonLoading('generateVideoAIBtn', false);
-        addMessage(`❌ **Erro de conexão:** ${error.message}`, false, false);
-    });
-}
-
-
-
-
-
-// Funções para Questionários
-function showQuizSection() {
-    const quizSection = document.getElementById('quizSection');
-    if (quizSection) {
-        quizSection.style.display = 'block';
-        quizSection.style.animation = 'slideIn 0.3s ease-out';
-    }
-}
-
-function generateQuiz() {
-    const topic = document.getElementById('quizTopic').value.trim();
-    const questionType = document.getElementById('quizType').value;
-    const numQuestions = parseInt(document.getElementById('quizNumQuestions').value);
-    const difficulty = document.getElementById('quizDifficulty').value;
-    
-    if (!topic) {
-        alert('Por favor, insira um tópico para o questionário.');
-        return;
-    }
-    
-    // Mostrar loading
-    setQuizButtonLoading('generateQuizBtn', true);
-    updateQuizStatus('Gerando questionário...', 'generating');
-    
-    fetch('/generate-quiz', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            topic: topic,
-            questionType: questionType,
-            numQuestions: numQuestions,
-            difficulty: difficulty
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        setQuizButtonLoading('generateQuizBtn', false);
-        
-        if (data.success) {
-            updateQuizStatus('Questionário gerado!', 'success');
-            addMessage(`📝 **Questionário gerado com sucesso!**\n\n**Tópico:** ${topic}\n**Tipo:** ${questionType}\n**Número de perguntas:** ${numQuestions}\n**Dificuldade:** ${difficulty}\n\n${data.result}`, false, true);
-        } else {
-            updateQuizStatus('Erro ao gerar questionário', 'error');
-            addMessage(`❌ **Erro ao gerar questionário:** ${data.error}`, false, false);
-        }
-    })
-    .catch(error => {
-        setQuizButtonLoading('generateQuizBtn', false);
-        updateQuizStatus('Erro de conexão', 'error');
-        addMessage(`❌ **Erro de conexão:** ${error.message}`, false, false);
-    });
-}
-
-
-
-
-
-function updateQuizStatus(status, type = 'ready') {
-    const statusText = document.querySelector('#quizSection .status-text');
-    const statusDot = document.querySelector('#quizSection .status-dot');
-    
-    if (statusText && statusDot) {
-        statusText.textContent = status;
-        
-        // Remover classes anteriores
-        statusDot.className = 'status-dot';
-        
-        // Adicionar classe baseada no tipo
-        switch (type) {
-            case 'ready':
-                statusDot.classList.add('ready');
-                break;
-            case 'generating':
-                statusDot.classList.add('generating');
-                break;
-            case 'success':
-                statusDot.classList.add('success');
-                break;
-            case 'error':
-                statusDot.classList.add('error');
-                break;
-        }
-    }
-}
-
-function setQuizButtonLoading(buttonId, loading = true) {
-    const button = document.getElementById(buttonId);
-    if (button) {
-        if (loading) {
-            button.disabled = true;
-            button.classList.add('loading');
-            
-            // Adicionar animação de loading
-            const originalText = button.textContent;
-            button.innerHTML = `
-                <svg class="btn-icon loading-spin" viewBox="0 0 24 24">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                </svg>
-                Gerando...
-            `;
-            
-            // Guardar texto original para restaurar depois
-            button.dataset.originalText = originalText;
-        } else {
-            button.disabled = false;
-            button.classList.remove('loading');
-            
-            // Restaurar texto original
-            if (button.dataset.originalText) {
-                button.textContent = button.dataset.originalText;
-            }
-        }
-    }
-}
-
-function setVideoButtonLoading(buttonId, loading = true) {
-    const button = document.getElementById(buttonId);
-    if (button) {
-        if (loading) {
-            button.disabled = true;
-            button.classList.add('loading');
-            
-            // Adicionar animação de loading
-            const originalText = button.textContent;
-            button.innerHTML = `
-                <svg class="btn-icon loading-spin" viewBox="0 0 24 24">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                </svg>
-                Gerando...
-            `;
-            
-            // Guardar texto original para restaurar depois
-            button.dataset.originalText = originalText;
-        } else {
-            button.disabled = false;
-            button.classList.remove('loading');
-            
-            // Restaurar texto original
-            if (button.dataset.originalText) {
-                button.textContent = button.dataset.originalText;
-            }
-        }
-    }
-}
 
 // Função para atualizar a descrição do modelo atual com base no idioma
 function updateModelDescription() {
