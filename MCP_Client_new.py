@@ -997,7 +997,7 @@ class MCPGeminiClient:
                         return ROLE_PERMISSIONS["Aluno"]
           
                 # Lista de ferramentas válidas
-                #allowed_tools = ["retrieve", "generate_quiz_with_difficulty", "generate_video_with_veo", "generate_dev_questions","study_plan_generator","generate_lesson_summary","interactive_flashcards","generate_test"]
+               
                 allowed_tools=get_allowed_tools()
 
 

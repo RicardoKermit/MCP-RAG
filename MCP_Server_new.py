@@ -1800,18 +1800,19 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
         }
 
 @mcp.tool()
-def generate_test(topic: str, num_questions: int = 10) -> dict:
+def generate_test(topic: str, num_questions: int = 10, with_answers: bool = False) -> dict:
     """
     Generates a mixed test (mock exam) about a given topic.
     The test includes multiple-choice, true/false, and open-ended questions.
-    
+
     Arguments:
       - topic: subject of the test
       - num_questions: total number of questions
+      - with_answers: if True, include answers/solutions in the output
     """
     start_time = time.time()
     try:
-        logger.info(f"TEST_GENERATION | Topic: {topic} | Questions: {num_questions} | Starting")
+        logger.info(f"TEST_GENERATION | Topic: {topic} | Questions: {num_questions} | WithAnswers: {with_answers} | Starting")
 
         test_prompt = f"""
         Generate a test with {num_questions} questions about {topic}.
@@ -1826,85 +1827,50 @@ def generate_test(topic: str, num_questions: int = 10) -> dict:
           * Provide statement + answer (True/False)
         - For open-ended:
           * Provide the question and a short "expected answer"
-        - Format the output in Markdown like this:
 
-        ### Question 1 (Multiple Choice)
-        Text...
-        a) ...
-        b) ...
-        c) ...
-        d) ...
-        Answer: X
-
-        ### Question 2 (True/False)
-        Statement...
-        Answer: True
-
-        ### Question 3 (Open-ended)
-        Question text...
-        Expected answer: ...
+        IMPORTANT:
+        - Output must be in Markdown
+        - When with_answers={with_answers}, include the answers/solutions
+        - When with_answers=False, DO NOT include answers
         """
 
         res = qa.invoke({"query": test_prompt})
-        test_content = res.get("result", "") if isinstance(res, dict) else str(res)
+        raw_response = res["result"] if isinstance(res, dict) else str(res)
 
-        duration = time.time() - start_time
-        duration_ms = int(duration * 1000)
+        duration_ms = int((time.time() - start_time) * 1000)
 
-        # Caso não haja conteúdo válido
-        if not test_content or "não foi possível" in test_content.lower():
-            logger.warning(
-                f"TEST_GENERATION | Topic: {topic} | No content found | Duration: {duration:.2f}s"
-            )
-            return {
-                "success": False,
-                "message": f"Não foi possível gerar teste sobre '{topic}'",
-                "details": {
-                    "topic": topic,
-                    "num_questions": num_questions,
-                    "duration_ms": duration_ms,
-                    "model": current_model_name
-                }
-            }
-
-        # Log de sucesso
-        logger.info(
-            f"TEST_GENERATION | Topic: {topic} | Questions: {num_questions} | Success | Duration: {duration:.2f}s"
-        )
+        logger.info(f"TEST_GENERATION | Topic: {topic} | Success | Duration: {duration_ms:.2f}s")
 
         return {
             "success": True,
-            "response": test_content,
+            "response": raw_response,   # 👈 sempre no campo response
             "message": f"Teste gerado com sucesso sobre {topic}",
-            "topic": topic,
             "details": {
+                "tool": "generate_test",
                 "topic": topic,
                 "num_questions": num_questions,
+                "with_answers": with_answers,
                 "duration_ms": duration_ms,
                 "model": current_model_name
             }
         }
 
     except Exception as e:
-        duration = time.time() - start_time
-        duration_ms = int(duration * 1000)
+        duration_ms = int((time.time() - start_time) * 1000)
         error_msg = str(e)
-
-        logger.error(
-            f"TEST_GENERATION | Topic: {topic} | Error: {error_msg} | Duration: {duration:.2f}s"
-        )
+        logger.error(f"TEST_GENERATION | Topic: {topic} | Error: {error_msg} | Duration: {duration_ms:.2f}s")
 
         return {
             "success": False,
-            "message": f"Erro ao gerar teste: {error_msg}",
+            "response": f"Erro ao gerar teste: {error_msg}",   # 👈 uniforme com response
             "details": {
+                "tool": "generate_test",
                 "topic": topic,
                 "num_questions": num_questions,
-                "duration_ms": duration_ms,
+                "with_answers": with_answers,
                 "model": current_model_name
             }
         }
-
 
 @mcp.tool()
 def generate_video_with_veo(prompt: str, duration_seconds: int = 8, aspect_ratio: str = "16:9") -> dict:
