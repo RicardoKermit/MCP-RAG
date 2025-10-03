@@ -6,7 +6,7 @@ import time
 import httpx
 from datetime import datetime, timedelta
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response,send_file,send_from_directory
 from dotenv import load_dotenv
 import google.generativeai as genai
 from mcp import ClientSession, StdioServerParameters
@@ -22,6 +22,7 @@ import sqlite3
 from openai import OpenAI
 import requests
 from psycopg2.extras import RealDictCursor
+
 
 # PostgreSQL Logging System
 from postgres_logger import PostgresLogger, OperationType
@@ -2324,8 +2325,7 @@ def stats_latency_by_model():
 # Estatísticas
 # ========================
 
-from flask import send_file
-import os
+
 
 @app.route('/download-quiz/<filename>')
 def download_quiz(filename):
@@ -2363,6 +2363,9 @@ def upload_temp():
         "message": f"📎 PDF '{file.filename}' carregado. Escreve 'adicionar PDFs' para indexar ao RAG."
     })
 
+@app.route("/download-logs/<filename>")
+def download_logs(filename):
+    return send_from_directory("exports", filename, as_attachment=True)
 
 
 if __name__ == '__main__':

@@ -924,6 +924,42 @@ def deactivate_user(email: str) -> dict:
             "response": f"Erro ao desativar utilizador: {err_msg}"
         }
 
+@mcp.tool()
+def export_logs() -> dict:
+    """
+    Exports all .log files from the logs folder as a zip archive.
+    ONLY for Admin use.
+    """
+    import zipfile
+    start_time = time.time()
+    try:
+        log_dir = Path("logs")
+        if not log_dir.exists():
+            return {"success": False, "message": "Logs directory not found"}
+
+        zip_path = Path("exports") / f"logs_export_{int(time.time())}.zip"
+        zip_path.parent.mkdir(exist_ok=True)
+
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            for log_file in log_dir.glob("*.log"):
+                zipf.write(log_file, log_file.name)
+
+        duration_ms = int((time.time() - start_time) * 1000)
+        logger.info(f"EXPORT_LOGS | Success | {zip_path} | Duration: {duration_ms}ms")
+
+        return {
+            "success": True,
+            "download_url": f"/download-logs/{zip_path.name}",
+            "message": "Logs exportados com sucesso",
+            "details": {
+                "tool": "export_logs",
+                "zip_file": str(zip_path),
+                "duration_ms": duration_ms
+            }
+        }
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao exportar logs: {e}"}
+
 
 # =====================================================
 # Tools de pesquisa nos documentos
