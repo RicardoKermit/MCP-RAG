@@ -930,6 +930,64 @@ def deactivate_user(email: str) -> dict:
 # =====================================================
 
 @mcp.tool()
+def practice_quiz(topic: str, num_questions: int = 5, difficulty: str = "mixed") -> dict:
+    """
+    Generates a practice quiz for students (no export, just practice).
+    Arguments:
+      - topic: subject of the quiz
+      - num_questions: number of questions
+      - difficulty: easy, medium, hard, mixed
+    """
+    logger.info(f"PRACTICE_QUIZ | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Starting")
+    start_time = time.time()
+
+    try:
+        quiz_prompt = f"""
+        Cria {num_questions} perguntas de dificuldade {difficulty} sobre {topic}.
+        Formata em Markdown, como:
+        
+        **Pergunta 1**  
+        a) ...  
+        b) ...  
+        c) ...  
+        d) ...  
+        Resposta: X
+        """
+
+        res = qa.invoke({"query": quiz_prompt})
+        quiz_content = res["result"] if isinstance(res, dict) else str(res)
+
+        duration_ms = int((time.time() - start_time) * 1000)
+        logger.info(f"PRACTICE_QUIZ | Topic: {topic} | Success | Duration: {duration_ms}ms")
+
+        return {
+            "success": True,
+            "response": quiz_content,
+            "message": f"Quiz de prática gerado sobre {topic}",
+            "details": {
+                "tool": "practice_quiz",
+                "topic": topic,
+                "num_questions": num_questions,
+                "difficulty": difficulty,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"PRACTICE_QUIZ | Topic: {topic} | Error: {e}")
+        return {
+            "success": False,
+            "response": f"Erro ao gerar quiz de prática: {e}",
+            "details": {
+                "tool": "practice_quiz",
+                "topic": topic,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
+        }
+
+@mcp.tool()
 def recommend_reading_material(topic: str, language: str = "pt") -> dict:
     """
     Recommends books, articles and videos about a topic.
@@ -986,7 +1044,6 @@ def recommend_reading_material(topic: str, language: str = "pt") -> dict:
                 "model": current_model_name
             }
         }
-
 
 @mcp.tool()
 def analyze_student_queries() -> dict:

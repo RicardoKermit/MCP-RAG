@@ -487,7 +487,7 @@ def map_tool_to_operation(tool_name: str) -> OperationType:
     """Map a tool name to the corresponding OperationType enum."""
     if tool_name == "retrieve":
         return OperationType.RAG_QUERY
-    elif tool_name == "generate_quiz_with_difficulty":
+    elif tool_name == "generate_quiz_with_difficulty" or tool_name=="practice_quiz" :
         return OperationType.QUIZ_GENERATION
     elif tool_name == "study_plan_generator":
         return OperationType.STUDY_PLAN_GENERATION
