@@ -506,6 +506,8 @@ def map_tool_to_operation(tool_name: str) -> OperationType:
         return OperationType.ANALYZE_STUDENT_QUERIES
     elif tool_name == "add_new_pdfs":
         return OperationType.FILE_UPLOAD
+    elif tool_name == "recommend_reading_material":
+        return OperationType.RECOMMEND_READING_MATERIAL
     else:
         return OperationType.API_CALL  # fallback
 
@@ -2040,7 +2042,7 @@ def stats_educational():
                     SELECT date, operation_type, SUM(total_count) AS total
                     FROM operation_stats
                     WHERE date > CURRENT_DATE - INTERVAL '14 days'
-                      AND operation_type IN ('quiz_generation', 'rag_query','open_question','flashcard_generation','study_plan','summary_generation','test_generation')
+                      
                     GROUP BY date, operation_type
                     ORDER BY date
                 """)

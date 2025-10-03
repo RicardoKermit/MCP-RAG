@@ -308,6 +308,49 @@ def convert_to_gift(quiz_text: str, topic: str) -> str:
 
     return "\n".join(gift_lines)
 
+def get_courses_by_field(field: str, value: str) -> dict:
+    """
+    Retrieves courses that match a given field and value.
+    ONLY use this tool when the user explicitly asks to search for courses.
+    Arguments:
+      - field: the field to filter courses.
+      - value: the value to match in that field.
+    """
+    params = {
+        "wstoken": MOODLE_TOKEN,
+        "wsfunction": "core_course_get_courses_by_field",
+        "moodlewsrestformat": "json",
+        "field": field,
+        "value": value
+    }
+    try:
+        response = httpx.post(MOODLE_URL, data=params, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        # Log sucesso em Postgres (opcional)
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.API_CALL,
+                details={"tool": "get_courses_by_field", "field": field, "value": value},
+                status="success"
+            )
+        except Exception:
+            pass
+        return data
+    except Exception as e:
+        # Log erro em Postgres (opcional)
+        try:
+            postgres_logger.log_operation(
+                operation_type=OperationType.API_CALL,
+                details={"tool": "get_courses_by_field", "field": field, "value": value},
+                status="error",
+                error_message=str(e)
+            )
+        except Exception:
+            pass
+        return {"error": str(e)}
+
+
 # =====================================================
 # Tools de rag
 # =====================================================
@@ -530,49 +573,6 @@ def download_and_add_pdf(file_url: str) -> dict:
     except Exception: pass
 
     return {"success": status=="success", "message": msg, "filename": filename}
-
-#@mcp.tool()
-def get_courses_by_field(field: str, value: str) -> dict:
-    """
-    Retrieves courses that match a given field and value.
-    ONLY use this tool when the user explicitly asks to search for courses.
-    Arguments:
-      - field: the field to filter courses.
-      - value: the value to match in that field.
-    """
-    params = {
-        "wstoken": MOODLE_TOKEN,
-        "wsfunction": "core_course_get_courses_by_field",
-        "moodlewsrestformat": "json",
-        "field": field,
-        "value": value
-    }
-    try:
-        response = httpx.post(MOODLE_URL, data=params, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        # Log sucesso em Postgres (opcional)
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.API_CALL,
-                details={"tool": "get_courses_by_field", "field": field, "value": value},
-                status="success"
-            )
-        except Exception:
-            pass
-        return data
-    except Exception as e:
-        # Log erro em Postgres (opcional)
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.API_CALL,
-                details={"tool": "get_courses_by_field", "field": field, "value": value},
-                status="error",
-                error_message=str(e)
-            )
-        except Exception:
-            pass
-        return {"error": str(e)}
 
 @mcp.tool()
 def download_pdfs_from_course(course_fullname: str) -> dict:
@@ -964,6 +964,55 @@ def export_logs() -> dict:
 # =====================================================
 # Tools de pesquisa nos documentos
 # =====================================================
+
+@mcp.tool()
+def summarize_student_questions(limit: int = 100) -> dict:
+    """
+    Summarizes recent student questions across the platform.
+    Only for Professors. Ignores courses, just looks at messages by role=Aluno.
+    """
+    start_time = time.time()
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT cm.content
+                    FROM conversation_messages cm
+                    JOIN conversations c ON cm.conversation_id = c.id
+                    JOIN users u ON c.user_id = u.id
+                    WHERE u.role = 'Aluno'
+                    ORDER BY cm.created_at DESC
+                    LIMIT %s
+                """, (limit,))
+                rows = cur.fetchall()
+
+        messages = [r[0] for r in rows]
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        if not messages:
+            return {"success": False, "response": "Sem mensagens de alunos encontradas."}
+
+        # Retorna já as mensagens para o LLM resumir no client
+        return {
+            "success": True,
+            "response": messages,
+            "details": {
+                "tool": "summarize_student_questions",
+                "total_messages": len(messages),
+                "duration_ms": duration_ms
+            }
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "response": f"Erro: {e}",
+            "details": {
+                "tool": "summarize_student_questions",
+                "total_messages": len(messages),
+                "duration_ms": duration_ms
+            }
+        }
 
 @mcp.tool()
 def practice_quiz(topic: str, num_questions: int = 5, difficulty: str = "mixed") -> dict:
