@@ -83,14 +83,21 @@
         </select>
       </div>
     </div>
+
+    <h2>Instruções para as Tools</h2>
+    Prompt 1º Geração
+  <textarea id="toolInstructions" style="width:100%; height:200px;"></textarea>
+  Prompt 2º Geração
+  <textarea id="toolInstructionsFollow" style="width:100%; height:200px;"></textarea>
+  <button onclick="saveInstructions()">💾 Guardar</button>
   </div>
+
+  
 
   
 
   <!-- Mantém o JS global -->
   <script  src="{{ url_for('static', filename='js/app.js') }}">
-
-    
 
   </script>
 </body>

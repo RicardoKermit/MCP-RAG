@@ -893,17 +893,25 @@ class MCPGeminiClient:
                                 ARGS: {"topic": "Computer Networks", "num_questions": 3, "difficulty": "easy"}
                             """
 
-        
+            tool_instructions = get_tool_instructions()
+            try:
+                # Se vier como bytes/Response converte
+                if hasattr(tool_instructions, "data"):
+                    parsed = json.loads(tool_instructions.data.decode("utf-8"))
+                else:
+                    parsed = tool_instructions  # já vem como dict se usares resp.json()
+
+                instructions_text = parsed.get("instructions", "")
+            except Exception as e:
+                print("⚠️ Erro ao parsear tool_instructions:", e)
+                instructions_text = ""
+
             prompt = (
                         f"{conversation_context}\n"
                         f"Available tools:\n{tool_descriptions}\n"
                         f"{language_instructions.get(self.current_language, language_instructions['pt'])}\n"
                         "IMPORTANT: You must ALWAYS use a tool. NEVER answer directly.\n"
-                        "For any question about PDF content, use the 'retrieve' tool.\n"
-                        "For the 'retrieve' tool, always use 'prompt' as the argument key.\n"
-                        "To generate quizzes with difficulty validation, use 'generate_quiz_with_difficulty'.\n"
-                        "To add the pdfs to the rag, use 'add new_pfds'.\n"
-                        "For analyses use 'analyze_student_queries'. Be as analytical as possible and try to discover patterns in what the student has researched.\n"
+                        f"{instructions_text}\n"
                         "ALWAYS answer in the format:\n"
                         "TOOL: <tool_name>\nARGS: <json_com_arguments>\n"
                         "Here are some examples:\n"
@@ -1037,6 +1045,22 @@ class MCPGeminiClient:
                     "en": "IMPORTANTE: Always respond in British English. Use appropriate British English terms and expressions."
                 }
 
+                tool_instructions_follow = get_followup_instructions()
+                
+                try:
+                    # Se vier como bytes/Response converte
+                    if hasattr(tool_instructions_follow, "data"):
+                        parsed = json.loads(tool_instructions_follow.data.decode("utf-8"))
+                    else:
+                        parsed = tool_instructions_follow  # já vem como dict se usares resp.json()
+
+                    instructions_text_follow = parsed.get("instructions", "")
+                except Exception as e:
+                    print("⚠️ Erro ao parsear tool_instructions:", e)
+                    instructions_text_follow = ""
+                
+                print("📌 Instructions só:", instructions_text_follow)
+
                 if tool_name == "recommend_reading_material":
                     follow_up_prompt = f"""
     The user requested reading recommendations on ** {query} **. 
@@ -1071,16 +1095,7 @@ Format in Markdown:
 
     {final_language_instructions.get(self.current_language, final_language_instructions['pt'])}
 
-    Please present this information in a clear, well-structured, and easy-to-read format.
-    Use Markdown formatting to organize your answer:
-
-    - Use **bold** for headings and important points
-    - Use lists with * or - to organize information
-    - Use paragraphs to separate ideas
-    - Use > for important quotes
-    - Organize your answer in a logical and structured way
-    - Highlight important points with **bold**
-    - Use line breaks for better readability
+    f"{instructions_text_follow}\n"
     """
 
 
@@ -1605,6 +1620,65 @@ def settings_page():
         return render_template('simple.html')
     
     return render_template('settings.html')
+
+
+@app.route("/settingsget/tool-instructions", methods=["GET"])
+def get_tool_instructions():
+    with postgres_logger.get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT value FROM system_settings WHERE key='tool_instructions'")
+            row = cur.fetchone()
+            print("tool_inst ",row)
+            return jsonify({"success": True, "instructions": row[0] if row else ""})
+
+@app.route("/settings/tool-instructions", methods=["POST"])
+def update_tool_instructions():
+    data = request.json
+    new_text = data.get("instructions")
+    if not new_text:
+        return jsonify({"success": False, "error": "Instruções vazias"}), 400
+
+    with postgres_logger.get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO system_settings (key, value)
+                VALUES ('tool_instructions', %s)
+                ON CONFLICT (key) DO UPDATE 
+                SET value = EXCLUDED.value, updated_at = now()
+            """, (new_text,))
+            conn.commit()
+
+    print("🔧 Atualizar instruções chamado:", new_text)
+
+    return jsonify({"success": True, "instructions": new_text})
+
+@app.route("/settingsget/followup-instructions", methods=["GET"])
+def get_followup_instructions():
+    with postgres_logger.get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT value FROM system_settings WHERE key='followup_instructions'")
+            row = cur.fetchone()
+            return jsonify({
+                "success": True,
+                "instructions": row[0] if row else ""
+            })
+
+@app.route("/settings/followup-instructions", methods=["POST"])
+def update_followup_instructions():
+    data = request.json
+    new_value = data.get("instructions", "")
+
+    with postgres_logger.get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO system_settings (key, value)
+                VALUES ('followup_instructions', %s)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+            """, (new_value,))
+            conn.commit()
+
+    return jsonify({"success": True, "instructions": new_value})
+
 
 @app.route('/api/statistics')
 def get_statistics():

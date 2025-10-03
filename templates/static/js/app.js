@@ -1276,6 +1276,7 @@ function openStatistics() {
 function openSettings() {
     /*window.open('/settings-page', '_blank');*/
     window.location.href="/settings-page"
+
 }
 
 
@@ -1318,6 +1319,60 @@ function updateModelDescription() {
         console.error('Erro ao atualizar descrição do modelo:', error);
     }
 }
+
+async function loadInstructions() {
+    try {
+        const resp = await fetch("/settingsget/tool-instructions");
+        const data = await resp.json();
+
+        if (data.success) {
+            document.getElementById("toolInstructions").value = data.instructions;
+        } else {
+            console.error("⚠️ Erro ao carregar instruções:", data.error);
+        }
+        const respFollow = await fetch("/settingsget/followup-instructions");
+        const dataFollow = await respFollow.json();
+
+        if (dataFollow.success) {
+            document.getElementById("toolInstructionsFollow").value = dataFollow.instructions;
+        } else {
+            console.error("⚠️ Erro ao carregar instruções:", dataFollow.error);
+        }
+    } catch (e) {
+        console.error("❌ Erro a carregar instruções:", e);
+    }
+}
+
+// Executa quando a página carrega
+document.addEventListener("DOMContentLoaded", loadInstructions);
+
+  
+async function saveInstructions() {
+    const newText = document.getElementById("toolInstructions").value;
+    const resp = await fetch("/settings/tool-instructions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instructions: newText })
+    });
+    
+    const newTextF = document.getElementById("toolInstructionsFollow").value;
+    const respF = await fetch("/settings/followup-instructions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instructions: newTextF })
+    });
+
+    const data = await resp.json();
+    const dataF = await respF.json();
+    if (data.success && dataF.success) {
+      alert("✅ Instruções atualizadas!");
+    } else {
+      alert("⚠️ Erro: " + data.error);
+    }
+}
+  
+  
+
 
 async function loadSettings() {
     try {
@@ -1431,6 +1486,7 @@ function removeFile(index) {
   selectedFiles.splice(index, 1);
   renderFileChips();
 }
+
 
   //window.onload = loadSettings;
   
