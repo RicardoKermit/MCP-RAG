@@ -728,6 +728,65 @@ def clear_rag() -> str:
 # =====================================================
 
 @mcp.tool()
+def recommend_reading_material(topic: str, language: str = "pt") -> dict:
+    """
+    Recommends books, articles and videos about a topic.
+    Uses RAG (via qa.invoke) to fetch context and then generate suggestions.
+    Arguments:
+      - topic: subject for recommendations.
+      - language: language of the output ("pt" for Portuguese, "en" for English).
+    """
+    logger.info(f"RECOMMEND_READING | Topic: {topic} | Starting")
+    start_time = time.time()
+    try:
+        # Prompt único para o pipeline RAG+LLM
+        rec_prompt = f"""
+        O utilizador pediu recomendações sobre **{topic}**.
+
+        1. Usa o conhecimento dos documentos disponíveis (RAG) para dar contexto.
+        2. Mesmo que os documentos não incluam recomendações explícitas, complementa com sugestões externas de qualidade.
+
+        Deves sugerir:
+        - **Livros** (título + autor)
+        - **Artigos/Papers** (título + fonte)
+        - **Vídeos** (ex: canais YouTube educacionais, documentários)
+
+        Formata em lista organizada em Markdown.
+        Responde em {'Português de Portugal' if language == 'pt' else 'Inglês'}.
+        """
+
+        res = qa.invoke({"query": rec_prompt})
+        raw_response = res["result"] if isinstance(res, dict) else str(res)
+
+        duration_ms = int((time.time() - start_time) * 1000)
+        logger.info(f"RECOMMEND_READING | Topic: {topic} | Success | Duration: {duration_ms:.2f}s")
+
+        return {
+            "success": True,
+            "response": raw_response,
+            "details": {
+                "tool": "recommend_reading_material",
+                "topic": topic,
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
+        }
+
+    except Exception as e:
+        duration_ms = int((time.time() - start_time) * 1000)
+        logger.error(f"RECOMMEND_READING | Topic: {topic} | Error: {e} | Duration: {duration_ms:.2f}s")
+        return {
+            "success": False,
+            "response": str(e),
+            "details": {
+                "tool": "recommend_reading_material",
+                "topic": topic,
+                "model": current_model_name
+            }
+        }
+
+
+@mcp.tool()
 def analyze_student_queries() -> dict:
     """
     Returns all content ('content' column) from the conversation_messages table.

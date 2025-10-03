@@ -1069,7 +1069,31 @@ class MCPGeminiClient:
                     "en": "IMPORTANTE: Always respond in British English. Use appropriate British English terms and expressions."
                 }
 
-                follow_up_prompt = f"""
+                if tool_name == "recommend_reading_material":
+                    follow_up_prompt = f"""
+    The user requested reading recommendations on ** {query} **. 
+
+Recovered Context of Documents (PDFs):
+{raw_response}
+
+Type of User: {usertype}
+
+From this context, it generates a clear and structured list with:
+- ** Books ** (Title + Author)
+- ** Articles/Papers ** (Title + Source or where it can be found)
+- ** Videos ** (YouTube channels, documentaries, relevant audiovisual resources)
+
+{final_language_instructions.get (self.current_language, final_language_instructions ['pt'])}
+
+Format in Markdown:
+- USA ** Bold ** for categories (books, articles, videos)
+- Use lists with * or - for items
+- Includes short descriptions (1–2 sentences) to contextualize each recommendation
+- Maintains the pedagogical tone, organized and easy to follow
+- Provides links if so possible
+    """
+                else:
+                    follow_up_prompt = f"""
     Original question: {query}
 
     Information found:
@@ -1090,6 +1114,7 @@ class MCPGeminiClient:
     - Highlight important points with **bold**
     - Use line breaks for better readability
     """
+
 
                 print("🔄 Gerando resposta final...")
 
