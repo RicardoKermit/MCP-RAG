@@ -489,8 +489,6 @@ def map_tool_to_operation(tool_name: str) -> OperationType:
         return OperationType.RAG_QUERY
     elif tool_name == "generate_quiz_with_difficulty":
         return OperationType.QUIZ_GENERATION
-    elif tool_name == "generate_video_with_veo":
-        return OperationType.VIDEO_GENERATION
     elif tool_name == "study_plan_generator":
         return OperationType.STUDY_PLAN_GENERATION
     elif tool_name == "interactive_flashcards":
@@ -501,6 +499,12 @@ def map_tool_to_operation(tool_name: str) -> OperationType:
         return OperationType.OPEN_QUESTION
     elif tool_name == "generate_lesson_summary":
         return OperationType.SUMMARY_GENERATION
+    elif tool_name == "recommend_reading_material":
+        return OperationType.RECOMMEND_READING_MATERIAL
+    elif tool_name == "analyze_student_queries":
+        return OperationType.ANALYZE_STUDENT_QUERIES
+    elif tool_name == "add_new_pdfs":
+        return OperationType.FILE_UPLOAD
     else:
         return OperationType.API_CALL  # fallback
 
@@ -1224,7 +1228,7 @@ def login():
         """Verifica se o user existe, senão cria com role atribuído automaticamente."""
         with postgres_logger.get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT id, role FROM users WHERE username = %s", (username,))
+                cur.execute("SELECT id, role FROM users WHERE username = %s AND is_active = %s",(username, True))
                 row = cur.fetchone()
                 
                 if row:

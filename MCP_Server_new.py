@@ -723,6 +723,208 @@ def clear_rag() -> str:
             pass
         return f"Erro ao apagar vectorstore: {e}"
 
+@mcp.tool()
+def assign_role(email: str, role: str) -> dict:
+    """
+    Assigns a role (Admin, Professor, Aluno) to a user based on their email.
+    Arguments:
+      - email: user email to update
+      - role: role to assign ("Admin", "Professor", "Aluno")
+    """
+    start_time = time.time()
+    allowed_roles = ["Admin", "Professor", "Aluno"]
+
+    try:
+        if role not in allowed_roles:
+            raise ValueError(f"Invalid role '{role}'. Must be one of {allowed_roles}")
+
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE users SET role = %s WHERE email = %s RETURNING id, username, email, role",
+                    (role, email)
+                )
+                updated = cur.fetchone()
+                conn.commit()
+
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        if not updated:
+            msg = f"No user found with email {email}"
+            logger.warning(f"ASSIGN_ROLE | {msg}")
+            return {
+                "success": False,
+                "response": msg,
+                "details": {
+                    "tool": "assign_role",
+                    "email": email,
+                    "role": role,
+                    "duration_ms": duration_ms,
+                    "model": current_model_name
+                }
+            }
+
+        msg = f"Role updated successfully: {updated[2]} → {updated[3]}"
+        logger.info(f"ASSIGN_ROLE | {msg}")
+
+        return {
+            "success": True,
+            "response": msg,
+            "details": {
+                "tool": "assign_role",
+                "email": updated[2],
+                "role": updated[3],
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
+        }
+
+    except Exception as e:
+        duration_ms = int((time.time() - start_time) * 1000)
+        err_msg = str(e)
+        logger.error(f"ASSIGN_ROLE | Error: {err_msg}")
+
+        postgres_logger.log_operation(
+            operation_type=OperationType.SYSTEM_MAINTENANCE.value,
+            user_id=None,
+            details={"tool": "assign_role", "email": email, "role": role},
+            status="error",
+            error_message=err_msg,
+            duration_ms=duration_ms
+        )
+        postgres_logger.update_operation_stats(OperationType.SYSTEM_MAINTENANCE.value, False, duration_ms)
+
+        return {
+            "success": False,
+            "response": f"Erro ao atribuir role: {err_msg}",
+            "details": {
+                "tool": "assign_role",
+                "email": email,
+                "role": role,
+                "model": current_model_name
+            }
+        }
+
+@mcp.tool()
+def list_users(limit: int = 50) -> dict:
+    """
+    Lists registered users with their roles.
+    Arguments:
+      - limit: maximum number of users to return (default = 50).
+    """
+    start_time = time.time()
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT id, username, email, role, created_at, is_active
+                    FROM users
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                """, (limit,))
+                rows = cur.fetchall()
+
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        users_list = [
+            {
+                "id": str(r[0]),
+                "username": r[1],
+                "email": r[2],
+                "role": r[3],
+                "created_at": r[4].isoformat() if r[4] else None,
+                "is_active":r[5]
+            }
+            for r in rows
+        ]
+
+        msg = f"✅ {len(users_list)} utilizadores listados"
+        logger.info(f"LIST_USERS | {msg}")
+
+        return {
+            "success": True,
+            "response": users_list,
+            "users": users_list,
+            "details": {
+                "tool": "list_users",
+                "count": len(users_list),
+                "duration_ms": duration_ms,
+                "model": current_model_name
+            }
+        }
+
+    except Exception as e:
+        duration_ms = int((time.time() - start_time) * 1000)
+        err_msg = str(e)
+        logger.error(f"LIST_USERS | Error: {err_msg}")
+
+        return {
+            "success": False,
+            "response": f"Erro ao listar utilizadores: {err_msg}",
+            "details": {
+                "tool": "list_users",
+                "limit": limit,
+                "model": current_model_name
+            }
+        }
+
+@mcp.tool()
+def deactivate_user(email: str) -> dict:
+    """
+    Deactivates a user account (sets is_active = False).
+    Arguments:
+      - email: user email to deactivate
+    """
+    start_time = time.time()
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE users
+                    SET is_active = FALSE
+                    WHERE email = %s
+                    RETURNING id, email, role, is_active
+                """, (email,))
+                row = cur.fetchone()
+                conn.commit()
+
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        if row:
+            msg = f"✅ Conta do utilizador {row[1]} desativada com sucesso."
+            logger.info(f"DEACTIVATE_USER | {msg}")
+
+
+            return {
+                "success": True,
+                "response": msg,
+                "details": {
+                    "tool": "deactivate_user",
+                    "user_id": str(row[0]),
+                    "email": row[1],
+                    "role": row[2],
+                    "is_active": row[3],
+                    "duration_ms": duration_ms,
+                    "model": current_model_name
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "response": f"❌ Nenhum utilizador encontrado com email {email}"
+            }
+
+    except Exception as e:
+        duration_ms = int((time.time() - start_time) * 1000)
+        err_msg = str(e)
+        logger.error(f"DEACTIVATE_USER | Error: {err_msg}")
+
+        return {
+            "success": False,
+            "response": f"Erro ao desativar utilizador: {err_msg}"
+        }
+
+
 # =====================================================
 # Tools de pesquisa nos documentos
 # =====================================================
