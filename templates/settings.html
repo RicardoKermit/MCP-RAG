@@ -84,17 +84,34 @@
       </div>
     </div>
 
-    <h2>Instruções para as Tools</h2>
+    <h2>Instruções para as Tools (Client Side)</h2>
     Prompt 1º Geração
-  <textarea id="toolInstructions" style="width:100%; height:200px;"></textarea>
-  Prompt 2º Geração
-  <textarea id="toolInstructionsFollow" style="width:100%; height:200px;"></textarea>
-  <button onclick="saveInstructions()">💾 Guardar</button>
+    <textarea class="settings-textarea" id="toolInstructions"></textarea>
+    Prompt 2º Geração
+    <textarea class="settings-textarea" id="toolInstructionsFollow"></textarea>
+    <button onclick="saveInstructions()">💾 Guardar</button>
+    
+  </div>
+  <h2>⚙️ Configuração das Tools (Server Side)</h2>  
+  <div>
+    <label><b>Retrieve</b></label><br>
+    <textarea id="tool_retrieve" rows="4" style="width:100%;"></textarea>
+    <button onclick="saveToolInstructions('retrieve')">Guardar</button>
+  </div>
+  
+  <div>
+    <label><b>Pratice Quiz</b></label><br>
+    <textarea id="tool_practice_quiz" rows="4" style="width:100%;"></textarea>
+    <button onclick="saveToolInstructions('practice_quiz')">Guardar</button>
   </div>
 
-  
+  <div>
+    <label><b>Generate Quiz with Difficulty</b></label><br>
+    <textarea id="tool_generate_quiz_with_difficulty" rows="4" style="width:100%;"></textarea>
+    <button onclick="saveToolInstructions('generate_quiz_with_difficulty')">Guardar</button>
+  </div>
 
-  
+
 
   <!-- Mantém o JS global -->
   <script  src="{{ url_for('static', filename='js/app.js') }}">

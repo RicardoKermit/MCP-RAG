@@ -1,34 +1,34 @@
-::LEGO_Q1:: Além do seu papel como brinquedo, o LEGO é reconhecido por qual outra aplicação, conforme o contexto? {
-    ~Exclusivamente como ferramenta de engenharia industrial.
-    =Como meio artístico e arquitetónico, e objeto de investimento para colecionadores.
-    ~Principalmente como material de construção de grande escala.
-    ~Apenas como um passatempo para adultos.
+::LEGO_Q1:: Para além de ser um brinquedo, que outro papel o LEGO desempenha para colecionadores, conforme mencionado no contexto? {
+    ~Objeto de estudo científico
+    ~Meio de terapia ocupacional
+    =Objeto de investimento através de peças raras
+    ~Ferramenta de marketing digital
 }
 
-::LEGO_Q2:: Qual é uma das iniciativas da empresa LEGO para se alinhar com preocupações ambientais? {
-    ~Aumentar a produção de peças de metal.
-    =Apostar em plásticos sustentáveis, como os à base de cana-de-açúcar.
-    ~Reduzir o número de peças por conjunto.
-    ~Eliminar completamente o uso de plástico em todos os produtos.
+::LEGO_Q2:: Que tipo de plástico sustentável é explicitamente mencionado no texto como uma aposta da LEGO para alinhar-se com preocupações ambientais? {
+    ~Plástico reciclado de embalagens
+    =Plástico à base de cana-de-açúcar
+    ~Plástico biodegradável de amido de milho
+    ~Plástico feito de algas marinhas
 }
 
-::LEGO_Q3:: No que diz respeito à inclusão, que medida a LEGO tem adotado? {
-    ~Apenas produzir conjuntos para um público específico.
-    ~Focar-se exclusivamente em temas históricos.
-    =Apostar na diversidade das minifiguras.
-    ~Limitar a venda de produtos a certas regiões.
+::LEGO_Q3:: A expansão do LEGO para videojogos, filmes e colecionismo levanta uma questão crítica sobre o risco de a empresa se afastar de qual das suas funções originais? {
+    ~A sua função de entretenimento puro
+    ~A sua função de marketing e publicidade
+    =A sua função pedagógica original
+    ~A sua função de desenvolvimento de software
 }
 
-::LEGO_Q4:: A expansão do fenómeno LEGO para áreas como videojogos, filmes e colecionismo levanta a questão de um possível afastamento de qual função original? {
-    ~A sua função de entretenimento puro.
-    =A sua função pedagógica.
-    ~A sua função de marketing.
-    ~A sua função de gerar lucro.
+::LEGO_Q4:: Uma das questões críticas levantadas sobre o LEGO atual refere-se ao impacto dos conjuntos licenciados e instruções detalhadas na manutenção de quê? {
+    ~A sua relevância no mercado global
+    =A essência da criatividade aberta
+    ~A sua capacidade de inovação tecnológica
+    ~A sua reputação como marca de luxo
 }
 
-::LEGO_Q5:: Um dos pontos críticos levantados sobre o LEGO na atualidade refere-se à essência da criatividade aberta. Qual é o principal motivo para esta preocupação? {
-    ~A falta de variedade de cores nas peças disponíveis.
-    =O excesso de conjuntos licenciados e altamente guiados por instruções detalhadas.
-    ~A dificuldade em encontrar peças de reposição para conjuntos antigos.
-    ~O aumento do preço dos conjuntos básicos de peças soltas.
+::LEGO_Q5:: A LEGO tem procurado alinhar-se com preocupações sociais, apostando em que aspeto relacionado com as minifiguras? {
+    ~A uniformização dos tamanhos
+    =A diversidade e inclusão
+    ~A representação de profissões específicas
+    ~A personalização através de acessórios
 }

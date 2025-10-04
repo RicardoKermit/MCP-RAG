@@ -350,6 +350,18 @@ def get_courses_by_field(field: str, value: str) -> dict:
             pass
         return {"error": str(e)}
 
+def get_tool_instruction(tool_name: str) -> str:
+    """Obtém as instruções personalizadas para uma tool a partir da BD."""
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT value FROM system_settings WHERE key = %s", (tool_name,))
+                row = cur.fetchone()
+                return row[0] if row else ""
+    except Exception as e:
+        print(f"⚠️ Erro ao obter instruções para {tool_name}: {e}")
+        return ""
+
 
 # =====================================================
 # Tools de rag
@@ -1312,18 +1324,11 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
     try:
         # Log inicial
         logger.info(f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Starting")
-
+        instructions = get_tool_instruction("generate_quiz_with_difficulty")
         # Prompt para gerar o quiz
         difficulty_prompt = f"""
             Gera {num_questions} perguntas sobre {topic} com dificuldade {difficulty}.
-            Formato obrigatório (sem introduções nem explicações):
-
-            Pergunta 1: <texto da pergunta>
-            a) <opção A>
-            b) <opção B>
-            c) <opção C>
-            d) <opção D>
-            Answer: <letra correta>
+            {instructions}
 
             - Apenas este formato, nada mais.
             - Perguntas de escolha múltipla: 4 opções (a–d).
@@ -1369,7 +1374,7 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
 
         # Log de sucesso
         logger.info(
-            f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Success | Duration: {duration:.2f}s"
+            f"QUIZ_GENERATION | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Success | Duration: {duration:.2f} | {instructions}s"
         )
 
         return {

@@ -1332,8 +1332,9 @@ async function loadInstructions() {
         }
         const respFollow = await fetch("/settingsget/followup-instructions");
         const dataFollow = await respFollow.json();
+        
 
-        if (dataFollow.success) {
+        if (dataFollow.success && data.success) {
             document.getElementById("toolInstructionsFollow").value = dataFollow.instructions;
         } else {
             console.error("⚠️ Erro ao carregar instruções:", dataFollow.error);
@@ -1370,6 +1371,34 @@ async function saveInstructions() {
       alert("⚠️ Erro: " + data.error);
     }
 }
+
+async function loadToolInstructions(tool) {
+    const resp = await fetch(`/settingsget/tool-instructions/${tool}`);
+    const data = await resp.json();
+    if (data.success) {
+      document.getElementById(`tool_${tool}`).value = data.instructions;
+    }
+  }
+  
+  async function saveToolInstructions(tool) {
+    const value = document.getElementById(`tool_${tool}`).value;
+    const resp = await fetch(`/settingsset/tool-instructions/${tool}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instructions: value })
+    });
+    const data = await resp.json();
+    alert(`Instruções da tool '${tool}' guardadas com sucesso!`);
+  }
+  
+  // Carregar ao abrir
+  window.onload = function() {
+    loadToolInstructions("retrieve");
+    loadToolInstructions("generate_quiz_with_difficulty");
+    loadToolInstructions("practice_quiz");
+    // adiciona mais tools conforme necessário
+  }
+  
   
   
 
