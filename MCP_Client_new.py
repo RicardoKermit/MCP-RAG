@@ -6,7 +6,7 @@ import time
 import httpx
 from datetime import datetime, timedelta
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response,send_file,send_from_directory
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response,send_file,send_from_directory,Response
 from dotenv import load_dotenv
 import google.generativeai as genai
 from mcp import ClientSession, StdioServerParameters
@@ -1679,6 +1679,35 @@ def update_followup_instructions():
 
     return jsonify({"success": True, "instructions": new_value})
 
+@app.route("/settingsget/tool-instructions/<tool_name>", methods=["GET"])
+def get_tool_instructions_server(tool_name):
+    key = tool_name
+    with postgres_logger.get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT value FROM system_settings WHERE key=%s", (key,))
+            row = cur.fetchone()
+            return jsonify({
+                "success": True,
+                "instructions": row[0] if row else ""
+            })
+
+@app.route("/settingsset/tool-instructions/<tool_name>", methods=["POST"])
+def set_tool_instructions_server(tool_name):
+    data = request.json
+    new_value = data.get("instructions", "")
+
+    key = tool_name
+    with postgres_logger.get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO system_settings (key, value)
+                VALUES (%s, %s)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+            """, (key, new_value))
+            conn.commit()
+
+    return jsonify({"success": True, "tool": tool_name, "instructions": new_value})
+
 
 @app.route('/api/statistics')
 def get_statistics():
@@ -1782,7 +1811,7 @@ def export_stats():
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT operation_type, status, duration_ms, created_at, user_id
-                    FROM operation_log
+                    FROM operation_logs
                     ORDER BY created_at DESC
                     LIMIT 1000
                 """)
