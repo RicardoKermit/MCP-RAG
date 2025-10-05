@@ -1126,18 +1126,14 @@ def practice_quiz(topic: str, num_questions: int = 5, difficulty: str = "mixed")
     """
     logger.info(f"PRACTICE_QUIZ | Topic: {topic} | Questions: {num_questions} | Difficulty: {difficulty} | Starting")
     start_time = time.time()
+    instructions = get_tool_instruction("practice_quiz")
 
     try:
         quiz_prompt = f"""
         Cria {num_questions} perguntas de dificuldade {difficulty} sobre {topic}.
         Formata em Markdown, como:
         
-        **Pergunta 1**  
-        a) ...  
-        b) ...  
-        c) ...  
-        d) ...  
-        Resposta: X
+        {instructions}
         """
 
         res = qa.invoke({"query": quiz_prompt})

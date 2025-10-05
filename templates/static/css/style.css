@@ -377,8 +377,9 @@ body {
 
 .model-selector {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: var(--spacing-sm);
+    width: 45%;
 }
 
 .model-selector select {
@@ -419,6 +420,7 @@ body {
     background: var(--bg-secondary);
     border-radius: var(--radius-md);
     border: 1px solid var(--border-color);
+
 }
 
 .language-section h3 {
@@ -1516,9 +1518,9 @@ body {
 
 .settings{
     display: center;
-    margin: 30px;
+    margin: 10px;
     padding: auto;
-    width: 500px;
+    width: 90%;
 }
 
 .settings h1{
@@ -1606,18 +1608,18 @@ button {
 }
 
 .settings-textarea {
-  width: 100%;
-  min-height: 150px;
-  resize: vertical;
-  padding: 12px;
-  font-size: 0.95rem;
-  font-family: 'Inter', sans-serif;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  background: #fdfdfd;
-  transition: all 0.2s ease-in-out;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.08);
-}
+    width: 100%;
+    min-height: 150px;
+    font-family: "Inter", sans-serif;
+    font-size: 0.95rem;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    padding: 10px;
+    resize: vertical;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    background-color: #ccc8c8;
+    margin: 10px;
+  }
 
 .settings-textarea:focus {
   outline: none;
@@ -1627,7 +1629,7 @@ button {
 }
 
   /* botão de guardar */
-  button {
+button {
     margin-top: 8px;
     background: #4e73df;
     color: white;
@@ -1637,13 +1639,9 @@ button {
     font-size: 0.9rem;
     cursor: pointer;
     transition: background 0.2s;
-  }
+}
   
-  button:hover {
+button:hover {
     background: #2e59d9;
-  }
-  
-
-
-
+}
 

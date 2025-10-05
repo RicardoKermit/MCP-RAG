@@ -7,7 +7,7 @@
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/icon_white.png') }}">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
+  
 </head>
 <body>
 
@@ -35,81 +35,82 @@
     </div>
 </div>
 
-  <div class="settings">
-    <div class="model-section">
-      <h3 id="modelSectionTitle">🤖 Select Model</h3>
-      <div class="model-selector">
-        <select id="modelSelect" onchange="changeModel()">
-          <!-- Gemini -->
-          <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash 8B</option>
-          <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
-          <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
-          <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-          <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-          <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-          <option value="gemini-2.0-pro">Gemini 2.0 Pro</option>
-          <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-          <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
-          <option value="gemini-pro">Gemini Pro</option>
-          <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-  
-          <!-- OpenAI -->
-          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-          <option value="gpt-4o">GPT-4o</option>
-          <option value="gpt-4o-mini">GPT-4o Mini</option>
-          <option value="gpt-4.1">GPT-4.1</option>
-  
-          <!-- Ollama -->
-          <option value="llama3">LLaMA 3 (8B)</option>
-          <option value="llama3-70b">LLaMA 3 (70B)</option>
-          <option value="mistral">Mistral 7B</option>
-          <option value="codellama">CodeLLaMA</option>
-          <option value="gemma">Gemma 7B</option>
-        </select>
-        <div class="model-info" id="modelInfo">
-          <small>Choose the LLM you want to use</small>
-        </div>
-        <div id="connectionStatus"></div>
-        
+<div class="settings">
+  <div class="model-section">
+    <h3 id="modelSectionTitle">🤖 Select Model</h3>
+    <div class="model-selector">
+      <select id="modelSelect" onchange="changeModel()">
+        <!-- Gemini -->
+        <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash 8B</option>
+        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+        <option value="gemini-2.0-pro">Gemini 2.0 Pro</option>
+        <!-- OpenAI -->
+        <option value="gpt-4o">GPT-4o</option>
+        <option value="gpt-4o-mini">GPT-4o Mini</option>
+        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+        <!-- Ollama -->
+        <option value="llama3">LLaMA 3 (8B)</option>
+        <option value="llama3-70b">LLaMA 3 (70B)</option>
+        <option value="mistral">Mistral 7B</option>
+      </select>
+      <div class="model-info" id="modelInfo">
+        <small>Choose the LLM you want to use</small>
       </div>
+      <div id="connectionStatus"></div>
     </div>
-  
-    <div class="language-section">
-      <h3>🗄️ RAG Backend</h3>
-      <div class="language-selector">
-        <select id="ragBackendSelect" onchange="changeRagBackend()">
-          <option value="qdrant">Qdrant (Cloud)</option>
-          <option value="chroma">Chroma (Local)</option>
-        </select>
-      </div>
-    </div>
-
-    <h2>Instruções para as Tools (Client Side)</h2>
-    Prompt 1º Geração
-    <textarea class="settings-textarea" id="toolInstructions"></textarea>
-    Prompt 2º Geração
-    <textarea class="settings-textarea" id="toolInstructionsFollow"></textarea>
-    <button onclick="saveInstructions()">💾 Guardar</button>
-    
   </div>
+
+  <div class="language-section">
+    <h3>🗄️ RAG Backend</h3>
+    <div class="language-selector">
+      <select id="ragBackendSelect" onchange="changeRagBackend()">
+        <option value="qdrant">Qdrant (Cloud)</option>
+        <option value="chroma">Chroma (Local)</option>
+      </select>
+    </div>
+  </div>
+
+  <h2>🧠 Instruções para as Tools (Client Side)</h2>
+  <p>Prompt 1ª Geração</p>
+  <textarea class="settings-textarea" id="toolInstructions"></textarea>
+  <p>Prompt 2ª Geração</p>
+  <textarea class="settings-textarea" id="toolInstructionsFollow"></textarea>
+  <button onclick="saveInstructions()">💾 Guardar</button>
+
   <h2>⚙️ Configuração das Tools (Server Side)</h2>  
-  <div>
-    <label><b>Retrieve</b></label><br>
-    <textarea id="tool_retrieve" rows="4" style="width:100%;"></textarea>
-    <button onclick="saveToolInstructions('retrieve')">Guardar</button>
+
+  <div class="server-tools">
+    <div class="tool-config">
+      <label><b>Retrieve</b></label>
+      <div class="tool-row">
+        <textarea id="tool_retrieve" rows="4" class="settings-textarea"></textarea>
+        <button onclick="saveToolInstructions('retrieve')" class="save-btn">💾 Guardar</button>
+      </div>
+    </div>
+  
+    <div class="tool-config">
+      <label><b>Practice Quiz</b></label>
+      <div class="tool-row">
+        <textarea id="tool_practice_quiz" rows="4" class="settings-textarea"></textarea>
+        <button onclick="saveToolInstructions('practice_quiz')" class="save-btn">💾 Guardar</button>
+      </div>
+    </div>
+  
+    <div class="tool-config">
+      <label><b>Generate Quiz with Difficulty</b></label>
+      <div class="tool-row">
+        <textarea id="tool_generate_quiz_with_difficulty" rows="4" class="settings-textarea"></textarea>
+        <button onclick="saveToolInstructions('generate_quiz_with_difficulty')" class="save-btn">💾 Guardar</button>
+      </div>
+    </div>
   </div>
   
-  <div>
-    <label><b>Pratice Quiz</b></label><br>
-    <textarea id="tool_practice_quiz" rows="4" style="width:100%;"></textarea>
-    <button onclick="saveToolInstructions('practice_quiz')">Guardar</button>
-  </div>
 
-  <div>
-    <label><b>Generate Quiz with Difficulty</b></label><br>
-    <textarea id="tool_generate_quiz_with_difficulty" rows="4" style="width:100%;"></textarea>
-    <button onclick="saveToolInstructions('generate_quiz_with_difficulty')">Guardar</button>
-  </div>
+<hr>
+
+
+</div>
+
 
 
 
