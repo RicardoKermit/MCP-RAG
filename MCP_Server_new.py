@@ -1180,18 +1180,13 @@ def recommend_reading_material(topic: str, language: str = "pt") -> dict:
     """
     logger.info(f"RECOMMEND_READING | Topic: {topic} | Starting")
     start_time = time.time()
+    instructions = get_tool_instruction("recommend_reading_material")
     try:
         # Prompt único para o pipeline RAG+LLM
         rec_prompt = f"""
         O utilizador pediu recomendações sobre **{topic}**.
 
-        1. Usa o conhecimento dos documentos disponíveis (RAG) para dar contexto.
-        2. Mesmo que os documentos não incluam recomendações explícitas, complementa com sugestões externas de qualidade.
-
-        Deves sugerir:
-        - **Livros** (título + autor)
-        - **Artigos/Papers** (título + fonte)
-        - **Vídeos** (ex: canais YouTube educacionais, documentários)
+        {instructions}
 
         Formata em lista organizada em Markdown.
         Responde em {'Português de Portugal' if language == 'pt' else 'Inglês'}.
@@ -1422,6 +1417,7 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
       - language: language of the output ("en" for English, "pt" for Portuguese).
     """
     start_time = time.time()
+    instructions = get_tool_instruction("generate_dev_questions")
     try:
         logger.info(
             f"DEV_QUESTIONS | Topic: {topic} | Questions: {num_questions} | Language: {language} | Starting"
@@ -1430,12 +1426,7 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
         # Prompt para o LLM
         dev_prompt = f"""
         Generate {num_questions} open ended questions about "{topic}".
-        For each question, also provide the answer immediately below.
-
-        Format strictly as:
-        Question: <question>
-        Answer: <answer>
-
+        {instructions}
         Language of the output: {language}.
         """
 
@@ -1519,6 +1510,7 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
       - weeks: duration of the plan in weeks.
     """
     start_time = time.time()
+    instructions = get_tool_instruction("study_plan_generator")
     try:
         logger.info(
             f"STUDY_PLAN | Student: {student_id} | Goals: {goals} | Weaknesses: {weaknesses} | "
@@ -1536,20 +1528,7 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
         - Hours available per week: {hours_per_week}
         - Duration: {weeks} weeks
 
-        REQUIREMENTS:
-        1. Base the study plan structure and weekly topics primarily on the retrieved PDFs.
-        2. Divide the plan by weeks. For each week, include:
-           - Total study hours
-           - Suggested number of sessions and hours per session
-           - Focus topics (aligned with goals and weaknesses)
-           - Activities (theory, exercises, small projects)
-           - Evaluation criteria (how to measure progress that week)
-        3. At the end, include ONE final integrative project combining all major topics.
-        4. After the main plan, add a separate section titled "Recursos adicionais".
-           - List 3–5 external resources (e.g. YouTube videos, online courses, official docs)
-           - Prefer resources in Portuguese, but English is acceptable if high quality.
-        5. Output must be structured Markdown with headings and bullet points.
-        6. Be specific, avoid generic advice.
+        {instructions}
         """
 
         # Invocar retriever com RAG
@@ -1635,6 +1614,7 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
       - detail_level: "brief" for short summaries, "detailed" for in-depth summaries.
     """
     start_time = time.time()
+    instructions = get_tool_instruction("generate_lesson_summary")
     try:
         logger.info(f"LESSON_SUMMARY | Topic: {topic} | Detail: {detail_level} | Starting")
 
@@ -1642,13 +1622,7 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
         summary_prompt = f"""
         Generate a {detail_level} summary about the topic: {topic}.
 
-        IMPORTANT:
-        - Use only information from the available PDFs
-        - If no relevant content is found, say explicitly "Sem conteúdo relevante encontrado"
-        - The summary must be coherent, structured in paragraphs
-        - Highlight key concepts, definitions and examples
-        - For 'detailed', provide extended explanations and subtopics
-        - For 'brief', keep the text concise (max 3 paragraphs)
+        {instructions}
         """
 
         # Invocar RAG retriever
@@ -1724,23 +1698,14 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
       - num_cards: number of flashcards to generate
     """
     start_time = time.time()
+    instructions = get_tool_instruction("interactive_flashcards")
     try:
         logger.info(f"FLASHCARD_GENERATION | Topic: {topic} | Cards: {num_cards} | Starting")
 
         # Prompt para gerar flashcards
         flashcard_prompt = f"""
         Generate {num_cards} flashcards about {topic}.
-
-        IMPORTANT:
-        - Use only information from the available PDFs
-        - Return the flashcards as plain text in Portuguese (Portugal)
-        - Format each card as:
-
-          Flashcard X
-          Q: ...
-          A: ...
-
-        - Do not return JSON or any extra commentary.
+        {instructions}
         """
 
         res = qa.invoke({"query": flashcard_prompt})
@@ -1815,23 +1780,13 @@ def generate_test(topic: str, num_questions: int = 10, with_answers: bool = Fals
       - with_answers: if True, include answers/solutions in the output
     """
     start_time = time.time()
+    instructions = get_tool_instruction("generate_test")
     try:
         logger.info(f"TEST_GENERATION | Topic: {topic} | Questions: {num_questions} | WithAnswers: {with_answers} | Starting")
 
         test_prompt = f"""
         Generate a test with {num_questions} questions about {topic}.
-
-        REQUIREMENTS:
-        - Use only information from the available PDFs
-        - Mix question types: multiple choice, true/false, and open-ended
-        - For multiple choice:
-          * Provide 4 options (a, b, c, d)
-          * Indicate the correct option
-        - For true/false:
-          * Provide statement + answer (True/False)
-        - For open-ended:
-          * Provide the question and a short "expected answer"
-
+        {instructions}
         IMPORTANT:
         - Output must be in Markdown
         - When with_answers={with_answers}, include the answers/solutions

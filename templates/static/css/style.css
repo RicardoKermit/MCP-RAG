@@ -1525,7 +1525,6 @@ body {
 
 .settings h1{
     padding-bottom: 20px;
-
 }
 
 /* Garantir que todos os ícones dentro de botões aparecem completos */
@@ -1608,8 +1607,8 @@ button {
 }
 
 .settings-textarea {
-    width: 100%;
-    min-height: 150px;
+    width: 75%;
+    min-height: 250px;
     font-family: "Inter", sans-serif;
     font-size: 0.95rem;
     border-radius: 8px;
@@ -1645,3 +1644,92 @@ button:hover {
     background: #2e59d9;
 }
 
+.settingsbtn{
+    margin-left: 10px;
+}
+
+/* Layout das ferramentas (server side) */
+.server-tools {
+    max-width: 900px;
+    margin: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+  
+  /* Botão de colapsar */
+.collapse-toggle {
+    background-color: #0078ff;
+    color: #fff;
+    border: none;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+  
+.collapse-toggle:hover {
+    background-color: #0063d6;
+}
+  
+.collapse-toggle.active {
+    background-color: #005bb5;
+}
+  
+  /* Conteúdo expansível */
+.tool-content {
+    overflow: hidden;
+    transition: max-height 0.25s ease-out, opacity 0.2s ease;
+    max-height: 1000px;
+    opacity: 1;
+    margin-top: 8px;
+}
+  
+.tool-content.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    pointer-events: none;
+}
+  
+  /* Alinhamento horizontal da textarea e botão */
+.tool-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 8px;
+}
+  
+.settings-textarea {
+    flex: 1;
+    border-radius: 8px;
+    padding: 10px;
+    background-color: #d4d4d4;
+    border: none;
+    resize: vertical;
+    font-family: monospace;
+}
+  
+.save-btn {
+    background-color: #0078ff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-weight: bold;
+    cursor: pointer;
+    height: fit-content;
+    align-self: center;
+}
+  
+.save-btn:hover {
+    background-color: #0063d6;
+}
+  
+  

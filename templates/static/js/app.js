@@ -1393,12 +1393,30 @@ async function loadToolInstructions(tool) {
   
   // Carregar ao abrir
   window.onload = function() {
-    loadToolInstructions("retrieve");
     loadToolInstructions("generate_quiz_with_difficulty");
     loadToolInstructions("practice_quiz");
+    loadToolInstructions("recommend_reading_material");
+    loadToolInstructions("generate_dev_questions");
+    loadToolInstructions("study_plan_generator");
+    loadToolInstructions("generate_lesson_summary");
+    loadToolInstructions("interactive_flashcards");
+    loadToolInstructions("generate_test");
     // adiciona mais tools conforme necessário
-  }
+}
   
+function toggleCollapse(button) {
+    const content = button.nextElementSibling;
+    const isCollapsed = content.classList.contains("collapsed");
+  
+    // Alterna o estado
+    if (isCollapsed) {
+      content.classList.remove("collapsed");
+      button.classList.add("active");
+    } else {
+      content.classList.add("collapsed");
+      button.classList.remove("active");
+    }
+}
   
   
 
