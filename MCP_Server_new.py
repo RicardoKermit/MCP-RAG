@@ -114,8 +114,8 @@ MOODLE_TOKEN=os.getenv("MOODLE_TOKEN")
 #PDF_FOLDER = "pdfs_test"
 PDF_FOLDER = os.getenv("PDF_FOLDER")
 
-TEMPERATURE=os.getenv("TEMPERATURE")
-K_TOP=os.getenv("K_TOP")
+TEMPERATURE=os.getenv("TEMPERATURE","0.4")
+K_TOP=int(os.getenv("K_TOP","5"))
 # MCP
 mcp = FastMCP(name="RAG_pdf_Mul_RemoteQdrant")
 
@@ -174,11 +174,11 @@ else:
             all_texts.extend(texts)
         docsearch = Chroma.from_documents(all_texts, embeddings, persist_directory=CHROMA_DIR)
 
-retriever = docsearch.as_retriever(search_kwargs={"k": 5})
+retriever = docsearch.as_retriever(search_kwargs={"k": K_TOP})
 
 # Modelo atual (será alterado dinamicamente)
 current_model_name = "gemini-2.5-flash"  # Changed to the most economical model
-model = GoogleGenerativeAI(model=current_model_name, temperature=0.4)
+model = GoogleGenerativeAI(model=current_model_name, temperature=TEMPERATURE)
 
 custom_prompt = PromptTemplate(
     input_variables=["context", "question"],
@@ -231,7 +231,7 @@ def _reinitialize_vectorstore(new_backend: str) -> str:
     else:
         raise ValueError("Backend inválido. Use 'qdrant' ou 'chroma'.")
 
-    retriever = docsearch.as_retriever(search_kwargs={"k": 5})
+    retriever = docsearch.as_retriever(search_kwargs={"k": K_TOP})
     qa = RetrievalQA.from_chain_type(
         llm=model,
         chain_type="stuff",
