@@ -2012,7 +2012,7 @@ def stats_technical():
                            SUM(success_count) AS success,
                            SUM(error_count) AS errors
                     FROM operation_stats
-                    WHERE date > CURRENT_DATE - INTERVAL '7 days'
+                    
                 """)
                 total_ops = cur.fetchone()
 
@@ -2024,7 +2024,7 @@ def stats_technical():
                            SUM(error_count) AS errors,
                            ROUND(AVG(avg_duration_ms)::numeric,2) AS avg_duration
                     FROM operation_stats
-                    WHERE date > CURRENT_DATE - INTERVAL '7 days'
+                   
                     GROUP BY operation_type
                     ORDER BY total DESC
                 """)
@@ -2088,7 +2088,7 @@ def stats_performance():
                            MIN(min_duration_ms) AS min_duration,
                            MAX(max_duration_ms) AS max_duration
                     FROM operation_stats
-                    WHERE date > CURRENT_DATE - INTERVAL '14 days'
+                    
                     GROUP BY operation_type
                     ORDER BY avg_duration DESC
                 """)
@@ -2128,7 +2128,7 @@ def stats_system():
                     SELECT date, metric_value
                     FROM performance_stats
                     WHERE metric_name = 'disk_usage_percent'
-                      AND date > CURRENT_DATE - INTERVAL '30 days'
+                      
                     ORDER BY date
                 """)
                 disk_usage_rows = cur.fetchall()
@@ -2174,7 +2174,7 @@ def stats_models():
                     SELECT COALESCE(operation_details->>'model', 'sem_modelo') AS modelo,
                            COUNT(*) AS total
                     FROM operation_logs
-                    WHERE created_at > NOW() - INTERVAL '24 hours'
+                    
                     GROUP BY modelo
                     ORDER BY total DESC
                 """)
@@ -2215,7 +2215,7 @@ def stats_top_users():
                     SELECT l.user_id, u.username, COUNT(*) AS total
                     FROM operation_logs l
                     JOIN users u ON l.user_id = u.id
-                    WHERE l.created_at > NOW() - INTERVAL '7 days'
+                    
                     GROUP BY l.user_id, u.username
                     ORDER BY total DESC
                     LIMIT 10
@@ -2237,7 +2237,7 @@ def stats_roles():
                     SELECT u.role, COUNT(*) AS total
                     FROM operation_logs l
                     JOIN users u ON l.user_id = u.id
-                    WHERE l.created_at > NOW() - INTERVAL '7 days'
+                    
                     GROUP BY u.role
                 """)
                 rows = cur.fetchall()
@@ -2259,7 +2259,7 @@ def stats_errors_by_role():
                            COUNT(*) AS total
                     FROM operation_logs l
                     JOIN users u ON l.user_id = u.id
-                    WHERE l.created_at > NOW() - INTERVAL '7 days'
+                    
                     GROUP BY u.role
                 """)
                 rows = cur.fetchall()
@@ -2289,8 +2289,7 @@ def stats_errors_by_model():
                            COUNT(*) FILTER (WHERE l.status = 'error')   AS errors,
                            COUNT(*) AS total
                     FROM operation_logs l
-                    WHERE l.created_at > NOW() - INTERVAL '7 days'
-                      AND l.operation_details->>'model' IS NOT NULL
+                    WHERE l.operation_details->>'model' IS NOT NULL
                     GROUP BY modelo
                     ORDER BY total DESC
                 """)
@@ -2321,8 +2320,8 @@ def stats_latency_by_model():
                            MIN(l.duration_ms) AS min_latency,
                            MAX(l.duration_ms) AS max_latency
                     FROM operation_logs l
-                    WHERE l.created_at > NOW() - INTERVAL '7 days'
-                      AND l.operation_details->>'model' IS NOT NULL
+                   
+                    WHERE l.operation_details->>'model' IS NOT NULL
                       AND l.duration_ms IS NOT NULL
                     GROUP BY modelo
                     ORDER BY avg_latency ASC
@@ -2342,8 +2341,48 @@ def stats_latency_by_model():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
+@app.route('/stats/rag-performance')
+def stats_rag_performance():
+    """
+    Compara Qdrant e Chroma (mínimo, médio e máximo de duração).
+    Exclui operações que não têm campo 'rag' nos detalhes.
+    """
+    try:
+        with postgres_logger.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT operation_details->>'rag' AS rag_type,
+                        ROUND(AVG((operation_details->>'duration_ms')::numeric), 2) AS avg_duration,
+                        MIN((operation_details->>'duration_ms')::numeric) AS min_duration,
+                        MAX((operation_details->>'duration_ms')::numeric) AS max_duration,
+                        COUNT(*) AS total_ops
+                    FROM operation_logs
+                      WHERE operation_details->>'rag' IS NOT NULL
+                      AND operation_details->>'rag' <> ''
+                    GROUP BY rag_type
+                    ORDER BY avg_duration DESC;
+                """)
+                rows = cur.fetchall()
+
+        # Montagem do resultado em JSON
+        data = [
+            {
+                "rag_type": r[0],
+                "avg_duration": float(r[1]) if r[1] else 0,
+                "min_duration": float(r[2]) if r[2] else 0,
+                "max_duration": float(r[3]) if r[3] else 0,
+                "total_ops": int(r[4])
+            }
+            for r in rows
+        ]
+
+        return jsonify({"success": True, "data": data})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 # ========================
-# Estatísticas
+# PDF
 # ========================
 
 

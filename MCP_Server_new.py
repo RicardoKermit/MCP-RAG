@@ -1098,7 +1098,8 @@ def summarize_student_questions(limit: int = 100) -> dict:
             "details": {
                 "tool": "summarize_student_questions",
                 "total_messages": len(messages),
-                "duration_ms": duration_ms
+                "duration_ms": duration_ms,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1111,7 +1112,8 @@ def summarize_student_questions(limit: int = 100) -> dict:
             "details": {
                 "tool": "summarize_student_questions",
                 "total_messages": len(messages),
-                "duration_ms": duration_ms
+                "duration_ms": duration_ms,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1152,7 +1154,8 @@ def practice_quiz(topic: str, num_questions: int = 5, difficulty: str = "mixed")
                 "num_questions": num_questions,
                 "difficulty": difficulty,
                 "duration_ms": duration_ms,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1165,7 +1168,8 @@ def practice_quiz(topic: str, num_questions: int = 5, difficulty: str = "mixed")
                 "tool": "practice_quiz",
                 "topic": topic,
                 "duration_ms": duration_ms,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1205,7 +1209,8 @@ def recommend_reading_material(topic: str, language: str = "pt") -> dict:
                 "tool": "recommend_reading_material",
                 "topic": topic,
                 "duration_ms": duration_ms,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1218,7 +1223,8 @@ def recommend_reading_material(topic: str, language: str = "pt") -> dict:
             "details": {
                 "tool": "recommend_reading_material",
                 "topic": topic,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1285,7 +1291,8 @@ def retrieve(prompt: str) -> dict:
             "details":{
                 "topic": prompt[:50],
                 "duration_ms": duration_ms,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1297,7 +1304,8 @@ def retrieve(prompt: str) -> dict:
             "error": str(e),
             "details":{
                 "topic": prompt[:50],
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1359,7 +1367,8 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
                     "num_questions": num_questions,
                     "difficulty": difficulty,
                     "duration_ms": duration_ms,
-                    "model": current_model_name
+                    "model": current_model_name,
+                    "rag": RAG_BACKEND
                 }
             }
 
@@ -1380,7 +1389,8 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
                 "num_questions": num_questions,
                 "difficulty": difficulty,
                 "duration_ms": duration_ms,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1401,7 +1411,8 @@ def generate_quiz_with_difficulty(topic: str, num_questions: int = 5, difficulty
                 "num_questions": num_questions,
                 "difficulty": difficulty,
                 "duration_ms": duration_ms,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1451,7 +1462,8 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
                     "num_questions": num_questions,
                     "language": language,
                     "duration_ms": duration_ms,
-                    "model": current_model_name
+                    "model": current_model_name,
+                    "rag": RAG_BACKEND
                 }
             }
 
@@ -1471,7 +1483,8 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
                 "num_questions": num_questions,
                 "language": language,
                 "duration_ms": duration_ms,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1492,7 +1505,8 @@ def generate_dev_questions(topic: str, num_questions: int = 3, language: str = "
                 "num_questions": num_questions,
                 "language": language,
                 "duration_ms": duration_ms,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1554,7 +1568,8 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
                     "hours_per_week": hours_per_week,
                     "weeks": weeks,
                     "duration_ms": duration_ms,
-                    "model": current_model_name
+                    "model": current_model_name,
+                    "rag": RAG_BACKEND
                 }
             }
 
@@ -1576,7 +1591,8 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
                 "hours_per_week": hours_per_week,
                 "weeks": weeks,
                 "duration_ms": duration_ms,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1599,7 +1615,8 @@ def study_plan_generator(student_id: str, goals: list, weaknesses: list, hours_p
                 "hours_per_week": hours_per_week,
                 "weeks": weeks,
                 "duration_ms": duration_ms,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1644,7 +1661,8 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
                     "topic": topic,
                     "detail_level": detail_level,
                     "duration_ms": duration_ms,
-                    "model": current_model_name
+                    "model": current_model_name,
+                    "rag": RAG_BACKEND
                 }
             }
 
@@ -1663,7 +1681,8 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
                 "topic": topic,
                 "detail_level": detail_level,
                 "duration_ms": duration_ms,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1683,7 +1702,8 @@ def generate_lesson_summary(topic: str, detail_level: str = "detailed") -> dict:
                 "topic": topic,
                 "detail_level": detail_level,
                 "duration_ms": duration_ms,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1726,7 +1746,8 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
                     "topic": topic,
                     "num_cards": num_cards,
                     "duration_ms": duration_ms,
-                    "model": current_model_name
+                    "model": current_model_name,
+                    "rag": RAG_BACKEND
                 }
             }
 
@@ -1744,7 +1765,8 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
                 "topic": topic,
                 "num_cards": num_cards,
                 "duration_ms": duration_ms,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1764,7 +1786,8 @@ def interactive_flashcards(topic: str, num_cards: int = 10) -> dict:
                 "topic": topic,
                 "num_cards": num_cards,
                 "duration_ms": duration_ms,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1810,7 +1833,8 @@ def generate_test(topic: str, num_questions: int = 10, with_answers: bool = Fals
                 "num_questions": num_questions,
                 "with_answers": with_answers,
                 "duration_ms": duration_ms,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
@@ -1827,7 +1851,8 @@ def generate_test(topic: str, num_questions: int = 10, with_answers: bool = Fals
                 "topic": topic,
                 "num_questions": num_questions,
                 "with_answers": with_answers,
-                "model": current_model_name
+                "model": current_model_name,
+                "rag": RAG_BACKEND
             }
         }
 
