@@ -113,6 +113,9 @@ MOODLE_TOKEN=os.getenv("MOODLE_TOKEN")
 # Pastas
 #PDF_FOLDER = "pdfs_test"
 PDF_FOLDER = os.getenv("PDF_FOLDER")
+
+TEMPERATURE=os.getenv("TEMPERATURE")
+K_TOP=os.getenv("K_TOP")
 # MCP
 mcp = FastMCP(name="RAG_pdf_Mul_RemoteQdrant")
 
@@ -247,16 +250,17 @@ def update_model(new_model_name: str) -> bool:
     try:
         model_info = ALL_MODELS[new_model_name]
         if model_info["provider"] == "gemini":
-            model = GoogleGenerativeAI(model=new_model_name, temperature=0.4)
+            model = GoogleGenerativeAI(model=new_model_name, temperature=TEMPERATURE)
         elif model_info["provider"] == "openai":
-            model = ChatOpenAI(model=new_model_name, api_key=os.getenv("OPENAI_API_KEY"), temperature=0.4)
+            model = ChatOpenAI(model=new_model_name, api_key=os.getenv("OPENAI_API_KEY"), temperature=TEMPERATURE)
         elif model_info["provider"] == "ollama":
             from langchain_community.chat_models import ChatOllama
             model = ChatOllama(
                 model=new_model_name,
                 base_url="http://localhost:11434",
-                temperature=0.4
+                temperature=TEMPERATURE
             )
+
 
         # Reconstruir o QA pipeline
         qa = RetrievalQA.from_chain_type(

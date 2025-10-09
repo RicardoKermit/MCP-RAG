@@ -9,6 +9,7 @@ from pathlib import Path
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response,send_file,send_from_directory,Response
 from dotenv import load_dotenv
 import google.generativeai as genai
+from google.genai import types
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 import re
@@ -22,6 +23,11 @@ import sqlite3
 from openai import OpenAI
 import requests
 from psycopg2.extras import RealDictCursor
+
+from langchain_openai import ChatOpenAI
+from langchain_google_genai import GoogleGenerativeAI
+from langchain_community.chat_models import ChatOllama
+
 
 
 # PostgreSQL Logging System
@@ -562,6 +568,8 @@ GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 MOODLE_TOKEN=os.getenv("MOODLE_TOKEN")
 MOODLE_URL=os.getenv("MOODLE_URL")
+TEMPERATURE=os.getenv("TEMPERATURE")
+print("TEMPERATURE", TEMPERATURE)
 
 if not GEMINI_API_KEY:
     raise ValueError("GOOGLE_API_KEY não definido no .env")
@@ -645,7 +653,7 @@ class MCPGeminiClient:
         self.stdio_cm = None
         self.session_cm = None
         self.is_connected = False
-        self.current_model = "gemini-2.5-flash"  # Changed to the most economical model
+        self.current_model = os.getenv("LLM_PROVIDER")  # Changed to the most economical model
         self.current_provider = ALL_MODELS[self.current_model]["provider"]
         self.current_language = "pt"  # Idioma padrão (Português)
         self.conversation_history = []  # Histórico da conversa
@@ -839,9 +847,7 @@ class MCPGeminiClient:
             
             usertype=os.getenv(session["role"])
             
-            print(usertype)
-            
-            
+            #print(usertype)
 
             print(f"🤔 Processando pergunta: {query}")
             print(f"🤖 Usando modelo: {self.current_model} (provider={self.current_provider})")
@@ -861,6 +867,8 @@ class MCPGeminiClient:
             tool_descriptions = "\n".join(
                 f"- {tool.name}: {tool.description}" for tool in self.tools
             )
+
+            #print("tool_descriptions: ",tool_descriptions)
         
             language_instructions = {
                 "pt": "IMPORTANTE: Responde SEMPRE em português de Portugal. Usa termos e expressões apropriados para português europeu.",
@@ -910,54 +918,42 @@ class MCPGeminiClient:
                         f"{conversation_context}\n"
                         f"Available tools:\n{tool_descriptions}\n"
                         f"{language_instructions.get(self.current_language, language_instructions['pt'])}\n"
+                        f"User type: {usertype}\n"
                         "IMPORTANT: You must ALWAYS use a tool. NEVER answer directly.\n"
+                        f"Current user question: {query}\n"
                         f"{instructions_text}\n"
                         "ALWAYS answer in the format:\n"
                         "TOOL: <tool_name>\nARGS: <json_com_arguments>\n"
                         "Here are some examples:\n"
                         f"{few_shot_examples}\n"
                         f"---\n"
-                        f"Current user question: {query}\n"
-                        f"User type: {usertype}\n"
                     )
         
-            # --- PRIMEIRA GERAÇÃO ---
-            if self.current_provider == "gemini":
-                model = genai.GenerativeModel(self.current_model)
-                response = model.generate_content(prompt)
-                text = response.text.strip()
 
+            if self.current_provider == "gemini":
+                print("Entrou Gemini ")
+                model = GoogleGenerativeAI(model=self.current_model,api_key=os.getenv("GOOGLE_API_KEY"), temperature=TEMPERATURE)
+                follow_up_response =  model.invoke(prompt)
+                text = follow_up_response.strip()  
             elif self.current_provider == "openai":
-                response = openai_client.chat.completions.create(
-                    model=self.current_model,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                text = response.choices[0].message.content.strip()
+                print("Entrou openai ")
+                    
+                model = ChatOpenAI(model=self.current_model, api_key=os.getenv("OPENAI_API_KEY"), temperature=TEMPERATURE)
+                result = model.invoke(prompt)
+                text = getattr(result, "content", str(result)).strip()
 
             elif self.current_provider == "ollama":
-                import requests
+                print("Entrou ollama ")
                 try:
-                    r = requests.post(
-                        "http://localhost:11434/api/chat",
-                        json={
-                            "model": self.current_model,
-                            "messages": [{"role": "user", "content": prompt}],
-                            "stream": False
-                        },
-                        timeout=60
-                    )
-                    data = r.json()
-                    if "message" in data and "content" in data["message"]:
-                        text = data["message"]["content"].strip()
-                    elif "content" in data:
-                        text = data["content"].strip()
-                    else:
-                        text = str(data)
+                    model = ChatOllama(model=self.current_model, base_url="http://localhost:11434", temperature=TEMPERATURE)
+                    result = model.invoke(prompt)
+                    text = getattr(result, "content", str(result)).strip()
                 except Exception as e:
-                    text = f"Erro ao chamar Ollama local: {e}"
+                    text = f"Erro ao gerar resposta final com Ollama: {e}"
 
             else:
                 raise ValueError(f"Provider desconhecido: {self.current_provider}")
+                
 
             print(f"📝 Resposta inicial do modelo: {text}...")
 
@@ -989,8 +985,7 @@ class MCPGeminiClient:
                
                 allowed_tools=get_allowed_tools()
 
-
-                print(allowed_tools)
+                #print(allowed_tools)
                 
                 if tool_name not in allowed_tools:
                     print(f"⚠️ Ferramenta inválida sugerida: {tool_name}, forçando 'retrieve'")
@@ -1007,7 +1002,7 @@ class MCPGeminiClient:
 
                 result = await self.session.call_tool(tool_name, tool_args)
 
-                print("Results: ", result)
+                #print("Results: ", result)
                 
                 raw_response = ""
                 details = {}
@@ -1034,8 +1029,8 @@ class MCPGeminiClient:
                     details = {}
                     download_url= None
 
-                print("DETAILS: ",details)
-                print("download_url: ",download_url)
+                #print("DETAILS: ",details)
+                #print("download_url: ",download_url)
 
 
                 print(f"📄 Resposta bruta da ferramenta: {raw_response}...")
@@ -1059,78 +1054,63 @@ class MCPGeminiClient:
                     print("⚠️ Erro ao parsear tool_instructions:", e)
                     instructions_text_follow = ""
                 
-                print("📌 Instructions só:", instructions_text_follow)
+                #print("📌 Instructions só:", instructions_text_follow)
 
                 if tool_name == "recommend_reading_material":
                     follow_up_prompt = f"""
-    The user requested reading recommendations on ** {query} **. 
+                        The user requested reading recommendations on ** {query} **. 
 
-Recovered Context of Documents (PDFs):
-{raw_response}
+                        Recovered Context of Documents (PDFs):{raw_response}
 
-Type of User: {usertype}
+                        Type of user you are responding to: {usertype}
 
-From this context, it generates a clear and structured list with:
-- ** Books ** (Title + Author)
-- ** Articles/Papers ** (Title + Source or where it can be found)
-- ** Videos ** (YouTube channels, documentaries, relevant audiovisual resources)
+                        From this context, it generates a clear and structured list with:
+                            - ** Books ** (Title + Author)
+                            - ** Articles/Papers ** (Title + Source or where it can be found)
+                            - ** Videos ** (YouTube channels, documentaries, relevant audiovisual resources)
 
-{final_language_instructions.get (self.current_language, final_language_instructions ['pt'])}
+                            {final_language_instructions.get (self.current_language, final_language_instructions ['pt'])}
 
-Format in Markdown:
-- USA ** Bold ** for categories (books, articles, videos)
-- Use lists with * or - for items
-- Includes short descriptions (1–2 sentences) to contextualize each recommendation
-- Maintains the pedagogical tone, organized and easy to follow
-- Provides links if so possible
-    """
+                            Format in Markdown:
+                                - USE ** Bold ** for categories (books, articles, videos)
+                                - Use lists with * or - for items
+                                - Includes short descriptions (1–2 sentences) to contextualize each recommendation
+                                - Maintains the pedagogical tone, organized and easy to follow
+                                - Provides links if so possible
+                            """
                 else:
                     follow_up_prompt = f"""
-    Original question: {query}
+                        Original question: {query}
 
-    Information found:
-    {raw_response}
+                        Information found:{raw_response}\n
 
-    Type of user: {usertype}
+                        Type of user you are responding to: {usertype}\n
+                        Intructions:{instructions_text_follow}\n
+                        {final_language_instructions.get(self.current_language, final_language_instructions['pt'])}
+                    """
 
-    {final_language_instructions.get(self.current_language, final_language_instructions['pt'])}
-
-    f"{instructions_text_follow}\n"
-    """
-
-
+                print("📌 follow_up_prompt só:", follow_up_prompt)
                 print("🔄 Gerando resposta final...")
 
-                # --- SEGUNDA GERAÇÃO (follow_up) ---
+                    # --- SEGUNDA GERAÇÃO (follow_up) ---
                 if self.current_provider == "gemini":
-                    follow_up_response = model.generate_content(follow_up_prompt)
-                    final_response = follow_up_response.text.strip()
-
+                    print("Entrou Gemini 2")
+                    model = GoogleGenerativeAI(model=self.current_model,api_key=os.getenv("GOOGLE_API_KEY"), temperature=TEMPERATURE)
+                    follow_up_response =  model.invoke(follow_up_prompt)
+                    final_response = follow_up_response.strip()  
                 elif self.current_provider == "openai":
-                    follow_up_response = openai_client.chat.completions.create(
-                        model=self.current_model,
-                        messages=[{"role": "user", "content": follow_up_prompt}]
-                    )
-                    final_response = follow_up_response.choices[0].message.content.strip()
+                    print("Entrou openai 2")
+                    
+                    model = ChatOpenAI(model=self.current_model, api_key=os.getenv("OPENAI_API_KEY"), temperature=TEMPERATURE)
+                    result = model.invoke(follow_up_prompt)
+                    final_response = getattr(result, "content", str(result)).strip()
 
                 elif self.current_provider == "ollama":
+                    print("Entrou ollama 2")
                     try:
-                        r = requests.post(
-                            "http://localhost:11434/api/chat",
-                            json={
-                                "model": self.current_model,
-                                "messages": [{"role": "user", "content": follow_up_prompt}],
-                                "stream": False
-                            },
-                            timeout=60
-                        )
-                        data = r.json()
-                        if "message" in data and "content" in data["message"]:
-                            final_response = data["message"]["content"].strip()
-                        elif "content" in data:
-                            final_response = data["content"].strip()
-                        else:
-                            final_response = str(data)
+                        model = ChatOllama(model=self.current_model, base_url="http://localhost:11434", temperature=TEMPERATURE)
+                        result = model.invoke(follow_up_prompt)
+                        final_response = getattr(result, "content", str(result)).strip()
                     except Exception as e:
                         final_response = f"Erro ao gerar resposta final com Ollama: {e}"
 
