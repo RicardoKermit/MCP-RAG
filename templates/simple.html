@@ -64,7 +64,7 @@
                     <div id="connectionStatus"></div>
                 </div>
                 
-                <div class="model-section">
+                <!-- <div class="model-section">
                     <h3 id="modelSectionTitle">🤖 Modelos</h3>
                     <div class="model-selector">
                         <select id="modelSelect" onchange="changeModel()">
@@ -79,13 +79,13 @@
                             <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
                             <option value="gemini-pro">Gemini Pro</option>
                             <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                            <!-- OpenAI -->
+                            
                             <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
                             <option value="gpt-4o">GPT-4o</option>
                             <option value="gpt-4o-mini">GPT-4o Mini</option>
                             <option value="gpt-4.1">GPT-4.1</option>
 
-                            <!-- Ollama -->
+                            
                             <option value="llama3">LLaMA 3 (8B)</option>
                             <option value="llama3-70b">LLaMA 3 (70B)</option>
                             <option value="mistral">Mistral 7B</option>
@@ -96,9 +96,9 @@
                             <small>Modelo rápido e eficiente para tarefas gerais</small>
                         </div>
                     </div>
-                </div>
+                </div> -->
                 
-                <div class="language-section">
+                <!-- <div class="language-section">
                     <h3>🗄️ Backend RAG</h3>
                     <div class="language-selector">
                         <select id="ragBackendSelect" onchange="changeRagBackend()">
@@ -106,7 +106,7 @@
                             <option value="chroma">Chroma (Local)</option>
                         </select>
                     </div>
-                </div>
+                </div> -->
                 
                 <!-- Sidebar - Conversas -->
                 <div class="conversations-section">
@@ -182,15 +182,6 @@
         <!-- Main Content -->
         <div class="main-content">
             <div class="main-header">
-                
-                
-
-                <button class="help-toggle" onclick="toggleHelpModal()" id="helpToggle" title="Ajuda">
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                    </svg>
-                </button>
                 {% if session['role'] == 'Admin' %}
                 <button class="stats-toggle" onclick="openStatistics()" id="statsToggle" title="Estatísticas">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -208,6 +199,7 @@
                 {% if session['role'] == 'Admin' %}
                 <button class="dark-mode-toggle" onclick="openSettings()" id="darkModeToggle" title="settings">⚙️</button>
                 {% endif %}
+                <button class="dark-mode-toggle" onclick="openHelp()" id="darkModeToggle" title="settings">?</button>
                
                 <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" id="mobileMenuToggle" title="Menu">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

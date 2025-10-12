@@ -915,10 +915,6 @@ class MCPGeminiClient:
                 instructions_text = ""
 
             prompt = (
-                        f"Context:
-                        You are an educational assistant specializing in supporting teachers and students.
-                        Your role is to select and invoke the most appropriate tool to respond
-                        to the user's request, based on the available options."
                         f"{conversation_context}\n"
                         f"Available tools:\n{tool_descriptions}\n"
                         f"{language_instructions.get(self.current_language, language_instructions['pt'])}\n"
@@ -1585,14 +1581,6 @@ def test():
     return jsonify({'message': 'API funcionando!'})
 
 
-@app.route('/statistics-page')
-def statistics_page():
-    """Renderiza a página de estatísticas"""
-    # Check if user is authenticated
-    if not session.get('authenticated'):
-        return redirect('/login')
-    
-    return render_template('statistics.html')
 
 @app.route('/settings-page')
 def settings_page():
@@ -2411,6 +2399,13 @@ def upload_temp():
 def download_logs(filename):
     return send_from_directory("exports", filename, as_attachment=True)
 
+
+@app.route("/tools-page")
+def tools_page():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "error": "Não autenticado"}), 401
+    return render_template("tools_by_role.html")
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000) 

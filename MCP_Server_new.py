@@ -588,7 +588,7 @@ def download_and_add_pdf(file_url: str) -> dict:
         postgres_logger.update_operation_stats(OperationType.FILE_UPLOAD.value, status=="success", duration_ms)
     except Exception: pass
 
-    return {"success": status=="success", "message": msg, "filename": filename}
+    return {"success": status=="success", "response": msg, "filename": filename}
 
 @mcp.tool()
 def download_pdfs_from_course(course_fullname: str) -> dict:

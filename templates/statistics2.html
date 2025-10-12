@@ -63,7 +63,7 @@
         <div class="card"><canvas id="performanceChart"></canvas></div>
     </div>
 
-    <h2>📑 Modelos mais usados (24h)</h2>
+    <h2>📑 Modelos mais usados</h2>
     <div class="grid">
         <div class="card"><canvas id="modelsChart"></canvas></div>
         <div class="card">
@@ -73,35 +73,45 @@
     </div>
 
     <!-- Ranking de Utilizadores -->
-    <h2>👤 Top Utilizadores (7 dias)</h2>
+    <h2>👤 Top Utilizadores</h2>
     <div class="grid">
     <div class="card"><canvas id="topUsersChart"></canvas></div>
     </div>
 
     <!-- Distribuição por Role -->
-    <h2>📚 Distribuição por Role (7 dias)</h2>
+    <h2>📚 Distribuição por Role</h2>
     <div class="grid">
         <div class="card"><canvas id="rolesChart"></canvas></div>
     </div>
 
     <!-- Taxa de Erros por Role -->
-    <h2>⚠️ Taxa de Erros por Role (7 dias)</h2>
+    <h2>⚠️ Taxa de Erros por Role</h2>
     <div class="grid">
         <div class="card"><canvas id="errorsByRoleChart"></canvas></div>
     </div>
 
     <!-- Taxa de Erros por Modelo -->
-    <h2>🤖 Taxa de Erros por Modelo (7 dias)</h2>
+    <h2>🤖 Taxa de Erros por Modelo</h2>
     <div class="grid">
         <div class="card"><canvas id="errorsByModelChart"></canvas></div>
     </div>
 
     <!-- Latência Média por Modelo -->
-    <h2>⏱️ Latência Média por Modelo (7 dias)</h2>
+    <h2>⏱️ Latência Média por Modelo</h2>
     <div class="grid">
         <div class="card"><canvas id="latencyByModelChart"></canvas></div>
     </div>
 
+    <h2>📊 Distribuição de Operações por RAG</h2>
+    <div class="grid">
+      <div class="card"><canvas id="ragUsageChart"></canvas></div>
+    </div>
+
+
+    <h2>📈 Desempenho dos RAGs (Qdrant vs Chroma)</h2>
+    <div class="grid">
+      <div class="card"><canvas id="ragPerformanceChart"></canvas></div>
+    </div>
 
 
   <script>
@@ -127,7 +137,7 @@
             backgroundColor: '#36b9cc'
           }]
         },
-        options: { plugins: { title: { display: true, text: 'Operações por Tipo (7 dias)' } } }
+        options: { plugins: { title: { display: true, text: 'Operações por Tipo' } } }
       });
     }
 
@@ -177,7 +187,7 @@
             { label: 'Máximo (ms)', data: maxValues, backgroundColor: '#e74a3b' }
           ]
         },
-        options: { plugins: { title: { display: true, text: 'Performance por Operação (14 dias)' } } }
+        options: { plugins: { title: { display: true, text: 'Performance por Operação' } } }
       });
     }
 
@@ -427,7 +437,8 @@ async function exportDashboard() {
     { url: "/stats/roles", label: "roles" },
     { url: "/stats/errors-by-role", label: "errors_by_role" },
     { url: "/stats/errors", label: "errors_by_model" },
-    { url: "/stats/latency-by-model", label: "latency" }
+    { url: "/stats/latency-by-model", label: "latency" },
+    { url: "/stats/rag-performance", label: "rag_performance" }
   ];
 
   let allData = {};
@@ -442,7 +453,7 @@ async function exportDashboard() {
   const chartIds = [
     "opsPerTypeChart", "eduTrendsChart", "performanceChart",
     "modelsChart", "topUsersChart", "rolesChart",
-    "errorsByRoleChart", "errorsByModelChart", "latencyByModelChart"
+    "errorsByRoleChart", "errorsByModelChart", "latencyByModelChart","ragPerformanceChart","ragUsageChart"
   ];
 
   chartIds.forEach(id => {
@@ -458,8 +469,101 @@ async function exportDashboard() {
   saveAs(blob, "dashboard.zip");
 }
 
+// ------- Comparativo e Distribuição RAG -------
+async function loadRagPerformance() {
+  try {
+    const resp = await fetch("/stats/rag-performance");
+    const { data } = await resp.json();
+
+    if (!data || data.length === 0) {
+      console.warn("Nenhum dado de RAG disponível.");
+      return;
+    }
+
+    // Extrai valores
+    const labels = data.map(d => d.rag_type.toUpperCase());
+    const avgDurations = data.map(d => d.avg_duration);
+    const minDurations = data.map(d => d.min_duration);
+    const maxDurations = data.map(d => d.max_duration);
+    const totals = data.map(d => d.total_ops);
+
+    // ====== 1️⃣ Gráfico de Desempenho (Barras) ======
+    new Chart(document.getElementById("ragPerformanceChart"), {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          { label: "Média (ms)", data: avgDurations, backgroundColor: "#36b9cc" },
+          { label: "Mínimo (ms)", data: minDurations, backgroundColor: "#1cc88a" },
+          { label: "Máximo (ms)", data: maxDurations, backgroundColor: "#e74a3b" }
+        ]
+      },
+      options: {
+        plugins: {
+          title: {
+            display: true,
+            text: "Desempenho dos Backends RAG (Qdrant vs Chroma)"
+          },
+          tooltip: {
+            callbacks: {
+              afterLabel: function (ctx) {
+                const index = ctx.dataIndex;
+                return "Total de Operações: " + totals[index];
+              }
+            }
+          },
+          legend: { position: "bottom" }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: "Tempo (ms)" }
+          }
+        }
+      }
+    });
+
+    // ====== 2️⃣ Gráfico de Distribuição (Pie) ======
+    const totalOps = totals.reduce((a, b) => a + b, 0);
+    const percentages = totals.map(t => ((t / totalOps) * 100).toFixed(1));
+
+    new Chart(document.getElementById("ragUsageChart"), {
+      type: "doughnut",
+      data: {
+        labels: labels.map((l, i) => `${l} (${percentages[i]}%)`),
+        datasets: [
+          {
+            data: totals,
+            backgroundColor: ["#4e73df", "#f6c23e", "#1cc88a"],
+            hoverOffset: 10
+          }
+        ]
+      },
+      options: {
+        plugins: {
+          title: { display: true, text: "Distribuição de Operações por RAG" },
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) {
+                const i = ctx.dataIndex;
+                return `${labels[i]}: ${totals[i]} operações (${percentages[i]}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Erro ao carregar desempenho RAG:", error);
+  }
+}
 
 
+
+
+    loadRagPerformance();
     loadLatencyByModel();
     loadErrorsByModel();
     loadErrorsByRole();

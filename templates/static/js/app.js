@@ -63,15 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
         languageSelect.value = savedLanguage;
     }
     
-    // Modal de ajuda - fechar ao clicar fora
-    const helpModal = document.getElementById('helpModal');
-    if (helpModal) {
-        helpModal.addEventListener('click', function(e) {
-            if (e.target === helpModal) {
-                toggleHelpModal();
-            }
-        });
-    }
+    
     
     // Modal de logout - fechar ao clicar fora
     const logoutModal = document.getElementById('logoutModal');
@@ -102,14 +94,7 @@ function showToolsInfo(tools) {
     }
 }
 
-function toggleHelpModal() {
-    const modal = document.getElementById('helpModal');
-    if (modal.classList.contains('show')) {
-        modal.classList.remove('show');
-    } else {
-        modal.classList.add('show');
-    }
-}
+
 
 async function changeLanguage() {
     const languageSelect = document.getElementById('languageSelect');
@@ -725,8 +710,7 @@ function updateInterfaceLanguage() {
             if (footer) footer.textContent = translations.mcp_client_interface;
         }
         
-        // Atualizar modais
-        updateModalTranslations();
+
         
         console.log('Interface atualizada com sucesso');
     } catch (error) {
@@ -737,11 +721,7 @@ function updateInterfaceLanguage() {
 
 function updateModalTranslations() {
     try {
-        // Atualizar modal de ajuda
-        if (translations.available_tools) {
-            const helpModalTitle = document.querySelector('#helpModal h3');
-            if (helpModalTitle) helpModalTitle.textContent = translations.available_tools;
-        }
+       
         
         // Atualizar modal de logout
         if (translations.logout_modal_title) {
@@ -1276,6 +1256,12 @@ function openStatistics() {
 function openSettings() {
     /*window.open('/settings-page', '_blank');*/
     window.location.href="/settings-page"
+
+}
+
+function openHelp() {
+    /*window.open('/settings-page', '_blank');*/
+    window.location.href="/tools-page"
 
 }
 
