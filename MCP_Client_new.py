@@ -915,6 +915,10 @@ class MCPGeminiClient:
                 instructions_text = ""
 
             prompt = (
+                        f"Context:
+                        You are an educational assistant specializing in supporting teachers and students.
+                        Your role is to select and invoke the most appropriate tool to respond
+                        to the user's request, based on the available options."
                         f"{conversation_context}\n"
                         f"Available tools:\n{tool_descriptions}\n"
                         f"{language_instructions.get(self.current_language, language_instructions['pt'])}\n"
@@ -928,7 +932,7 @@ class MCPGeminiClient:
                         f"{few_shot_examples}\n"
                         f"---\n"
                     )
-        
+                    
 
             if self.current_provider == "gemini":
                 print("Entrou Gemini ")
