@@ -50,116 +50,116 @@
 </head>
 <body>
     
-    <h1>Ferramentas e Funções Principais</h1>
+    <h1>Main Tools and Functions</h1>
 
     <table>
         <thead>
             <tr>
-                <th>Ferramenta</th>
-                <th>Descrição / Função Principal</th>
+                <th>Tool</th>
+                <th>Description / Main Function</th>
             </tr>
         </thead>
         <tbody>
             {% if session['role'] == 'Admin' %}   
             <tr>
                 <td>set_model(model_name)</td>
-                <td>Define o modelo de linguagem ativo (Gemini, OpenAI ou Ollama).</td>
+                <td>Defines the active language model (Gemini, OpenAI, or Ollama).</td>
             </tr>
             <tr>
                 <td>get_current_model()</td>
-                <td>Retorna o modelo atualmente selecionado.</td>
+                <td>Returns the currently selected model.</td>
             </tr>
             <tr>
                 <td>set_rag_backend(backend)</td>
-                <td>Define o backend RAG (Qdrant ou Chroma).</td>
+                <td>Defines the RAG backend (Qdrant or Chroma).</td>
             </tr>
             <tr>
                 <td>get_rag_backend()</td>
-                <td>Obtém o backend RAG atualmente configurado.</td>
+                <td>Gets the currently configured RAG backend.</td>
             </tr>
             <tr>
                 <td>download_and_add_pdf(file_url)</td>
-                <td>Faz o download de um ficheiro PDF a partir de um URL (geralmente proveniente do Moodle) e envia-o para indexação.</td>
+                <td>Downloads a PDF file from a URL (usually from Moodle) and submits it for indexing.</td>
             </tr>
             <tr>
                 <td>clear_rag()</td>
-                <td>Limpa a base vetorial e remove todos os embeddings armazenados.</td>
+                <td>Clears the vector base and removes all stored embeddings.</td>
             </tr>
             <tr>
                 <td>assign_role(email, role)</td>
-                <td>Atribui um papel (Admin, Professor ou Aluno) a um utilizador.</td>
+                <td>Assigns a role (Admin, Professor, or Student) to a user.</td>
             </tr>
             <tr>
                 <td>list_users(limit)</td>
-                <td>Lista os utilizadores registados no sistema.</td>
+                <td>Lists the registered users in the system.</td>
             </tr>
             <tr>
                 <td>deactivate_user(email)</td>
-                <td>Desativa um utilizador e bloqueia o respetivo acesso.</td>
+                <td>Deactivates a user and blocks their access.</td>
             </tr>
             <tr>
                 <td>export_logs()</td>
-                <td>Exporta registos de operação da tabela operation_logs para auditoria.</td>
+                <td>Exports all .log files from the logs folder as a zip archive.</td>
             </tr>
             <tr>
                 <td>system_health_check()</td>
-                <td>Verifica o estado geral do sistema (base de dados, RAG, Moodle, disco).</td>
+                <td>Checks the general status of the system (database, RAG, Moodle, disk).</td>
             </tr>
             {% endif %}
             {% if session['role'] == 'Admin' or session['role'] == 'Professor' %}
             <tr>
                 <td>add_new_pdfs()</td>
-                <td>Procura novos ficheiros PDF disponíveis no diretório configurado e adiciona-os ao RAG.</td>
+                <td>Searches for new PDF files available in the configured directory and adds them to RAG.</td>
             </tr>
             <tr>
                 <td>download_pdfs_from_course(course_fullname)</td>
-                <td>Recolhe automaticamente todos os PDFs de um curso Moodle e processa-os para integração no RAG.</td>
+                <td>Automatically collects all PDFs from a Moodle course and processes them for RAG integration.</td>
             </tr>
             <tr>
                 <td>analyze_student_queries()</td>
-                <td>Analisa padrões de perguntas colocadas pelos alunos para identificar dificuldades frequentes.</td>
+                <td>Analyzes patterns in student questions to identify frequent difficulties.</td>
             </tr>
             <tr>
                 <td>generate_quiz_with_difficulty(topic, num_questions, difficulty)</td>
-                <td>Gera questionários personalizados com base num tema, número de questões e nível de dificuldade.</td>
+                <td>Generates personalized quizzes based on a topic, number of questions, and difficulty level.</td>
             </tr>
             {% endif %}
 
             {% if session['role'] == 'Aluno' %}
             <tr>
                 <td>practice_quiz(topic)</td>
-                <td>Gera exercícios de prática rápida sobre um tema selecionado.</td>
+                <td>Generates quick practice exercises on a selected topic.</td>
             </tr>
             {% endif %}
 
             {% if session['role'] == 'Admin' or session['role'] == 'Professor' or session['role'] == 'Aluno' %}
             <tr>
                 <td>recommend_reading_material(topic)</td>
-                <td>Sugere materiais de leitura complementares (artigos, vídeos, livros).</td>
+                <td>Suggests complementary reading materials (articles, videos, books).</td>
             </tr>
             <tr>
                 <td>retrieve(prompt)</td>
-                <td>Recupera informação diretamente dos PDFs indexados (base de conhecimento).</td>
+                <td>Retrieves information directly from indexed PDFs (knowledge base).</td>
             </tr>
             <tr>
                 <td>generate_dev_questions(topic)</td>
-                <td>Cria perguntas de desenvolvimento baseadas num tema específico.</td>
+                <td>Creates development questions based on a specific topic.</td>
             </tr>
             <tr>
                 <td>study_plan_generator(topic)</td>
-                <td>Cria planos de estudo personalizados com base nos materiais disponíveis.</td>
+                <td>Creates personalized study plans based on available materials.</td>
             </tr>
             <tr>
                 <td>generate_lesson_summary(topic)</td>
-                <td>Gera resumos automáticos de lições ou documentos.</td>
+                <td>Generates automatic summaries of lessons or documents.</td>
             </tr>
             <tr>
                 <td>interactive_flashcards(topic)</td>
-                <td>Cria cartões interativos de revisão para estudo autónomo.</td>
+                <td>Creates interactive review cards for autonomous study.</td>
             </tr>
             <tr>
                 <td>generate_test(topic)</td>
-                <td>Cria testes avaliativos com diferentes níveis de dificuldade.</td>
+                <td>Creates evaluative tests with different difficulty levels.</td>
             </tr>
             {% endif %}
 

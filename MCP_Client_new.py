@@ -510,7 +510,7 @@ def map_tool_to_operation(tool_name: str) -> OperationType:
         return OperationType.RECOMMEND_READING_MATERIAL
     elif tool_name == "analyze_student_queries":
         return OperationType.ANALYZE_STUDENT_QUERIES
-    elif tool_name == "add_new_pdfs":
+    elif tool_name == "add_new_pdfs" or tool_name == "download_pdfs_from_course" or tool_name=="download_and_add_pdf":
         return OperationType.FILE_UPLOAD
     elif tool_name == "assign_role" or tool_name == "system_health_check" or tool_name == "list_users":
         return OperationType.SYSTEM_MAINTENANCE
