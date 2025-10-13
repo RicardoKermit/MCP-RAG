@@ -580,17 +580,7 @@ def download_and_add_pdf(file_url: str) -> dict:
         msg = f"Erro ao adicionar PDF: {e}"
 
     duration_ms = int((time.time() - start_time) * 1000)
-    try:
-        postgres_logger.log_operation(
-            operation_type=OperationType.FILE_UPLOAD.value,
-            user_id=user_id,
-            details={"operation": "download_and_add_pdf", "file_url": file_url, "filename": filename},
-            status=status,
-            error_message=error_message,
-            duration_ms=duration_ms
-        )
-        postgres_logger.update_operation_stats(OperationType.FILE_UPLOAD.value, status=="success", duration_ms)
-    except Exception: pass
+    
 
     return {"success": status=="success", "response": msg, "filename": filename}
 
@@ -602,33 +592,15 @@ def download_pdfs_from_course(course_fullname: str) -> dict:
     Arguments:
       - course_fullname: the exact name of the course.
     """
+    logger.info(f"DOWNLOAD_AND_ADD_FROM_COURSE | Starting")
+    start_time = time.time()
     downloaded, skipped, failed = [], [], []
     courses_resp = get_courses_by_field(field="", value="")
     if "error" in courses_resp:
-        # Log erro em Postgres
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.FILE_DOWNLOAD,
-                details={"tool": "download_pdfs_from_course", "course": course_fullname},
-                status="error",
-                error_message=f"Erro: {courses_resp['error']}"
-            )
-        except Exception:
-            pass
         return {"error": f"Erro: {courses_resp['error']}"}
     courses = courses_resp.get("courses", [])
     course = next((c for c in courses if c.get("fullname") == course_fullname), None)
     if not course:
-        # Log erro em Postgres
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.FILE_DOWNLOAD,
-                details={"tool": "download_pdfs_from_course", "course": course_fullname},
-                status="error",
-                error_message="Curso não encontrado"
-            )
-        except Exception:
-            pass
         return {"error": f"Curso '{course_fullname}' não encontrado."}
     courseid = course["id"]
     params = {
@@ -642,16 +614,7 @@ def download_pdfs_from_course(course_fullname: str) -> dict:
         response.raise_for_status()
         contents = response.json()
     except Exception as e:
-        # Log erro em Postgres
-        try:
-            postgres_logger.log_operation(
-                operation_type=OperationType.FILE_DOWNLOAD,
-                details={"tool": "download_pdfs_from_course", "course": course_fullname},
-                status="error",
-                error_message=f"Erro ao obter conteúdo: {str(e)}"
-            )
-        except Exception:
-            pass
+        logger.error(f"DOWNLOAD_AND_ADD_FROM_COURSE | Error: {str(e)}")
         return {"error": f"Erro ao obter conteúdo: {str(e)}"}
 
     for section in contents:
@@ -677,30 +640,19 @@ def download_pdfs_from_course(course_fullname: str) -> dict:
                             failed.append({"filename": file_name, "error": str(e)})
 
     rag_result = add_new_pdfs()
-    # Log resumo em Postgres
-    try:
-        postgres_logger.log_operation(
-            operation_type=OperationType.FILE_DOWNLOAD,
-            details={
-                "tool": "download_pdfs_from_course",
-                "course": course_fullname,
-                "downloaded": downloaded,
-                "skipped": skipped,
-                "failed": failed,
-                "rag_result": rag_result
-            },
-            status="success" if not failed else "warning",
-            error_message=None if not failed else f"{len(failed)} ficheiros falharam"
-        )
-    except Exception:
-        pass
+    
+    duration_ms = int((time.time() - start_time) * 1000)
+    logger.info(f"DOWNLOAD_AND_ADD_FROM_COURSE | Success | downloaded: {downloaded}, skipped: {skipped}, failed: {failed}, course: {course_fullname}, model: {current_model_name}, duration_ms: {duration_ms}")
     return {
         "success": True,
         "details":{
+            "tool": "download_pdfs_from_course",
             "pdfs_downloaded": downloaded,
             "pdfs_skipped": skipped,
             "pdfs_failed": failed,
             "course": course_fullname,
+            "model": current_model_name,
+            "duration_ms": duration_ms
         },
         "response": rag_result
     }
