@@ -121,7 +121,7 @@ mcp = FastMCP(name="RAG_pdf_Mul_RemoteQdrant")
 
 """Inicialização de embeddings e vectorstore, com suporte a Chroma (local) e Qdrant (cloud)."""
 # Embeddings
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 
 if RAG_BACKEND == "qdrant":
     # Cliente Qdrant
@@ -134,7 +134,7 @@ if RAG_BACKEND == "qdrant":
 
     # Preparar textos a indexar (apenas se houver PDFs)
     all_texts = []
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=200)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=100)
     for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
         loader = PyPDFLoader(
             file_path=str(pdf_file),
@@ -162,8 +162,9 @@ else:
     else:
         print("ENTROU RAG")
         all_texts = []
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=200)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=100)
         for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
+            print(f"Processing {pdf_file}")
             loader = PyPDFLoader(
             file_path=str(pdf_file),
             extract_images=True,
@@ -172,6 +173,8 @@ else:
             data = loader.load()
             texts = text_splitter.split_documents(data)
             all_texts.extend(texts)
+            print(f"Added {len(texts)} texts to Chroma")
+            print("MAIS 1")
         docsearch = Chroma.from_documents(all_texts, embeddings, persist_directory=CHROMA_DIR)
 
 retriever = docsearch.as_retriever(search_kwargs={"k": K_TOP})
@@ -183,7 +186,7 @@ model = GoogleGenerativeAI(model=current_model_name, temperature=TEMPERATURE)
 custom_prompt = PromptTemplate(
     input_variables=["context", "question"],
     template=(
-        "Responde sempre em português. Se não souber a resposta, diz claramente. "
+        "Responde sempre em português, utilizando a informação fornecida no contexto para responder à pergunta. Se não souber a resposta, diz claramente. "
         "Contexto: {context}\n\nPergunta: {question}\nResposta:"
     ),
 )
@@ -477,7 +480,7 @@ def add_new_pdfs() -> dict:
                     for d in data:
                         d.metadata["source"] = file_path
 
-                    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+                    text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=200)
                     texts = text_splitter.split_documents(data)
 
                     # garantir que cada chunk mantém o source
@@ -504,7 +507,8 @@ def add_new_pdfs() -> dict:
                     for d in data:
                         d.metadata["source"] = file_path
 
-                    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+                    text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=200)
+
                     texts = text_splitter.split_documents(data)
 
                     # garantir que os chunks guardam o source
@@ -701,22 +705,63 @@ def download_pdfs_from_course(course_fullname: str) -> dict:
         "response": rag_result
     }
 
+import os
+import shutil
+import gc    # Necessário para forçar a coleta de lixo
+import time  # Necessário para dar tempo ao SO
+# Usando a importação que confirmou estar a usar:
+from langchain.vectorstores import Chroma 
+
+# ... (assumindo que as variáveis globais e a definição de mcp.tool() estão acessíveis)
+
 @mcp.tool()
 def clear_rag() -> str:
     """
     Limpa completamente o vectorstore, conforme o backend selecionado.
-    - Qdrant: apaga a coleção remota
-    - Chroma: remove a pasta de persistência local
+    - Qdrant: apaga a coleção remota.
+    - Chroma: apaga APENAS o conteúdo (embeddings) para evitar o WinError 32 no Windows.
     """
+    db_instance = None
     try:
         if RAG_BACKEND == "qdrant":
+            # 1. Lógica Qdrant
             client.delete_collection(collection_name=QDRANT_COLLECTION_NAME)
             result_msg = "Vectorstore (Qdrant) limpo."
-        else:
-            if os.path.exists(CHROMA_DIR):
-                shutil.rmtree(CHROMA_DIR)
-            result_msg = "Vectorstore (Chroma) limpo."
-        # Log sucesso em Postgres
+
+        else: # RAG_BACKEND == "chroma"
+            # 2. Lógica Chroma (Segura: Limpeza de Conteúdo)
+            if not os.path.exists(CHROMA_DIR) or not os.path.isdir(CHROMA_DIR):
+                return "Vectorstore (Chroma) já estava limpo (diretório não encontrado)."
+
+            # A. Reinstanciar o objeto DB para obter o handle de escrita/eliminação
+            # Usa-se a variável global 'embeddings'
+            db_instance = Chroma(persist_directory=CHROMA_DIR, embedding_function=embeddings)
+            collection = db_instance._collection
+
+            # B. Obter todos os IDs de documentos para garantir a eliminação total
+            # A chamada .get(ids=None) evita o erro de filtro vazio
+            results = collection.get(ids=None)
+            all_ids = results.get('ids', [])
+            
+            if not all_ids:
+                result_msg = "Vectorstore (Chroma) já estava vazio."
+            else:
+                # C. Apagar todos os documentos usando a lista de IDs
+                collection.delete(ids=all_ids)
+                
+                # D. Confirmação
+                count_after_delete = collection.count()
+                if count_after_delete == 0:
+                    result_msg = "Vectorstore (Chroma) limpo. Conteúdo apagado."
+                else:
+                    result_msg = f"AVISO: Vectorstore (Chroma) parcialmente limpo. {count_after_delete} documentos permanecem."
+
+        # E. Limpeza ESSENCIAL (Libertar o handle do ficheiro antes de terminar)
+        db_instance = None # Quebra a referência
+        gc.collect()      # Força a coleta de lixo
+        time.sleep(0.1)   # Pequeno atraso para o SO
+        
+        # Log de sucesso (mantido)
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.SYSTEM_MAINTENANCE,
@@ -726,8 +771,13 @@ def clear_rag() -> str:
         except Exception:
             pass
         return result_msg
+
     except Exception as e:
-        # Log erro em Postgres
+        # Tenta libertar a instância mesmo em caso de erro
+        if db_instance:
+             db_instance = None
+        
+        # Log de erro (mantido)
         try:
             postgres_logger.log_operation(
                 operation_type=OperationType.SYSTEM_MAINTENANCE,
