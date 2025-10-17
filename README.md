@@ -34,7 +34,24 @@ Um sistema de **Retrieval-Augmented Generation (RAG)** avançado que combina:
 - [uv](https://docs.astral.sh/uv/) instalado
 - Conta no [Google AI Studio](https://aistudio.google.com/) (para Gemini API)
 - Conta no [Qdrant Cloud](https://cloud.qdrant.io/) (opcional, para vectorstore remoto)
-- Servidor Moodle (opcional, para integração)
+- Servidor Moodle (para integração)
+
+## ⚡ Introdução rápida
+
+```bash
+git clone <url-do-seu-repositorio>
+cd rag
+uv sync
+copy NUL .env  # Windows: cria .env vazio; preencha com GOOGLE_API_KEY
+uv run python MCP_Server.py
+uv run python MCP_Client.py
+# Abra http://localhost:5000
+```
+
+**Importante:** Antes de executar, configure pelo menos a `GOOGLE_API_KEY` no ficheiro `.env`.
+
+Dica: para instalar o uv rapidamente no Windows (PowerShell):
+`iwr https://astral.sh/uv/install.ps1 -UseB -OutFile install.ps1; .\install.ps1`
 
 ## 🛠️ Instalação
 
@@ -146,32 +163,53 @@ Um sistema de **Retrieval-Augmented Generation (RAG)** avançado que combina:
 
 ### 4. Arquivo .env Completo
 
-Crie um arquivo `.env` na raiz do projeto com todas as configurações:
+Crie um arquivo `.env` na raiz do projeto com as configurações necessárias:
 
 ```env
-# Google Gemini API
+# =====================================================
+# Configuração do Sistema RAG
+# =====================================================
+
+# Google Gemini API (OBRIGATÓRIO)
+# Obtenha em: https://aistudio.google.com/
 GOOGLE_API_KEY=sua_chave_api_gemini_aqui
 
-# Qdrant Cloud
+# Qdrant Cloud (OPCIONAL - se não configurar, usa ChromaDB local)
+# Obtenha em: https://cloud.qdrant.io/
 QDRANT_HOST=https://seu-cluster.qdrant.io
 QDRANT_API_KEY=sua_chave_api_qdrant_aqui
 QDRANT_COLLECTION_NAME=rag_documents
 
-# Moodle (Opcional)
+# Moodle (OPCIONAL - para integração com cursos)
+# Configure o webservice no Moodle e gere um token
 MOODLE_URL=http://seu-moodle/webservice/rest/server.php
 MOODLE_TOKEN=seu_token_moodle_aqui
+
+# PostgreSQL (OPCIONAL - se usar Docker Compose)
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=rag_system
+POSTGRES_USER=rag_user
+POSTGRES_PASSWORD=rag_password_secure_2024
+
+# Configurações da Interface Web (OPCIONAL)
+FLASK_ENV=development
+FLASK_DEBUG=True
+PORT=5000
 ```
+
+**Nota:** Apenas `GOOGLE_API_KEY` é obrigatória para funcionar. As outras são opcionais.
 
 ## 🏗️ Estrutura do Projeto
 
 ```
 rag/
 ├── MCP_Server.py          # Servidor MCP principal
-├── MCP_Client.py          # Cliente MCP com Gemini
-├── server.py              # Servidor RAG básico
+├── MCP_Client.py          # Cliente MCP com Gemini (UI Flask)
+├── MCP_Server_new.py      # Servidor MCP (versão avançada)
+├── MCP_Client_new.py      # Cliente MCP (versão avançada)
 ├── server_pdf.py          # Servidor RAG com PDFs
 ├── server_MulPDF.py       # Servidor RAG multi-PDF
-├── main.py                # Servidor RAG com Ollama
 ├── pyproject.toml         # Configuração de dependências
 ├── templates/             # Templates da interface web
 │   ├── simple.html        # Interface principal
@@ -414,6 +452,71 @@ app.run(debug=True, host='0.0.0.0', port=5000)
 #### Personalizar Design
 Edite o CSS no arquivo `templates/static/css/style.css` para personalizar cores, fontes e layout.
 
+## 🗄️ Postgres (opcional) e migração
+
+Este projeto inclui `docker-compose.yml` para subir Postgres + pgAdmin e scripts de migração.
+
+### Subir banco e pgAdmin
+```bash
+docker compose up -d
+# Aceda ao pgAdmin em http://localhost:8080 (ver credenciais no docker-compose.yml)
+```
+
+### Migrar dados (SQLite ➜ Postgres)
+```bash
+uv run python migrate_to_postgres.py
+```
+
+Mais detalhes em `POSTGRES_MIGRATION.md` e `MIGRATION_GUIDE.md`.
+
+### Quando usar `migrate_to_postgres.py` vs `init.sql`
+- **Primeira instalação**: Só precisa `docker compose up -d` (o `init.sql` corre automaticamente)
+- **Migração de dados existentes**: Use `migrate_to_postgres.py` se já tem dados em SQLite (ex.: `statistics.db`, `demo_statistics.db`) e quer migrar para Postgres
+- O `init.sql` cria apenas as tabelas/esquemas base - não precisa executar manualmente
+
+Nota: se recriar o volume do Postgres, o `init.sql` volta a ser aplicado na primeira inicialização.
+
+---
+
+## 🧠 Ollama (opcional)
+
+Suporte a modelos locais via Ollama.
+
+### Requisitos
+- Instalar o servidor Ollama: consulte `https://ollama.com/`
+- Puxar um modelo (ex.: Llama 3.1):
+```bash
+ollama pull llama3.1
+```
+
+### Ativar Ollama no projeto
+- Dependências já incluídas: `langchain-ollama` e `ollama` (via `pyproject.toml`).
+- Os modelos e provedores são definidos em `models.json` (há entradas com `"provider": "ollama"`).
+- No cliente/servidor avançado:
+  - `MCP_Server_new.py` contém ramificações para `provider == "ollama"`.
+  - `MCP_Client_new.py` também trata `current_provider == "ollama"`.
+
+### Configuração dos modelos
+Edite o ficheiro `models.json` para adicionar/remover modelos Ollama:
+```json
+{
+  "name": "llama3.1",
+  "provider": "ollama",
+  "model_name": "llama3.1"
+}
+```
+
+### Como usar
+1) Inicie o Ollama local (`ollama serve` se necessário; em muitos sistemas inicia sozinho ao usar `ollama`)
+2) Arranque o servidor/cliente do projeto (UI Web):
+```bash
+uv run python MCP_Server_new.py
+uv run python MCP_Client_new.py
+```
+3) Selecione um modelo com `provider: ollama` (via UI ou ajustando `models.json`).
+
+Sugestões de modelos: `llama3.1`, `llama3.2`, `phi3`, `mistral` — escolha conforme recursos da sua máquina.
+
 ## 🧪 Testes e Verificação
 
 ### Testes Automatizados
@@ -493,7 +596,10 @@ else:
 ```
 ValueError: GOOGLE_API_KEY não definido no .env
 ```
-**Solução:** Configure a variável `GOOGLE_API_KEY` no arquivo `.env`
+**Solução:** 
+1. Crie o arquivo `.env` na raiz do projeto
+2. Adicione `GOOGLE_API_KEY=sua_chave_aqui`
+3. Reinicie o servidor
 
 ### Erro de conexão Qdrant
 ```
@@ -569,20 +675,17 @@ uv run python MCP_Client.py MCP_Server.py
 # Servidor MCP principal
 uv run python MCP_Server.py
 
+# Servidor MCP (avançado)
+uv run python MCP_Server_new.py
+
 # Cliente MCP
 uv run python MCP_Client.py MCP_Server.py
-
-# Servidor RAG básico
-uv run python server.py
 
 # Servidor RAG com PDFs
 uv run python server_pdf.py
 
 # Servidor RAG multi-PDF
 uv run python server_MulPDF.py
-
-# Servidor RAG com Ollama
-uv run python main.py
 ```
 
 ### Comandos de Desenvolvimento
