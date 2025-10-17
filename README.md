@@ -43,8 +43,8 @@ git clone <url-do-seu-repositorio>
 cd rag
 uv sync
 copy NUL .env  # Windows: cria .env vazio; preencha com GOOGLE_API_KEY
-uv run python MCP_Server.py
-uv run python MCP_Client.py
+uv run python MCP_Server_new.py
+uv run python MCP_Client_new.py
 # Abra http://localhost:5000
 ```
 
@@ -204,12 +204,8 @@ PORT=5000
 
 ```
 rag/
-├── MCP_Server.py          # Servidor MCP principal
-├── MCP_Client.py          # Cliente MCP com Gemini (UI Flask)
-├── MCP_Server_new.py      # Servidor MCP (versão avançada)
-├── MCP_Client_new.py      # Cliente MCP (versão avançada)
-├── server_pdf.py          # Servidor RAG com PDFs
-├── server_MulPDF.py       # Servidor RAG multi-PDF
+├── MCP_Server_new.py        # Servidor MCP avançado
+├── MCP_Client_new.py        # Cliente MCP avançado (UI Flask)
 ├── pyproject.toml         # Configuração de dependências
 ├── templates/             # Templates da interface web
 │   ├── simple.html        # Interface principal
@@ -231,11 +227,11 @@ rag/
 Para usar a interface web moderna:
 
 ```bash
-# Iniciar o servidor MCP
-uv run python MCP_Server.py
+# Iniciar o servidor MCP (versão avançada)
+uv run python MCP_Server_new.py
 
-# Em outro terminal, iniciar a interface web
-uv run python MCP_Client.py
+# Em outro terminal, iniciar a interface web (versão avançada)
+uv run python MCP_Client_new.py
 ```
 
 Depois aceda a `http://localhost:5000` no seu navegador.
@@ -245,7 +241,7 @@ Depois aceda a `http://localhost:5000` no seu navegador.
 Para executar tanto o servidor como o cliente de uma vez:
 
 ```bash
-uv run python MCP_Client.py MCP_Server.py
+uv run python MCP_Client_new.py MCP_Server_new.py
 ```
 
 Este comando inicia automaticamente o servidor MCP e o cliente, permitindo-te fazer perguntas diretamente.
@@ -272,7 +268,7 @@ uv run python MCP_Server.py
 
 **Executar o cliente:**
 ```bash
-uv run python MCP_Client.py MCP_Server.py
+uv run python MCP_Client_new.py MCP_Server_new.py
 ```
 
 ### 3. Exemplos de Uso
@@ -328,7 +324,7 @@ Para usar o servidor MCP no Claude Desktop, adicione a seguinte configuração a
         "/caminho/para/seu/projeto/rag",
         "run",
         "python",
-        "MCP_Server.py"
+        "MCP_Server_new.py"
       ]
     }
   }
@@ -346,7 +342,7 @@ Para usar o servidor MCP no Claude Desktop, adicione a seguinte configuração a
         "C:\\caminho\\para\\seu\\projeto\\rag",
         "run",
         "python",
-        "MCP_Server.py"
+        "MCP_Server_new.py"
       ]
     }
   }
@@ -364,7 +360,7 @@ Para usar o servidor MCP no Claude Desktop, adicione a seguinte configuração a
         "/caminho/para/seu/projeto/rag",
         "run",
         "python",
-        "MCP_Server.py"
+        "MCP_Server_new.py"
       ]
     }
   }
@@ -428,7 +424,7 @@ O sistema suporta múltiplos modelos Gemini, ordenados por custo (do mais econó
 
 Para alterar o modelo padrão:
 ```python
-# Em MCP_Client.py e MCP_Server.py
+# Em MCP_Client_new.py e MCP_Server_new.py
 current_model = "gemini-2.0-flash-lite"  # Modelo mais económico
 ```
 
@@ -437,14 +433,14 @@ current_model = "gemini-2.0-flash-lite"  # Modelo mais económico
 O sistema usa por padrão `sentence-transformers/all-MiniLM-L6-v2`. Para alterar:
 
 ```python
-# Em MCP_Server.py
+# Em MCP_Server_new.py
 embeddings = HuggingFaceEmbeddings(model_name="outro-modelo")
 ```
 
 ### Configuração da Interface Web
 
 #### Alterar Porta
-Edite o arquivo `MCP_Client.py` na linha final:
+Edite o arquivo `MCP_Client_new.py` na linha final:
 ```python
 app.run(debug=True, host='0.0.0.0', port=5000)
 ```
@@ -533,23 +529,23 @@ uv run pytest
 1. **Teste da API Gemini:**
    ```bash
    # Execute o cliente para testar a conexão
-   uv run python MCP_Client.py
+   uv run python MCP_Client_new.py
    ```
    Se não houver erros, a API Gemini está configurada corretamente.
 
 2. **Teste do Qdrant:**
    ```bash
    # Execute o servidor para testar a conexão Qdrant
-   uv run python MCP_Server.py
+   uv run python MCP_Server_new.py
    ```
    Se não houver erros de conexão, o Qdrant está configurado corretamente.
 
 3. **Teste da Interface Web:**
    ```bash
    # Inicie o servidor e cliente
-   uv run python MCP_Server.py
+   uv run python MCP_Server_new.py
    # Em outro terminal:
-   uv run python MCP_Client.py
+   uv run python MCP_Client_new.py
    ```
    Aceda a `http://localhost:5000` e teste a conexão.
 
@@ -592,6 +588,15 @@ else:
 
 ## 🔍 Troubleshooting
 
+### Erro de módulo em falta
+```
+ModuleNotFoundError: No module named 'psutil'
+```
+**Solução:** 
+1. Execute `uv sync` para instalar todas as dependências
+2. Se ainda der erro, execute: `uv add psutil>=5.9.0`
+3. Reinicie o servidor/cliente
+
 ### Erro de API Key
 ```
 ValueError: GOOGLE_API_KEY não definido no .env
@@ -600,12 +605,6 @@ ValueError: GOOGLE_API_KEY não definido no .env
 1. Crie o arquivo `.env` na raiz do projeto
 2. Adicione `GOOGLE_API_KEY=sua_chave_aqui`
 3. Reinicie o servidor
-
-### Erro de conexão Qdrant
-```
-ConnectionError: Unable to connect to Qdrant
-```
-**Solução:** Verifique as configurações de `QDRANT_HOST` e `QDRANT_API_KEY`
 
 ### Erro de PDF
 ```
@@ -620,7 +619,7 @@ ValueError: Unable to determine which files to ship inside the wheel
 **Solução:** O `pyproject.toml` já está configurado corretamente. Se ainda tiver problemas:
 1. Limpe o cache do uv: `uv cache clean`
 2. Reinstale as dependências: `uv sync --reinstall`
-3. Execute novamente: `uv run python MCP_Server.py`
+3. Execute novamente: `uv run python MCP_Server_new.py`
 
 ### Problemas da Interface Web
 
@@ -666,20 +665,17 @@ uv sync
 ### Comandos de Execução
 ```bash
 # Interface Web (Recomendado)
-uv run python MCP_Server.py
-uv run python MCP_Client.py
+uv run python MCP_Server_new.py
+uv run python MCP_Client_new.py
 
 # Execução completa (CLI)
-uv run python MCP_Client.py MCP_Server.py
+uv run python MCP_Client_new.py MCP_Server_new.py
 
-# Servidor MCP principal
-uv run python MCP_Server.py
-
-# Servidor MCP (avançado)
+# Servidor MCP (versão avançada)
 uv run python MCP_Server_new.py
 
-# Cliente MCP
-uv run python MCP_Client.py MCP_Server.py
+# Cliente MCP (versão avançada)
+uv run python MCP_Client_new.py MCP_Server_new.py
 
 # Servidor RAG com PDFs
 uv run python server_pdf.py
