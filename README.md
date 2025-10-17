@@ -591,10 +591,15 @@ else:
 ### Erro de módulo em falta
 ```
 ModuleNotFoundError: No module named 'psutil'
+ModuleNotFoundError: No module named 'openai'
+ModuleNotFoundError: No module named 'langchain_chroma'
 ```
 **Solução:** 
-1. Execute `uv sync` para instalar todas as dependências
-2. Se ainda der erro, execute: `uv add psutil>=5.9.0`
+1. Execute `uv sync` para instalar todas as dependências atualizadas
+2. Se ainda der erro, execute:
+   - `uv add psutil>=5.9.0`
+   - `uv add langchain-openai>=0.2.0`
+   - `uv add langchain-chroma>=0.1.0`
 3. Reinicie o servidor/cliente
 
 ### Erro de API Key
