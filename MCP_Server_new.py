@@ -121,7 +121,7 @@ mcp = FastMCP(name="RAG_pdf_Mul_RemoteQdrant")
 
 """Inicialização de embeddings e vectorstore, com suporte a Chroma (local) e Qdrant (cloud)."""
 # Embeddings
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 if RAG_BACKEND == "qdrant":
     # Cliente Qdrant
@@ -134,7 +134,7 @@ if RAG_BACKEND == "qdrant":
 
     # Preparar textos a indexar (apenas se houver PDFs)
     all_texts = []
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=100)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=900, chunk_overlap=150)
     for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
         loader = PyPDFLoader(
             file_path=str(pdf_file),
@@ -162,7 +162,7 @@ else:
     else:
         print("ENTROU RAG")
         all_texts = []
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=100)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=900, chunk_overlap=150)
         for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
             print(f"Processing {pdf_file}")
             loader = PyPDFLoader(
@@ -178,6 +178,10 @@ else:
         docsearch = Chroma.from_documents(all_texts, embeddings, persist_directory=CHROMA_DIR)
 
 retriever = docsearch.as_retriever(search_kwargs={"k": K_TOP})
+#retriever = docsearch.as_retriever(
+#    search_type="mmr",
+#    search_kwargs={"k": K_TOP, "fetch_k": 60, "lambda_mult": 0.5}
+#)
 
 # Modelo atual (será alterado dinamicamente)
 current_model_name = "gemini-2.5-flash"  # Changed to the most economical model
@@ -453,12 +457,23 @@ def get_rag_backend() -> dict:
         }
     }
 
+import unicodedata
+import traceback
+
+def normalize_text(text: str) -> str:
+    """
+    Normaliza texto removendo caracteres não codificáveis e força UTF-8 seguro.
+    """
+    if not isinstance(text, str):
+        text = str(text)
+    return unicodedata.normalize("NFKD", text).encode("utf-8", "ignore").decode("utf-8", "ignore")
+
+
 @mcp.tool()
 def add_new_pdfs() -> dict:
     """
     Adds new PDF documents to the knowledge base (RAG).
     ONLY use this tool when the user explicitly provides new files to be added.
-    Do not use it for general questions.
     """
     new_files_added = False
     added_count = 0
@@ -466,69 +481,99 @@ def add_new_pdfs() -> dict:
 
     try:
         if RAG_BACKEND == "qdrant":
-            # Obter fontes já indexadas via busca vazia
             existing_ids = {d.metadata.get("source") for d in docsearch.similarity_search("", k=1000)}
+
             for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
                 file_path = str(pdf_file.resolve())
+                print(f"A processar: {pdf_file.name}")
+
                 if file_path not in existing_ids:
-                    loader = PyPDFLoader(
-                        file_path=file_path,
-                        extract_images=True,
-                        images_parser=RapidOCRBlobParser(),
-                    )
-                    data = loader.load()
+                    try:
+                        loader = PyPDFLoader(
+                            file_path=file_path,
+                            extract_images=True,
+                            images_parser=RapidOCRBlobParser(),
+                        )
+                        data = loader.load()
+                    except Exception as e:
+                        print(f"Falha ao carregar {pdf_file.name}: {e}")
+                        continue
+
+                    # Normalizar conteúdo e metadados
                     for d in data:
+                        d.page_content = normalize_text(d.page_content)
+                        d.metadata = {k: normalize_text(v) for k, v in d.metadata.items()}
                         d.metadata["source"] = file_path
 
-                    text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=200)
+                    text_splitter = RecursiveCharacterTextSplitter(chunk_size=900, chunk_overlap=150)
                     texts = text_splitter.split_documents(data)
 
-                    # garantir que cada chunk mantém o source
                     for t in texts:
                         t.metadata["source"] = file_path
 
-                    docsearch.add_documents(texts)
-                    new_files_added = True
-                    added_count += 1
+                    try:
+                        docsearch.add_documents(texts)
+                        new_files_added = True
+                        added_count += 1
+                    except Exception as e:
+                        print(f"Erro ao adicionar documentos de {pdf_file.name}: {e}")
+                        continue
 
         else:  # Chroma
             existing_metadatas = docsearch.get(include=["metadatas"]).get("metadatas", [])
-            existing_sources = {meta.get("source") for meta_list in existing_metadatas for meta in meta_list if isinstance(meta, dict)}
+            existing_sources = {
+                meta.get("source")
+                for meta_list in existing_metadatas
+                for meta in meta_list
+                if isinstance(meta, dict)
+            }
 
             for pdf_file in Path(PDF_FOLDER).glob("*.pdf"):
                 file_path = str(pdf_file.resolve())
+                print(f"A processar: {pdf_file.name}")
+
                 if file_path not in existing_sources:
-                    loader = PyPDFLoader(
-                        file_path=file_path,
-                        extract_images=True,
-                        images_parser=RapidOCRBlobParser(),
-                    )
-                    data = loader.load()
+                    try:
+                        loader = PyPDFLoader(
+                            file_path=file_path,
+                            extract_images=True,
+                            images_parser=RapidOCRBlobParser(),
+                        )
+                        data = loader.load()
+                    except Exception as e:
+                        print(f"Falha ao carregar {pdf_file.name}: {e}")
+                        continue
+
                     for d in data:
+                        d.page_content = normalize_text(d.page_content)
+                        d.metadata = {k: normalize_text(v) for k, v in d.metadata.items()}
                         d.metadata["source"] = file_path
 
-                    text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=200)
-
+                    text_splitter = RecursiveCharacterTextSplitter(chunk_size=900, chunk_overlap=150)
                     texts = text_splitter.split_documents(data)
-
-                    # garantir que os chunks guardam o source
                     for t in texts:
                         t.metadata["source"] = file_path
 
-                    docsearch.add_documents(texts)
-                    new_files_added = True
-                    added_count += 1
+                    try:
+                        docsearch.add_documents(texts)
+                        new_files_added = True
+                        added_count += 1
+                    except Exception as e:
+                        print(f"⚠️ Erro ao adicionar documentos de {pdf_file.name}: {e}")
+                        continue
 
             if new_files_added:
                 try:
                     docsearch.persist()
                 except Exception as e:
-                    print(f"⚠️ Erro ao persistir Chroma: {e}")
+                    print(f"Erro ao persistir Chroma: {e}")
 
         msg = "PDFs adicionados." if new_files_added else "Nenhum PDF novo para adicionar."
         success = True
 
     except Exception as e:
+        print("=== ERRO DETALHADO ===")
+        print(traceback.format_exc())
         msg = f"Erro ao adicionar PDFs: {e}"
         success = False
 
@@ -570,7 +615,7 @@ def download_and_add_pdf(file_url: str) -> dict:
 
         loader = PyPDFLoader(file_path=pdf_path, extract_images=True, images_parser=RapidOCRBlobParser())
         data = loader.load()
-        texts = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100).split_documents(data)
+        texts = CharacterTextSplitter(chunk_size=900, chunk_overlap=150).split_documents(data)
         docsearch.add_documents(texts)
 
         msg = f"'{filename}' adicionado com sucesso."

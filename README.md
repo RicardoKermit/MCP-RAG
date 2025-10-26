@@ -458,6 +458,31 @@ docker compose up -d
 # Aceda ao pgAdmin em http://localhost:8080 (ver credenciais no docker-compose.yml)
 ```
 
+### Configurar ligação no pgAdmin
+
+1. **Aceder ao pgAdmin:**
+   - URL: `http://localhost:8080`
+   - Email: `admin@example.com`
+   - Password: `admin_password_2024`
+
+2. **Criar ligação ao servidor Postgres:**
+   - Clica com botão direito em "Servers" → "Create" → "Server..."
+   - **Tab "General":** Name: `RAG Postgres`
+   - **Tab "Connection":**
+     - Host name/address: `postgres` (ou `localhost` se não funcionar)
+     - Port: `5432`
+     - Maintenance database: `rag_system`
+     - Username: `rag_user`
+     - Password: `rag_password_secure_2024`
+   - Clica "Save"
+
+3. **Verificar:** Deves ver a base de dados `rag_system` com as tabelas criadas pelo `init.sql`
+
+**Credenciais resumo:**
+- **pgAdmin:** `admin@example.com` / `admin_password_2024`
+- **Postgres:** `rag_user` / `rag_password_secure_2024`
+- **Database:** `rag_system`
+
 ### Migrar dados (SQLite ➜ Postgres)
 ```bash
 uv run python migrate_to_postgres.py
